@@ -7,26 +7,28 @@
 #ifndef element_h_
 #define element_h_
 
-#include <vector>
 
 #include "RNG.h"
 #include "constants.h"
-
-using std::vector;
-using Constants::dir_type;
-using Constants::bc_type;
-using Constants::large_distance;
-using Constants::normals;
-using Constants::bc_type;
-using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT;
-using Constants::PROCESSOR;
 
 template <typename T> int sgn(T val) {
   return (T(0) < val);
 }
 
+//==============================================================================
+/*!
+ * \class Element
+ * \brief Basic geometry unit, also holds physical data that is read only during transport.
+ *
+ * A cartesian mesh cell. Holds location of each node, boundary information for each face,
+ * opacity data and temperature data. The temperature data probably does not need to be
+ * stored in an element because it's not essential information for transport.
+ */
+//==============================================================================
 class Element
 {
+  using Constants::dir_type;
+  using Constants::bc_type;
 
   public:
   
@@ -86,12 +88,6 @@ class Element
   double get_T_s(void) const {return T_s;}
   unsigned int get_ID(void) const {return g_ID;}
 
-  void  get_xyz(double *pos) const {
-    pos[0] = nodes[0];
-    pos[1] = nodes[2];
-    pos[2] = nodes[4];
-  }
-
   //override great than operator to sort
   bool operator <(const Element& compare) const {
     return g_ID < compare.get_ID();
@@ -142,19 +138,19 @@ class Element
 /* member variables and private functions                                    */
 /*****************************************************************************/
   private:
-  unsigned int g_ID;
-  unsigned int e_next[6];
-  bc_type bc[6];
-  double nodes[6];  //!< x_low, x_high, y_low, y_high, z_low, z_high
+  unsigned int g_ID; //!< Global ID, valid across all ranks
+  unsigned int e_next[6]; //!< Bordering element, given as global ID
+  bc_type bc[6];   //!< Boundary conditions for each face 
+  double nodes[6]; //!< x_low, x_high, y_low, y_high, z_low, z_high
   
-  double cV;
-  double op_a;
-  double op_s;
-  double f;
-  double rho;
-  double T_e;
-  double T_r;
-  double T_s;
+  double cV;    //!< Heat capacity  GJ/g/KeV
+  double op_a;  //!< Absorption opacity  (1/cm)
+  double op_s;  //!< Physical scattering opacity (1/cm)
+  double f;     //!< Fleck factor
+  double rho;   //!< Density (g/cc)
+  double T_e;   //!< Material temperature
+  double T_r;   //!< Radiation temperature
+  double T_s;   //!< Source temperature
 
   // serialization routine
   friend class boost::serialization::access;
@@ -174,7 +170,6 @@ class Element
     ar & T_r;
     ar & T_s;
   }
-
 
 };
 

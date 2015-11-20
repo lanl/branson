@@ -177,7 +177,6 @@ class Mesh {
   unsigned int get_rank(void) const {return  rank;}
   unsigned int get_offset(void) const {return on_rank_start;}
   unsigned int get_global_num_elements(void) const {return n_global;}
-  void  get_xyz(unsigned int index, double *pos) const { elem_list[index].get_xyz(pos);} 
   double get_total_photon_E(void) const {return total_photon_E;}
 
   void print(void) {
