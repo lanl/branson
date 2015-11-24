@@ -15,7 +15,7 @@
 #include "constants.h"
 #include "request.h"
 
-
+/*
 using std::vector;
 using std::endl;
 using std::cout;
@@ -30,7 +30,7 @@ using Constants::dir_type;
 using Constants::bc_type;
 using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT;
 using Constants::cell_tag; using Constants::cell_id_tag;
-
+*/
 
 namespace mpi = boost::mpi;
 
@@ -44,6 +44,12 @@ class Mesh {
     ngy(input->get_n_y_elements()),
     ngz(input->get_n_z_elements())
   {
+    using std::vector;
+    using Constants::bc_type;
+    using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
+    using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
+    using Constants::ELEMENT;
+
     max_map_size = input->get_map_size();
     double dx = input->get_dx();
     double dy = input->get_dy();
@@ -185,8 +191,8 @@ class Mesh {
   }
 
 
-  map<unsigned int, unsigned int> get_map(void) const {
-    map<unsigned int, unsigned int> local_map;
+  std::map<unsigned int, unsigned int> get_map(void) const {
+    std::map<unsigned int, unsigned int> local_map;
     unsigned int g_ID;
     for (unsigned int i=0; i<n_element; i++) {
       g_ID = elem_list[i].get_ID();
@@ -203,7 +209,7 @@ class Mesh {
   Element get_elem(const unsigned int& local_ID) const {return elements[local_ID];} 
 
   void print_map(void) {
-    for ( map<unsigned int,Element>::iterator map_i = stored_elements.begin();
+    for ( std::map<unsigned int,Element>::iterator map_i = stored_elements.begin();
       map_i!=stored_elements.end(); map_i++) 
       (map_i->second).print();
   }
@@ -254,11 +260,13 @@ class Mesh {
     on_rank_end = _on_rank_end;
   }
 
-  void set_off_rank_bounds(vector<unsigned int> _off_rank_bounds) {
+  void set_off_rank_bounds(std::vector<unsigned int> _off_rank_bounds) {
     off_rank_bounds=_off_rank_bounds;
   }
 
   void calculate_photon_energy(IMC_State* imc_s) {
+    using Constants::c;
+    using Constants::a;
     total_photon_E = 0.0;
     double dt = imc_s->get_dt();
     double op_a, op_s, f, cV;
@@ -304,8 +312,13 @@ class Mesh {
   }
 
 
-  void set_indices( map<unsigned int, unsigned int> off_map, 
-                    vector< vector<bool> >& remap_flag) {
+  void set_indices( std::map<unsigned int, unsigned int> off_map, 
+                    std::vector< std::vector<bool> >& remap_flag) {
+
+    using Constants::PROCESSOR;
+    using Constants::dir_type;
+    using std::map;
+
     unsigned int next_index;
     map<unsigned int, unsigned int>::iterator end = off_map.end();
     unsigned int new_index;
@@ -328,7 +341,13 @@ class Mesh {
     }
   }
 
-  void set_local_indices(map<unsigned int, unsigned int> local_map) {
+  void set_local_indices(std::map<unsigned int, unsigned int> local_map) {
+
+    using Constants::PROCESSOR;
+    using Constants::bc_type;
+    using Constants::dir_type;
+    using std::map;
+
     unsigned int next_index;
     map<unsigned int, unsigned int>::iterator end = local_map.end();
     unsigned int new_index;
@@ -351,6 +370,7 @@ class Mesh {
   }
 
   void update_mesh(void) {
+    using std::vector;
     vector<Element> new_mesh;
     for (unsigned int i =0; i< elem_list.size(); i++) {
       bool delete_flag = false;
@@ -383,7 +403,7 @@ class Mesh {
   }
 
 
-  void update_temperature(vector<double>& abs_E, IMC_State* imc_s) {
+  void update_temperature(std::vector<double>& abs_E, IMC_State* imc_s) {
     //abs E is a global vector
     double total_abs_E = 0.0;
     double total_post_mat_E = 0.0;
@@ -429,6 +449,9 @@ class Mesh {
 
 
   bool process_mesh_requests(mpi::communicator world) {
+    using Constants::cell_tag;
+    using Constants::cell_id_tag;
+
     bool new_data = false;
     for (unsigned int ir=0; ir<n_rank; ir++) {
       if (ir != rank) {
@@ -558,79 +581,79 @@ class Mesh {
   void add_mesh_elem(Element new_elem) {new_elem_list.push_back(new_elem);}
   void remove_elem(unsigned int index) {remove_elem_list.push_back(index);}
 
-  vector<double>& get_census_E_ref(void) {return m_census_E;}
-  vector<double>& get_emission_E_ref(void) {return m_emission_E;}
-  vector<double>& get_source_E_ref(void) {return m_source_E;}
+  std::vector<double>& get_census_E_ref(void) {return m_census_E;}
+  std::vector<double>& get_emission_E_ref(void) {return m_emission_E;}
+  std::vector<double>& get_source_E_ref(void) {return m_source_E;}
 
 /*****************************************************************************/
   //member variables
 /*****************************************************************************/
   private:
 
-  unsigned int ngx;
-  unsigned int ngy;
-  unsigned int ngz;
+  unsigned int ngx; //!< Number of global x sizes
+  unsigned int ngy; //!< Number of global y sizes
+  unsigned int ngz; //!< Number of global z sizes
 
-  unsigned int max_map_size;
+  unsigned int max_map_size; //!< Maximum size of map object
 
-  unsigned int rank; //! MPI rank of this mesh
-  unsigned int n_rank; //! Number of global ranks
+  unsigned int rank; //!< MPI rank of this mesh
+  unsigned int n_rank; //!< Number of global ranks
 
-  unsigned int off_rank_reads; //! Number of off rank reads
+  unsigned int off_rank_reads; //!< Number of off rank reads
 
-  unsigned int n_element; //! Number of local elements
-  unsigned int n_global; //! Nuber of global elements
+  unsigned int n_element; //!< Number of local elements
+  unsigned int n_global; //!< Nuber of global elements
   
-  unsigned int on_rank_start; //! Start of global index on rank
-  unsigned int on_rank_end;   //! End of global index on rank
+  unsigned int on_rank_start; //!< Start of global index on rank
+  unsigned int on_rank_end;   //!< End of global index on rank
 
-  vector<double> m_census_E; //! Census energy vector
-  vector<double> m_emission_E; //! Emission energy vector
-  vector<double> m_source_E; //! Source energy vector
+  std::vector<double> m_census_E; //!< Census energy vector
+  std::vector<double> m_emission_E; //!< Emission energy vector
+  std::vector<double> m_source_E; //!< Source energy vector
 
-  Element *elements; //! Element data allocated with MPI_Alloc
-  vector<Element> elem_list;
-  vector<Element> new_elem_list;
-  vector<unsigned int> remove_elem_list;
-  vector<unsigned int> off_rank_bounds; //! Ending value of global ID for each rank
-  vector<unsigned int> boundary_elements; //! Index of adjacent ghost cells
+  Element *elements; //!< Element data allocated with MPI_Alloc
+  std::vector<Element> elem_list; //!< On processor elements
+  std::vector<Element> new_elem_list; //!< New received elements
+  std::vector<unsigned int> remove_elem_list; //!< Elements to be removed
+  std::vector<unsigned int> off_rank_bounds; //!< Ending value of global ID for each rank
+  std::vector<unsigned int> boundary_elements; //!< Index of adjacent ghost cells
 
-  map<unsigned int, Element> stored_elements; //! Elements that have been accessed off rank
-  map<unsigned int, Element> ghost_elements; //! Static list of off-rank elements next to boundary
+  std::map<unsigned int, Element> stored_elements; //!< Elements that have been accessed off rank
+  std::map<unsigned int, Element> ghost_elements; //!< Static list of off-rank elements next to boundary
 
-  vector<vector<unsigned int> > ids_needed ;   //! Cell needed by this rank
-  set<unsigned int> ids_requested; //! IDs that have been requested
+  std::vector<std::vector<unsigned int> > ids_needed ; //!< Cell needed by this rank
+  std::set<unsigned int> ids_requested; //!< IDs that have been requested
 
   //send and receive buffers
-  vector< vector<Element> > r_cells;          //! Receive buffer for cells
-  vector<vector <unsigned int> > r_cell_ids;  //! Receive cell ids needed by other ranks
-  vector<vector< Element> > s_cells;          //! Cells to send to each rank
-  vector<vector<unsigned int> > s_cell_ids;   //! Send buffer for cell ids needed by this rank
+  std::vector<std::vector<Element> > r_cells;          //!< Receive buffer for cells
+  std::vector<std::vector<unsigned int> > r_cell_ids;  //!< Receive cell ids needed by other ranks
+  std::vector<std::vector<Element> > s_cells;          //!< Cells to send to each rank
+  std::vector<std::vector<unsigned int> > s_cell_ids;   //!< Send buffer for cell ids needed by this rank
 
   //Data bools needed from off rank and other ranks that need data here
-  vector<bool> need_data;
-  vector<bool> send_data;
+  std::vector<bool> need_data; //!< Vector of size nrank-1, flag for needed data from rank
+  std::vector<bool> send_data; //!< Vector of size nrank-1, flag to send data to rank
 
   //MPI requests for non-blocking communication and the bools for if the request has been made
   //receive requests and bool flags
-  Request* r_cell_reqs; //! Received cell requests
-  vector<bool>  b_r_cell_reqs; //! Bool for received call requests
-  Request* r_cell_ids_reqs; //! Received cell id requests
-  vector<bool>  b_r_cell_ids_reqs; //! Bool for received call requests
+  Request* r_cell_reqs; //!< Received cell requests
+  std::vector<bool>  b_r_cell_reqs; //!< Bool for received call requests
+  Request* r_cell_ids_reqs; //!< Received cell id requests
+  std::vector<bool>  b_r_cell_ids_reqs; //!< Bool for received call requests
   //send requests and bool flags
-  Request* s_cell_reqs; //! Sent cell requests
-  vector<bool>  b_s_cell_reqs; //! Bool for received call requests
-  Request* s_cell_ids_reqs; //! Sent cell id requests
-  vector<bool>  b_s_cell_ids_reqs; //! Bool for received call requests
+  Request* s_cell_reqs; //!< Sent cell requests
+  std::vector<bool>  b_s_cell_reqs; //!< Bool for received call requests
+  Request* s_cell_ids_reqs; //!< Sent cell id requests
+  std::vector<bool>  b_s_cell_ids_reqs; //!< Bool for received call requests
 
-  double m_opA;
-  double m_opB;
-  double m_opC;
-  double m_opS;
+  double m_opA; //!< Opacity coefficient A in A + B^C
+  double m_opB; //!< Opacity coefficient B in A + B^C
+  double m_opC; //!< Opacity coefficient C in A + B^C
+  double m_opS; //!< Scattering opacity constant
 
-  double total_photon_E;
+  double total_photon_E; //!< Total photon energy on the mesh
 
-  MPI::Datatype MPI_Element;
+  MPI::Datatype MPI_Element; //!< Definition of MPI type that allows simpler function calls
 };
 
 #endif //mesh_h_

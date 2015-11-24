@@ -8,18 +8,19 @@
 #define decompose_mesh_h_
 
 #include <boost/mpi.hpp>
-#include <boost/serialization/map.hpp> //! This provides serialization for std::map
+#include <boost/serialization/map.hpp> //!< This provides serialization for std::map
 #include <parmetis.h>
 #include <algorithm>
-#include <numeric>
+#include <iostream>
 #include <map>
+#include <numeric>
+#include <vector>
 
-using std::partial_sum;
-using std::map;
 
 namespace mpi = boost::mpi;
 
 void print_MPI_out(Mesh *mesh, unsigned int rank, unsigned int size) {
+  using std::cout;
   cout.flush();
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -36,6 +37,7 @@ void print_MPI_out(Mesh *mesh, unsigned int rank, unsigned int size) {
 
 
 void print_MPI_maps(Mesh *mesh, unsigned int rank, unsigned int size) {
+  using std::cout;
   cout.flush();
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -52,6 +54,12 @@ void print_MPI_maps(Mesh *mesh, unsigned int rank, unsigned int size) {
 
 void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) {
 
+  using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
+  using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
+  using std::vector;
+  using std::map;
+  using std::partial_sum;
+  
   unsigned int rank = MPI::COMM_WORLD.Get_rank();
   unsigned int nrank = MPI::COMM_WORLD.Get_size();
   MPI_Comm comm = MPI::COMM_WORLD.Dup();

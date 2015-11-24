@@ -20,17 +20,6 @@
 #include "RNG.h"
 #include "request.h"
 
-using Constants::c;
-using Constants::bc_type;
-using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT;
-using Constants::finish_tag;
-
-using std::vector;
-using std::queue;
-using std::min;
-using std::sort;
-using std::accumulate;
-
 namespace mpi = boost::mpi;
 
 bool transport_single_photon( Photon* iphtn,
@@ -40,9 +29,16 @@ bool transport_single_photon( Photon* iphtn,
                               double& exit_E,
                               double& census_E,
                               unsigned int& census_count,
-                              vector<double>& rank_abs_E)
-                              
+                              std::vector<double>& rank_abs_E)
+
 {
+  using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT; 
+  using Constants::PROCESSOR;
+  using Constants::finish_tag;
+  using Constants::bc_type;
+  using Constants::c;
+  using std::min;
+
   unsigned int elem_id, next_element;
   bc_type boundary_event;
   double dist_to_scatter, dist_to_boundary, dist_to_census, dist_to_event;
@@ -130,15 +126,19 @@ bool transport_single_photon( Photon* iphtn,
 
 
 
-void transport_photons(Photon*& photon_vec, 
+void transport_photons(Photon*& photon_vec,
                         unsigned int n_photon,
                         Mesh* mesh,
                         IMC_State* imc_state,
-                        vector<double>& rank_abs_E,
+                        std::vector<double>& rank_abs_E,
                         Photon*& census_list,
-                        int chk_freq,  
+                        int chk_freq,
                         mpi::communicator world)
 {
+  using Constants::finish_tag;
+  using std::queue;
+  using std::vector;
+
   unsigned int elem_id;
   unsigned int census_count = 0;
   double census_E=0.0;
@@ -274,7 +274,7 @@ void transport_photons(Photon*& photon_vec,
     } //end for 
   } //end while
 
-  sort(photon_vec, photon_vec+n_photon, Photon::census_flag_compare);
+  std::sort(photon_vec, photon_vec+n_photon, Photon::census_flag_compare);
   //make the census list
   census_list = new Photon[census_count];
   unsigned int num_bytes = sizeof(Photon)*census_count;
@@ -298,6 +298,8 @@ void transport_photons(Photon*& photon_vec,
 
 void make_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec, unsigned int& n_photon, const double& total_E)
 {
+  using std::vector;
+  using Constants::c;
   unsigned int n_element =mesh->get_number_of_objects();
 
   vector<double> census_E = mesh->get_census_E_ref();
@@ -408,6 +410,8 @@ void make_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec, unsigned 
 
 void make_stratified_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec, unsigned int& n_photon, const double& total_E)
 {
+  using Constants::c;
+  using std::vector;
   unsigned int n_element =mesh->get_number_of_objects();
 
   vector<double> census_E = mesh->get_census_E_ref();

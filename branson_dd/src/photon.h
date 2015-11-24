@@ -15,13 +15,13 @@
 
 #include "constants.h"
 
+/*
 using std::pow;
-using std::cout;
-using std::endl;
 using Constants::dir_type;
 using Constants::X_POS; using Constants::X_NEG; 
 using Constants::Y_POS; using Constants::Y_NEG; 
 using Constants::Z_POS; using Constants::Z_NEG; 
+*/
 
 class Photon
 {
@@ -50,6 +50,8 @@ class Photon
   double get_distance_remaining(void) const {return m_life_dx;}  
 
   void print_info(const unsigned int& rank) const {
+    using std::cout;
+    using std::endl;
     cout<<"----Photon Info----\n";
     cout<<rank<<" "<<m_pos[0]<<" "<<m_pos[1]<<" "<<m_pos[2]<<endl;
     cout<<"angle: "<<m_angle[0]<<" "<<m_angle[1]<<" "<<m_angle[2]<<endl;
@@ -91,6 +93,8 @@ class Photon
   void set_dead(void) { m_census_flag = false;}
 
   void reflect(const unsigned int& surface_cross) {
+    using Constants::X_POS; using Constants::X_NEG; 
+    using Constants::Y_POS; using Constants::Y_NEG; 
     //reflect the photon over the surface it was crossing
     if (surface_cross == X_POS || surface_cross == X_NEG) m_angle[0] = -m_angle[0];
     else if (surface_cross == Y_POS || surface_cross == Y_NEG) m_angle[1] = -m_angle[1]; 

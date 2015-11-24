@@ -7,18 +7,11 @@
 #ifndef sampling_functions_h_
 #define sampling_functions_h_
 
-#include <iostream>
-#include <vector>
 #include <stdlib.h>
 
 #include "RNG.h"
 #include "constants.h"
 
-using Constants::pi;
-
-using std::sqrt;
-using std::sin;
-using std::cos;
 
 double get_uniform_angle(RNG* rng) {
   return rng->generate_random_number()*2.0-1.0;
@@ -29,6 +22,10 @@ double get_source_angle(RNG* rng) {
 }
 
 void get_uniform_angle(double* angle, RNG* rng) {
+  using std::sqrt;
+  using std::sin;
+  using std::cos;
+  using Constants::pi;
   double mu =rng->generate_random_number()*2.0-1.0; 
   double phi = rng->generate_random_number()*2.0*pi;
   double sin_theta = sqrt(1.0 - mu*mu);
@@ -38,6 +35,10 @@ void get_uniform_angle(double* angle, RNG* rng) {
 }
 
 void get_stratified_angle(double* angle, RNG* rng, unsigned int isample, unsigned int nsample) {
+  using std::sqrt;
+  using std::sin;
+  using std::cos;
+  using Constants::pi;
   //stratify by octant--two polar, four azimuthal
   double frac =double(isample)/nsample;
   int imu = int(frac > 0.5) ; // 0 or 1
@@ -51,6 +52,10 @@ void get_stratified_angle(double* angle, RNG* rng, unsigned int isample, unsigne
 }
 
 void get_source_angle(double* angle, RNG* rng) {
+  using std::sqrt;
+  using std::sin;
+  using std::cos;
+  using Constants::pi;
   double mu =sqrt(rng->generate_random_number());
   double phi = rng->generate_random_number()*2.0*pi;
   double sin_theta = sqrt(1.0 - mu*mu);

@@ -8,6 +8,7 @@
 #define element_h_
 
 
+#include <iostream>
 #include "RNG.h"
 #include "constants.h"
 
@@ -27,8 +28,6 @@ template <typename T> int sgn(T val) {
 //==============================================================================
 class Element
 {
-  using Constants::dir_type;
-  using Constants::bc_type;
 
   public:
   
@@ -43,7 +42,7 @@ class Element
 /*****************************************************************************/
 /* const functions                                                           */
 /*****************************************************************************/
-  bc_type get_bc(const unsigned int& dir) const {return bc[dir];}
+  Constants::bc_type get_bc(const unsigned int& dir) const {return bc[dir];}
   unsigned int get_next_element(const unsigned int& dir) const {return e_next[dir];} 
 
   double get_distance_to_boundary(const double *pos, const double *angle, unsigned int& surface_cross) const {
@@ -94,10 +93,13 @@ class Element
   }
   
   void print(void) const {
+    using Constants::PROCESSOR;
+    using std::cout;
+    using std::endl;
     unsigned int my_rank = MPI::COMM_WORLD.Get_rank();
     bool boundary = false;
     for (unsigned int i=0;i<6;i++) {
-      if (bc[i] ==PROCESSOR) boundary = true;
+      if (bc[i] == PROCESSOR) boundary = true;
     }
     
     cout<<my_rank<<" "<<nodes[0]<<" "<<nodes[2]<<" "<<nodes[4]<<" "<<g_ID<<" "<<boundary<<endl;
@@ -112,8 +114,13 @@ class Element
 /*****************************************************************************/
 /* non-const functions (set)                                                 */
 /*****************************************************************************/
-  void set_neighbor(dir_type neighbor_dir, unsigned int index) { e_next[neighbor_dir] = index;}
-  void set_bc(dir_type direction, bc_type _bc) { bc[direction] = _bc; }
+  void set_neighbor(Constants::dir_type neighbor_dir, unsigned int index) {
+     e_next[neighbor_dir] = index;
+  }
+
+  void set_bc(Constants::dir_type direction, Constants::bc_type _bc) {
+     bc[direction] = _bc; 
+  }
 
   void set_op_a(double _op_a) {op_a = _op_a;}
   void set_op_s(double _op_s) {op_s = _op_s;}
@@ -140,7 +147,7 @@ class Element
   private:
   unsigned int g_ID; //!< Global ID, valid across all ranks
   unsigned int e_next[6]; //!< Bordering element, given as global ID
-  bc_type bc[6];   //!< Boundary conditions for each face 
+  Constants::bc_type bc[6];   //!< Boundary conditions for each face 
   double nodes[6]; //!< x_low, x_high, y_low, y_high, z_low, z_high
   
   double cV;    //!< Heat capacity  GJ/g/KeV

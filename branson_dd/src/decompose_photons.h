@@ -7,18 +7,15 @@
 #ifndef decompose_photons_h_
 #define decompose_photons_h_
 
+#include <iostream>
 #include <boost/mpi.hpp>
-#include <boost/serialization/map.hpp> //! This provides serialization for std::map
 #include <algorithm>
-#include <map>
+#include <vector>
 
 #include "photon.h"
 
-using std::partial_sum;
-using std::map;
 
 namespace mpi = boost::mpi;
-
 
 /*
 static int get_number_of_photons(void *data, int *ierr) {
@@ -77,7 +74,10 @@ static void get_geometry_list_photon(void *data, int sizeGID, int sizeLID, int n
 */
 
 
-void print_MPI_photons(const vector<Photon>& phtn_vec, const unsigned int& rank, const unsigned int& size) {
+void print_MPI_photons(const std::vector<Photon>& phtn_vec, const unsigned int& rank, const unsigned int& size) {
+
+  using std::cout;
+
   cout.flush();
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -203,11 +203,13 @@ void on_rank_rebalance_photons(Photon*& photon_vec,
                                Mesh *mesh, 
                                mpi::communicator world) {
 
+  using std::vector;
+
   unsigned int rank = MPI::COMM_WORLD.Get_rank();
   unsigned int size = MPI::COMM_WORLD.Get_size();
 
   //sort the census vector by element ID (global ID)
-  sort(census_list, census_list+ n_census);
+  std::sort(census_list, census_list+ n_census);
 
   //count the photons belonging to each rank and the start index of each
   //count the ranks that you will send to, add them to a vector
@@ -314,12 +316,14 @@ void proto_load_balance_photons(Photon*& photon_vec,
                                 Mesh *mesh, 
                                 mpi::communicator world) {
 
+  using std::vector;
+
   unsigned int rank = MPI::COMM_WORLD.Get_rank();
   unsigned int size = MPI::COMM_WORLD.Get_size();
 
 
   //sort the census vector by element ID (global ID)
-  sort(photon_vec, photon_vec+n_photon);
+  std::sort(photon_vec, photon_vec+n_photon);
 
   unsigned int g_n_photon = n_photon;
   MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, &g_n_photon, 1, MPI_UNSIGNED, MPI_SUM);

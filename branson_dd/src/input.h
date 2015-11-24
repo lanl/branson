@@ -15,6 +15,7 @@
 
 #include "constants.h"
 
+/*
 using std::cout;
 using std::endl;
 using std::vector;
@@ -26,12 +27,20 @@ using Constants::dir_type;
 using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
 using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
 using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT;
+*/
 
 class Input
 {
   public:
   Input( std::string fileName)
   {
+    using boost::property_tree::ptree;
+    using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT;
+    using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
+    using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
+    using std::cout;  
+    using std::endl;
+
     ptree pt;
     read_xml(fileName, pt);
     std::string tempString;
@@ -158,6 +167,11 @@ class Input
   
   void print_problem_info(void)
   {
+    using Constants::a;
+    using Constants::c;
+    using std::cout;  
+    using std::endl;
+
     cout<<"Problem Specifications:";
     cout<<"Constants -- c: "<<c<<" (cm/sh) , a: "<<a <<endl;
     cout<<"Run Parameters-- Photons: "<<n_photons<<", time finish: "<<tFinish;
@@ -241,7 +255,7 @@ class Input
   double get_opacity_C(void) {return opacC;}
   double get_opacity_S(void) {return opacS;}
 
-  bc_type get_bc(const dir_type& direction) const { return bc[direction];}
+  Constants::bc_type get_bc(const Constants::dir_type& direction) const { return bc[direction];}
   
   unsigned int get_map_size(void) const {return map_size;}
 
@@ -256,7 +270,7 @@ class Input
   double dy;
   double dz;
 
-  bc_type bc[6];  
+  Constants::bc_type bc[6];  
 
   // timing
   double tStart;

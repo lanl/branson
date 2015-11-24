@@ -45,9 +45,6 @@
 #include <stdlib.h>
 #include "random123/threefry.h"
 
-using std::pow;
-using std::numeric_limits;
-
 //===========================================================================//
 /*!
 * \class RNG

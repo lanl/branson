@@ -16,10 +16,6 @@
 #include "photon.h"
 #include "RNG.h"
 
-using std::pow;
-using std::cout;
-using std::endl;
-using std::abs;
 class IMC_State
 {
   public:
@@ -69,11 +65,14 @@ class IMC_State
   }  
 
   bool finished(void) const {
+    using std::abs;
     if ( abs(m_time-m_time_stop) < 1.0e-8) return true;
     else return false;
   }
 
   void print_timestep_header(void) const  {
+    using std::cout;
+    using std::endl;
     cout<<"****************************************";
     cout<<"****************************************"<<endl;
     cout<<"Step: "<<m_step<<"  Start Time: "<<m_time<<"  End Time: "<<m_time +m_dt<<"  dt: "<<m_dt<<endl;
@@ -83,6 +82,8 @@ class IMC_State
 /* non-const functions                                                       */
 /*****************************************************************************/
   void print_conservation() {
+    using std::cout;
+    using std::endl;
 
     //define global value
     double g_absorbed_E=0.0; 
