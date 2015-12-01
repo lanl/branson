@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 /******************************************************************************/ 
 // TRT PHYSICS CALCULATION
 /******************************************************************************/ 
-  vector<double> abs_E(mesh->get_global_num_elements(), 0.0);
+  vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   Photon* photon_vec;
   Photon* census_list;
   unsigned int n_photon;
@@ -110,10 +110,12 @@ int main(int argc, char *argv[])
                                 mesh, 
                                 world);
 
-    //cout<<"Rank: "<<rank<<" about to transport "<<n_photon<<" particles."<<endl;
+    //cout<<"Rank: "<<rank<<" about to transport ";
+    //cout<<n_photon<<" particles."<<endl;
 
-    //element properties are set in calculate_photon_energy, make sure everybody gets here together
-    //so that windows are not changing when transport starts
+    //cell properties are set in calculate_photon_energy. 
+    //make sure everybody gets here together so that windows are not changing 
+    //when transport starts
     MPI::COMM_WORLD.Barrier();
 
     //transport photons
@@ -121,14 +123,15 @@ int main(int argc, char *argv[])
                       census_list, input->get_check_frequency(), world);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
-    MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_elements(), MPI_DOUBLE, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(), MPI_DOUBLE, MPI_SUM);
 
     //cout<<"updating temperature..."<<endl;
     mesh->update_temperature(abs_E, imc_state);
 
     imc_state->print_conservation();
 
-    //purge the working mesh, it will be updated by other ranks and is now invalid
+    //purge the working mesh, it will be updated by other ranks and is now 
+    //invalid
     mesh->purge_working_mesh();
 
     //update time for next step

@@ -11,26 +11,9 @@
 #include "mpi.h"
 #include "input.h"
 #include "imc_state.h"
-#include "element.h"
+#include "cell.h"
 #include "constants.h"
 #include "request.h"
-
-/*
-using std::vector;
-using std::endl;
-using std::cout;
-using std::string;
-using std::sort;
-using std::map;
-using std::set;
-
-using Constants::c;
-using Constants::a;
-using Constants::dir_type;
-using Constants::bc_type;
-using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT;
-using Constants::cell_tag; using Constants::cell_id_tag;
-*/
 
 namespace mpi = boost::mpi;
 
@@ -40,9 +23,9 @@ class Mesh {
   public:
 
   Mesh(Input* input)
-  : ngx(input->get_n_x_elements()),
-    ngy(input->get_n_y_elements()),
-    ngz(input->get_n_z_elements())
+  : ngx(input->get_n_x_cells()),
+    ngy(input->get_n_y_cells()),
+    ngz(input->get_n_z_cells())
   {
     using std::vector;
     using Constants::bc_type;
@@ -69,18 +52,18 @@ class Mesh {
 
     unsigned int g_count =0; //global count
 
-    //this rank's elements
+    //this rank's cells
     n_global = ngx*ngy*ngz;
-    unsigned int elem_id_begin = floor(rank*n_global/double(n_rank));
-    unsigned int elem_id_end = floor((rank+1)*n_global/double(n_rank));
+    unsigned int cell_id_begin = floor(rank*n_global/double(n_rank));
+    unsigned int cell_id_end = floor((rank+1)*n_global/double(n_rank));
 
     unsigned int l_count =0;
     for (unsigned int k=0; k<ngz; k++) {
       for (unsigned int j=0; j<ngy; j++) {
         for (unsigned int i=0; i<ngx; i++) {
-          if (g_count >= elem_id_begin && g_count < elem_id_end) {
+          if (g_count >= cell_id_begin && g_count < cell_id_end) {
             //global_ID.push_back(count*10 + MPI::COMM_WORLD.Get_rank()  );
-            Element e;
+            Cell e;
             e.set_coor(i*dx, (i+1)*dx, j*dy, (j+1)*dy, k*dz, (k+1)*dz);
             e.set_ID(g_count);
             e.set_cV(input->get_CV());
@@ -89,31 +72,51 @@ class Mesh {
             e.set_T_s(0.0);
             e.set_rho(input->get_rho());
 
-            if (i<(ngx-1)) {e.set_neighbor( X_POS, g_count+1); e.set_bc(X_POS, ELEMENT);}
-            else                {e.set_neighbor( X_POS, g_count); e.set_bc(X_POS, bc[X_POS]);} 
+            if (i<(ngx-1)) {
+              e.set_neighbor( X_POS, g_count+1); e.set_bc(X_POS, ELEMENT);
+            }
+            else {
+              e.set_neighbor( X_POS, g_count); e.set_bc(X_POS, bc[X_POS]);
+            } 
 
-            if (i>0)            {e.set_neighbor( X_NEG, g_count-1); e.set_bc(X_NEG, ELEMENT);}
-            else                {e.set_neighbor( X_NEG, g_count); e.set_bc(X_NEG, bc[X_NEG]);}
-
-            if (j<(ngy-1))      {e.set_neighbor(Y_POS, g_count+ngx); e.set_bc(Y_POS, ELEMENT);}
-            else                {e.set_neighbor(Y_POS, g_count); e.set_bc(Y_POS, bc[Y_POS]);}
-
-            if (j>0)            {e.set_neighbor(Y_NEG, g_count-ngx); e.set_bc(Y_NEG, ELEMENT);}
-            else                {e.set_neighbor(Y_NEG, g_count); e.set_bc(Y_NEG, bc[Y_NEG]);}
-
-            if (k<(ngz-1)) {e.set_neighbor(Z_POS, g_count+ngx*ngy); e.set_bc(Z_POS, ELEMENT);}
-            else                {e.set_neighbor(Z_POS, g_count); e.set_bc(Z_POS, bc[Z_POS]);}  
-
-            if (k>0)            {e.set_neighbor(Z_NEG, g_count-ngx*ngy); e.set_bc(Z_NEG, ELEMENT);}
-            else                {e.set_neighbor(Z_NEG, g_count); e.set_bc(Z_NEG, bc[Z_NEG]);}
-            elem_list.push_back(e);
+            if (i>0) {
+              e.set_neighbor( X_NEG, g_count-1); e.set_bc(X_NEG, ELEMENT);
+            }
+            else {
+              e.set_neighbor( X_NEG, g_count); e.set_bc(X_NEG, bc[X_NEG]);
+            }
+            if (j<(ngy-1)) {
+              e.set_neighbor(Y_POS, g_count+ngx); e.set_bc(Y_POS, ELEMENT);
+            }
+            else {
+              e.set_neighbor(Y_POS, g_count); e.set_bc(Y_POS, bc[Y_POS]);
+            }
+            if (j>0) {
+              e.set_neighbor(Y_NEG, g_count-ngx); e.set_bc(Y_NEG, ELEMENT);
+            }
+            else {
+              e.set_neighbor(Y_NEG, g_count); e.set_bc(Y_NEG, bc[Y_NEG]);
+            }
+            if (k<(ngz-1)) {
+              e.set_neighbor(Z_POS, g_count+ngx*ngy); e.set_bc(Z_POS, ELEMENT);
+            }
+            else {
+              e.set_neighbor(Z_POS, g_count); e.set_bc(Z_POS, bc[Z_POS]);
+            }
+            if (k>0) {
+              e.set_neighbor(Z_NEG, g_count-ngx*ngy); e.set_bc(Z_NEG, ELEMENT);
+            }
+            else {
+              e.set_neighbor(Z_NEG, g_count); e.set_bc(Z_NEG, bc[Z_NEG]);
+            }
+            cell_list.push_back(e);
             l_count++;
           }
           g_count++;
         } //end i loop
       } // end j loop
     } // end k loop
-    n_element = l_count;
+    n_cell = l_count;
     m_opA = input->get_opacity_A();
     m_opB = input->get_opacity_B();
     m_opC = input->get_opacity_C();
@@ -121,20 +124,21 @@ class Mesh {
 
     total_photon_E = 0.0;
 
-    //define the MPI element type used for MPI windows
-    //make the MPI datatype for my element class
+    //define the MPI cell type used for MPI windows
+    //make the MPI datatype for my cell class
     // Three type entries in the class
     const int entry_count = 3 ; 
     // 7 unsigned int, 6 int, 13 double
     const int array_of_block_length[4] = {8, 6, 14};
-    // Displacements of each type in the element
-    const MPI::Aint array_of_block_displace[3] = {0, 8*sizeof(unsigned int),  8*sizeof(unsigned int)+6*sizeof(int)};
+    // Displacements of each type in the cell
+    const MPI::Aint array_of_block_displace[3] = 
+      {0, 8*sizeof(unsigned int),  8*sizeof(unsigned int)+6*sizeof(int)};
     //Type of each memory block
     MPI::Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
 
-    MPI_Element = MPI::Datatype::Create_struct(entry_count,
+    MPI_Cell = MPI::Datatype::Create_struct(entry_count,
       array_of_block_length, array_of_block_displace, array_of_types);
-    MPI_Element.Commit();
+    MPI_Cell.Commit();
 
     //bool flags to say if data is needed
     need_data = vector<bool>(n_rank-1, false);
@@ -154,9 +158,9 @@ class Mesh {
     // size the send and receive buffers
     // they are size n_rank -1
     for (unsigned int ir=0; ir<n_rank-1; ir++) {
-      vector<Element> empty_vec_elem;
-      r_cells.push_back(empty_vec_elem);
-      s_cells.push_back(empty_vec_elem);
+      vector<Cell> empty_vec_cell;
+      r_cells.push_back(empty_vec_cell);
+      s_cells.push_back(empty_vec_cell);
       vector<unsigned int> empty_vec_ids;
       r_cell_ids.push_back(empty_vec_ids);
       s_cell_ids.push_back(empty_vec_ids);
@@ -167,7 +171,7 @@ class Mesh {
 
   }
 
-  //free requests and delete MPI allocated element
+  //free requests and delete MPI allocated cell
   ~Mesh() { 
     delete[] r_cell_reqs;
     delete[] r_cell_ids_reqs;
@@ -178,24 +182,27 @@ class Mesh {
 /*****************************************************************************/
   //const functions
 /*****************************************************************************/
-  unsigned int get_number_of_objects(void) const {return n_element;}
-  unsigned int get_global_ID(unsigned int index) const {return  elem_list[index].get_ID();}
+  unsigned int get_number_of_objects(void) const {return n_cell;}
+  unsigned int get_global_ID(unsigned int index) const 
+  {
+    return  cell_list[index].get_ID();
+  }
   unsigned int get_rank(void) const {return  rank;}
   unsigned int get_offset(void) const {return on_rank_start;}
-  unsigned int get_global_num_elements(void) const {return n_global;}
+  unsigned int get_global_num_cells(void) const {return n_global;}
   double get_total_photon_E(void) const {return total_photon_E;}
 
   void print(void) {
-    for (unsigned int i= 0; i<n_element; i++)
-      elem_list[i].print();
+    for (unsigned int i= 0; i<n_cell; i++)
+      cell_list[i].print();
   }
 
 
   std::map<unsigned int, unsigned int> get_map(void) const {
     std::map<unsigned int, unsigned int> local_map;
     unsigned int g_ID;
-    for (unsigned int i=0; i<n_element; i++) {
-      g_ID = elem_list[i].get_ID();
+    for (unsigned int i=0; i<n_cell; i++) {
+      g_ID = cell_list[i].get_ID();
       local_map[g_ID] = i+on_rank_start;
     }
     return local_map;
@@ -205,12 +212,18 @@ class Mesh {
     return  (index>=on_rank_start) && (index<=on_rank_end) ; 
   }
 
-  Element get_pre_elem(const unsigned int& local_ID) const {return elem_list[local_ID];} 
-  Element get_elem(const unsigned int& local_ID) const {return elements[local_ID];} 
+  Cell get_pre_cell(const unsigned int& local_ID) const 
+  {
+    return cell_list[local_ID];
+  } 
+  Cell get_cell(const unsigned int& local_ID) const {
+    return cells[local_ID];
+  } 
 
   void print_map(void) {
-    for ( std::map<unsigned int,Element>::iterator map_i = stored_elements.begin();
-      map_i!=stored_elements.end(); map_i++) 
+    for ( std::map<unsigned int,Cell>::iterator map_i =
+      stored_cells.begin();
+      map_i!=stored_cells.end(); map_i++)
       (map_i->second).print();
   }
 
@@ -238,24 +251,26 @@ class Mesh {
 
   bool mesh_available(const unsigned int& index) const {
     if (on_processor(index)) return true;
-    else if (stored_elements.find(index) != stored_elements.end())
+    else if (stored_cells.find(index) != stored_cells.end())
       return true;
     else 
       return false; 
   } 
 
-  Element get_on_rank_element(const unsigned int& index) {
+  Cell get_on_rank_cell(const unsigned int& index) {
     //this can only be called with valid on rank indexes
     if (on_processor(index)) 
-      return elements[index-on_rank_start];
+      return cells[index-on_rank_start];
     else 
-      return stored_elements[index];
+      return stored_cells[index];
   }
 
 /*****************************************************************************/
   //non-const functions
 /*****************************************************************************/
-  void set_global_bound(unsigned int _on_rank_start, unsigned int _on_rank_end) {
+  void set_global_bound(unsigned int _on_rank_start, 
+                        unsigned int _on_rank_end) 
+  {
     on_rank_start = _on_rank_start;
     on_rank_end = _on_rank_end;
   }
@@ -277,8 +292,8 @@ class Mesh {
     double tot_emission_E = 0.0;
     double tot_source_E = 0.0;
     double pre_mat_E = 0.0;
-    for (unsigned int i=0; i<n_element;++i) {
-      Element& e = elements[i];
+    for (unsigned int i=0; i<n_cell;++i) {
+      Cell& e = cells[i];
       vol = e.get_volume();
       cV = e.get_cV();
       T = e.get_T_e();
@@ -323,19 +338,20 @@ class Mesh {
     map<unsigned int, unsigned int>::iterator end = off_map.end();
     unsigned int new_index;
     //check to see if neighbors are on or off processor
-    for (unsigned int i=0; i<n_element; i++) {
-      Element& elem = elem_list[i];
+    for (unsigned int i=0; i<n_cell; i++) {
+      Cell& cell = cell_list[i];
       for (unsigned int d=0; d<6; d++) {
-        next_index = elem.get_next_element(d);
-        map<unsigned int, unsigned int>::iterator map_i = off_map.find(next_index);
+        next_index = cell.get_next_cell(d);
+        map<unsigned int, unsigned int>::iterator map_i = 
+          off_map.find(next_index);
         if (off_map.find(next_index) != end && remap_flag[i][d] ==false ) {
           //update index and bc type, this will always be an off processor so
           //if an index is updated it will always be at a processor bound
           remap_flag[i][d] = true;
           new_index = map_i->second;
-          elem.set_neighbor( dir_type(d) , new_index );
-          elem.set_bc(dir_type(d), PROCESSOR);
-          boundary_elements.push_back(new_index);
+          cell.set_neighbor( dir_type(d) , new_index );
+          cell.set_bc(dir_type(d), PROCESSOR);
+          boundary_cells.push_back(new_index);
         }
       }
     }
@@ -353,53 +369,58 @@ class Mesh {
     unsigned int new_index;
     bc_type current_bc;
     //check to see if neighbors are on or off processor
-    for (unsigned int i=0; i<n_element; i++) {
-      Element& elem = elem_list[i];
-      elem.set_ID(i+on_rank_start);
+    for (unsigned int i=0; i<n_cell; i++) {
+      Cell& cell = cell_list[i];
+      cell.set_ID(i+on_rank_start);
       for (unsigned int d=0; d<6; d++) {
-        current_bc = elem.get_bc(bc_type(d));
-        next_index = elem.get_next_element(d);
-        map<unsigned int, unsigned int>::iterator map_i = local_map.find(next_index);
+        current_bc = cell.get_bc(bc_type(d));
+        next_index = cell.get_next_cell(d);
+        map<unsigned int, unsigned int>::iterator map_i = 
+          local_map.find(next_index);
         //if this index is not a processor boundary, update it
         if (local_map.find(next_index) != end && current_bc != PROCESSOR) {
           new_index = map_i->second;
-          elem.set_neighbor( dir_type(d) , new_index );
+          cell.set_neighbor( dir_type(d) , new_index );
         }
       } // end direction
-    } // end element
+    } // end cell
   }
 
   void update_mesh(void) {
     using std::vector;
-    vector<Element> new_mesh;
-    for (unsigned int i =0; i< elem_list.size(); i++) {
+    vector<Cell> new_mesh;
+    for (unsigned int i =0; i< cell_list.size(); i++) {
       bool delete_flag = false;
-      for (vector<unsigned int>::iterator rmv_itr= remove_elem_list.begin(); rmv_itr != remove_elem_list.end(); rmv_itr++) {
+      for (vector<unsigned int>::iterator rmv_itr= remove_cell_list.begin();
+        rmv_itr != remove_cell_list.end(); 
+        rmv_itr++) 
+      {
         if (*rmv_itr == i)  delete_flag = true;
       }
-      if (delete_flag == false) new_mesh.push_back(elem_list[i]);
+      if (delete_flag == false) new_mesh.push_back(cell_list[i]);
     }
 
-    for (unsigned int i =0; i< new_elem_list.size(); i++) new_mesh.push_back(new_elem_list[i]);
-    elem_list = new_mesh;
-    n_element = elem_list.size();
-    new_elem_list.clear();
-    remove_elem_list.clear();
-    sort(elem_list.begin(), elem_list.end());
+    for (unsigned int i =0; i< new_cell_list.size(); i++) 
+      new_mesh.push_back(new_cell_list[i]);
+    cell_list = new_mesh;
+    n_cell = cell_list.size();
+    new_cell_list.clear();
+    remove_cell_list.clear();
+    sort(cell_list.begin(), cell_list.end());
 
-    //use the final number of elements to size vectors
-    m_census_E = vector<double>(n_element, 0.0);
-    m_emission_E = vector<double>(n_element, 0.0);
-    m_source_E = vector<double>(n_element, 0.0);
+    //use the final number of cells to size vectors
+    m_census_E = vector<double>(n_cell, 0.0);
+    m_emission_E = vector<double>(n_cell, 0.0);
+    m_source_E = vector<double>(n_cell, 0.0);
   }
 
   void make_MPI_window(void) {
-    //make the MPI window with the sorted element list
-    unsigned int num_bytes =n_element*MPI_Element.Get_size();
-    elements = (Element*) MPI::Alloc_mem(num_bytes, MPI_INFO_NULL);
-    memcpy(elements,&elem_list[0], num_bytes);
+    //make the MPI window with the sorted cell list
+    unsigned int num_bytes =n_cell*MPI_Cell.Get_size();
+    cells = (Cell*) MPI::Alloc_mem(num_bytes, MPI_INFO_NULL);
+    memcpy(cells,&cell_list[0], num_bytes);
     
-    elem_list.clear();
+    cell_list.clear();
   }
 
 
@@ -408,8 +429,8 @@ class Mesh {
     double total_abs_E = 0.0;
     double total_post_mat_E = 0.0;
     double vol,cV,rho,T, T_new;
-    for (unsigned int i=0; i<n_element;++i) {
-      Element& e = elements[i];
+    for (unsigned int i=0; i<n_cell;++i) {
+      Cell& e = cells[i];
       vol = e.get_volume();
       cV = e.get_cV();
       T = e.get_T_e();
@@ -419,7 +440,7 @@ class Mesh {
       total_abs_E+=abs_E[i+on_rank_start];
       total_post_mat_E+= T_new*cV*vol;
     }
-    //zero out absorption tallies for all elements (global) 
+    //zero out absorption tallies for all cells (global) 
     for (unsigned int i=0; i<abs_E.size();++i) {
       abs_E[i] = 0.0;
     }
@@ -430,7 +451,7 @@ class Mesh {
   }
 
 
-  void request_element(const unsigned int& index) {
+  void request_cell(const unsigned int& index) {
     //get local index of global index
     unsigned int off_rank_id = get_off_rank_id(index);
     unsigned int off_rank_local = index - off_rank_bounds[off_rank_id];
@@ -465,19 +486,25 @@ class Mesh {
           //if you haven't requested cells, do that
           if (!b_s_cell_ids_reqs[r_index]) {
             //copy needed cells to the send buffer
-            s_cell_ids[r_index].assign(ids_needed[r_index].begin(), ids_needed[r_index].end());
-            //cout<<"Number of cells needed by "<<rank<<" from "<<ir<<" is " <<ids_needed[r_index].size()<<endl;
-            //cout<<"Total IDS requested by rank "<<rank<<" is: "<<off_rank_reads<<endl;
-            s_cell_ids_reqs[r_index].request( world.isend(ir, cell_id_tag, s_cell_ids[r_index]));
+            s_cell_ids[r_index].assign(
+              ids_needed[r_index].begin(), ids_needed[r_index].end());
+            //cout<<"Number of cells needed by "<<rank<<" from "<<ir;
+            //cout<<" is " <<ids_needed[r_index].size()<<endl;
+            //cout<<"Total IDS requested by rank "<<rank<<" is: ";
+            //cout<<off_rank_reads<<endl;
+            s_cell_ids_reqs[r_index].request( 
+              world.isend(ir, cell_id_tag, s_cell_ids[r_index]));
             b_s_cell_ids_reqs[r_index] = true;
-            //clear requested cell ids (requested cells will not be requested again
-            //because they are still stored in requested_ids set
+            // clear requested cell ids 
+            // (requested cells will not be requested again)
+            // because they are still stored in requested_ids set
             ids_needed[r_index].clear();
           }
           //otherwise, check to see if send completed, then reset buffer
           //post receive for this rank, if not done
           if (!b_r_cell_reqs[r_index]) {
-            r_cell_reqs[r_index].request(world.irecv(ir, cell_tag, r_cells[r_index]));
+            r_cell_reqs[r_index].request( 
+              world.irecv(ir, cell_tag, r_cells[r_index]));
             b_r_cell_reqs[r_index] = true;
           }
           else {
@@ -492,14 +519,16 @@ class Mesh {
               //add received cells to working mesh
               for (unsigned int i=0; i<r_cells[r_index].size();i++) {
                 unsigned int index = r_cells[r_index][i].get_ID();
-                //add this element to the map, if possible, otherwise manage map
-                if (stored_elements.size() < max_map_size) stored_elements[index] = r_cells[r_index][i];
+                //add this cell to the map, if possible, otherwise manage map
+                if (stored_cells.size() < max_map_size) 
+                  stored_cells[index] = r_cells[r_index][i];
                 else {
-                  //remove from map and from requests so it can be reqeusted again if needed
-                  unsigned int removed_id = (stored_elements.begin())->first ;
+                  //remove from map and from requests so it can be 
+                  // reqeusted again if needed
+                  unsigned int removed_id = (stored_cells.begin())->first ;
                   ids_requested.erase(removed_id);
-                  stored_elements.erase(stored_elements.begin());
-                  stored_elements[index] = r_cells[r_index][i];
+                  stored_cells.erase(stored_cells.begin());
+                  stored_cells[index] = r_cells[r_index][i];
                 }
               } // for i in r_cells[r_index]
               r_cells[r_index].clear();
@@ -510,11 +539,12 @@ class Mesh {
 
 
         ////////////////////////////////////////////////////////////////////////
-        // receiving element ids needed by other ranks (post receives to all)
+        // receiving cell ids needed by other ranks (post receives to all)
         ////////////////////////////////////////////////////////////////////////
         // check to see if receive call made
         if (!b_r_cell_ids_reqs[r_index]) {
-          r_cell_ids_reqs[r_index].request(world.irecv(ir, cell_id_tag, r_cell_ids[r_index]));
+          r_cell_ids_reqs[r_index].request(
+            world.irecv( ir, cell_id_tag, r_cell_ids[r_index]));
           b_r_cell_ids_reqs[r_index] = true;
         }
         // add cell ids to requested for a rank
@@ -524,18 +554,20 @@ class Mesh {
             send_data[r_index] = true;
             //make cell send list for this rank
             for (unsigned int i=0; i<r_cell_ids[r_index].size();i++)
-              s_cells[r_index].push_back(elements[r_cell_ids[r_index][i]]);
+              s_cells[r_index].push_back(cells[r_cell_ids[r_index][i]]);
           } // if (r_cell_ids[r_index].test() )
         }
    
-        //send elements needed by other ranks
+        //send cells needed by other ranks
         //check to see if this rank need your data
         if (send_data[r_index]) {
           if(!b_s_cell_reqs[r_index]) {
-            //cout<<"Number of cells sent by "<<rank<<" to "<<ir<<" is " <<s_cells[r_index].size()<<endl;
-            s_cell_reqs[r_index].request(world.isend(ir, cell_tag, s_cells[r_index]));
+            //cout<<"Number of cells sent by "<<rank<<" to "<<ir<<" is " ;
+            //cout<<s_cells[r_index].size()<<endl;
+            s_cell_reqs[r_index].request(
+              world.isend( ir, cell_tag, s_cells[r_index]));
             b_s_cell_reqs[r_index] = true;
-          }
+          } 
           else {
             //check for completion of send message
             if (s_cell_reqs[r_index].test()) {
@@ -548,7 +580,7 @@ class Mesh {
               s_cells[r_index].clear();
             }
           }
-        }
+        } // if send_data[r_index]
       } //if (ir != rank)
     } //for ir in rank
     return new_data;
@@ -574,12 +606,12 @@ class Mesh {
   */
 
   void purge_working_mesh(void) {
-    stored_elements.clear(); ghost_elements.clear();
+    stored_cells.clear(); ghost_cells.clear();
     ids_requested.clear();  
   }
 
-  void add_mesh_elem(Element new_elem) {new_elem_list.push_back(new_elem);}
-  void remove_elem(unsigned int index) {remove_elem_list.push_back(index);}
+  void add_mesh_cell(Cell new_cell) {new_cell_list.push_back(new_cell);}
+  void remove_cell(unsigned int index) {remove_cell_list.push_back(index);}
 
   std::vector<double>& get_census_E_ref(void) {return m_census_E;}
   std::vector<double>& get_emission_E_ref(void) {return m_emission_E;}
@@ -601,40 +633,41 @@ class Mesh {
 
   unsigned int off_rank_reads; //!< Number of off rank reads
 
-  unsigned int n_element; //!< Number of local elements
-  unsigned int n_global; //!< Nuber of global elements
+  unsigned int n_cell; //!< Number of local cells
+  unsigned int n_global; //!< Nuber of global cells
   
   unsigned int on_rank_start; //!< Start of global index on rank
-  unsigned int on_rank_end;   //!< End of global index on rank
+  unsigned int on_rank_end; //!< End of global index on rank
 
   std::vector<double> m_census_E; //!< Census energy vector
   std::vector<double> m_emission_E; //!< Emission energy vector
   std::vector<double> m_source_E; //!< Source energy vector
 
-  Element *elements; //!< Element data allocated with MPI_Alloc
-  std::vector<Element> elem_list; //!< On processor elements
-  std::vector<Element> new_elem_list; //!< New received elements
-  std::vector<unsigned int> remove_elem_list; //!< Elements to be removed
+  Cell *cells; //!< Cell data allocated with MPI_Alloc
+  std::vector<Cell> cell_list; //!< On processor cells
+  std::vector<Cell> new_cell_list; //!< New received cells
+  std::vector<unsigned int> remove_cell_list; //!< Cells to be removed
   std::vector<unsigned int> off_rank_bounds; //!< Ending value of global ID for each rank
-  std::vector<unsigned int> boundary_elements; //!< Index of adjacent ghost cells
+  std::vector<unsigned int> boundary_cells; //!< Index of adjacent ghost cells
 
-  std::map<unsigned int, Element> stored_elements; //!< Elements that have been accessed off rank
-  std::map<unsigned int, Element> ghost_elements; //!< Static list of off-rank elements next to boundary
+  std::map<unsigned int, Cell> stored_cells; //!< Cells that have been accessed off rank
+  std::map<unsigned int, Cell> ghost_cells; //!< Static list of off-rank cells next to boundary
 
   std::vector<std::vector<unsigned int> > ids_needed ; //!< Cell needed by this rank
   std::set<unsigned int> ids_requested; //!< IDs that have been requested
 
   //send and receive buffers
-  std::vector<std::vector<Element> > r_cells;          //!< Receive buffer for cells
-  std::vector<std::vector<unsigned int> > r_cell_ids;  //!< Receive cell ids needed by other ranks
-  std::vector<std::vector<Element> > s_cells;          //!< Cells to send to each rank
-  std::vector<std::vector<unsigned int> > s_cell_ids;   //!< Send buffer for cell ids needed by this rank
+  std::vector<std::vector<Cell> > r_cells; //!< Receive buffer for cells
+  std::vector<std::vector<unsigned int> > r_cell_ids; //!< Receive cell ids needed by other ranks
+  std::vector<std::vector<Cell> > s_cells; //!< Cells to send to each rank
+  std::vector<std::vector<unsigned int> > s_cell_ids; //!< Send buffer for cell ids needed by this rank
 
   //Data bools needed from off rank and other ranks that need data here
   std::vector<bool> need_data; //!< Vector of size nrank-1, flag for needed data from rank
   std::vector<bool> send_data; //!< Vector of size nrank-1, flag to send data to rank
 
-  //MPI requests for non-blocking communication and the bools for if the request has been made
+  // MPI requests for non-blocking communication and the 
+  // bools for if the request has been made
   //receive requests and bool flags
   Request* r_cell_reqs; //!< Received cell requests
   std::vector<bool>  b_r_cell_reqs; //!< Bool for received call requests
@@ -653,7 +686,7 @@ class Mesh {
 
   double total_photon_E; //!< Total photon energy on the mesh
 
-  MPI::Datatype MPI_Element; //!< Definition of MPI type that allows simpler function calls
+  MPI::Datatype MPI_Cell; //!< MPI type, allows simpler function calls
 };
 
 #endif //mesh_h_

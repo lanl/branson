@@ -144,7 +144,7 @@ vector<Photon> decompose_photons_zoltan(vector<Photon>& photon_vec,  mpi::commun
                         exportToPart);  // Partition to which each vertex will belong 
 
 
-  //send elements to other processors
+  //send cells to other processors
   //assume all photons are staying
   vector<bool> stay_flag(n_photons, true);
   mpi::request* reqs = new mpi::request[ (size-1)*2];
@@ -208,7 +208,7 @@ void on_rank_rebalance_photons(Photon*& photon_vec,
   unsigned int rank = MPI::COMM_WORLD.Get_rank();
   unsigned int size = MPI::COMM_WORLD.Get_size();
 
-  //sort the census vector by element ID (global ID)
+  //sort the census vector by cell ID (global ID)
   std::sort(census_list, census_list+ n_census);
 
   //count the photons belonging to each rank and the start index of each
@@ -218,7 +218,7 @@ void on_rank_rebalance_photons(Photon*& photon_vec,
   vector<bool> rank_found(size, false);
   unsigned int r;
   for (unsigned int i=0; i<n_census; i++) {
-    r = mesh->get_rank(census_list[i].get_element());
+    r = mesh->get_rank(census_list[i].get_cell());
     rank_count[r]++;
     if(rank_found[r]==false) {
       rank_found[r]=true;
@@ -322,7 +322,7 @@ void proto_load_balance_photons(Photon*& photon_vec,
   unsigned int size = MPI::COMM_WORLD.Get_size();
 
 
-  //sort the census vector by element ID (global ID)
+  //sort the census vector by cell ID (global ID)
   std::sort(photon_vec, photon_vec+n_photon);
 
   unsigned int g_n_photon = n_photon;

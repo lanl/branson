@@ -39,29 +39,29 @@ bool transport_single_photon( Photon* iphtn,
   using Constants::c;
   using std::min;
 
-  unsigned int elem_id, next_element;
+  unsigned int cell_id, next_cell;
   bc_type boundary_event;
   double dist_to_scatter, dist_to_boundary, dist_to_census, dist_to_event;
   double sigma_a, sigma_s, f, absorbed_E;
   double angle[3];
-  Element elem;
+  Cell cell;
 
   unsigned int surface_cross = 0;
   double cutoff_fraction = 0.001; //note: get this from IMC_state
 
-  elem_id=iphtn->get_element();
-  elem = mesh->get_on_rank_element(elem_id);
+  cell_id=iphtn->get_cell();
+  cell = mesh->get_on_rank_cell(cell_id);
   bool active = true;
   bool wait_flag = false;
   //transport this photon
   while(active) {
-    sigma_a = elem.get_op_a();
-    sigma_s = elem.get_op_s();
-    f = elem.get_f();
+    sigma_a = cell.get_op_a();
+    sigma_s = cell.get_op_s();
+    f = cell.get_f();
 
     //get distance to event
     dist_to_scatter = -log(rng->generate_random_number())/((1.0-f)*sigma_a + sigma_s);
-    dist_to_boundary = elem.get_distance_to_boundary(iphtn->get_position(),
+    dist_to_boundary = cell.get_distance_to_boundary(iphtn->get_position(),
                                                       iphtn->get_angle(),
                                                       surface_cross);
     dist_to_census = iphtn->get_distance_remaining();
@@ -73,14 +73,14 @@ bool transport_single_photon( Photon* iphtn,
     absorbed_E = iphtn->get_E()*(1.0 - exp(-sigma_a*f*dist_to_event));
     iphtn->set_E(iphtn->get_E() - absorbed_E);
 
-    rank_abs_E[elem_id] += absorbed_E;
+    rank_abs_E[cell_id] += absorbed_E;
     
     //update position
     iphtn->move(dist_to_event);
 
     //Apply variance/runtime reduction
     if (iphtn->below_cutoff(cutoff_fraction)) {
-      rank_abs_E[elem_id] += iphtn->get_E();
+      rank_abs_E[cell_id] += iphtn->get_E();
       iphtn->set_dead();
       active=false;
     }
@@ -94,16 +94,16 @@ bool transport_single_photon( Photon* iphtn,
       }
       //EVENT TYPE: BOUNDARY CROSS
       else if(dist_to_event == dist_to_boundary) {
-        boundary_event = elem.get_bc(surface_cross);
+        boundary_event = cell.get_bc(surface_cross);
         if(boundary_event == ELEMENT || boundary_event == PROCESSOR) {
-          next_element = elem.get_next_element(surface_cross);
-          iphtn->set_element(next_element);
-          elem_id=next_element;
-          //look for this element, if it's not there transport later
-          if (mesh->mesh_available(elem_id))
-            elem = mesh->get_on_rank_element(elem_id);
+          next_cell = cell.get_next_cell(surface_cross);
+          iphtn->set_cell(next_cell);
+          cell_id=next_cell;
+          //look for this cell, if it's not there transport later
+          if (mesh->mesh_available(cell_id))
+            cell = mesh->get_on_rank_cell(cell_id);
           else {
-            mesh->request_element(elem_id);
+            mesh->request_cell(cell_id);
             wait_flag = true;
             active=false;
           }
@@ -139,7 +139,7 @@ void transport_photons(Photon*& photon_vec,
   using std::queue;
   using std::vector;
 
-  unsigned int elem_id;
+  unsigned int cell_id;
   unsigned int census_count = 0;
   double census_E=0.0;
   double exit_E = 0.0;
@@ -156,8 +156,8 @@ void transport_photons(Photon*& photon_vec,
   vector<vector<bool> > r_finished;
   vector<bool> b_r_finished(n_rank-1, false);
   for (unsigned int ir=0; ir<n_rank-1; ir++) {
-    vector<bool> empty_bool_elem;
-    r_finished.push_back(empty_bool_elem); 
+    vector<bool> empty_bool_cell;
+    r_finished.push_back(empty_bool_cell); 
   }
 
   mpi::request *s_finished_reqs = new mpi::request[ (n_rank-1)];
@@ -180,18 +180,18 @@ void transport_photons(Photon*& photon_vec,
   ////////////////////////////////////////////////////////////////////////
   for ( unsigned int i=0;i<n_photon; i++) {
     iphtn = &photon_vec[i];
-    //get start element, only change when element crossing event
-    elem_id=iphtn->get_element();
+    //get start cell, only change when cell crossing event
+    cell_id=iphtn->get_cell();
 
     //should always return true for photons before transport
     // but in the future we'll want to check this
-    if (mesh->mesh_available(elem_id)) {
+    if (mesh->mesh_available(cell_id)) {
       wait_flag = transport_single_photon(iphtn, mesh, rng, next_dt, exit_E,
                                           census_E, census_count, rank_abs_E);
       if (wait_flag) wait_list.push(iphtn);
     } 
     else {
-      mesh->request_element(elem_id);
+      mesh->request_cell(cell_id);
       wait_list.push(iphtn);
     }
 
@@ -204,8 +204,8 @@ void transport_photons(Photon*& photon_vec,
         for (unsigned int wp =0; wp<wait_list.size(); wp++) {
           iphtn = wait_list.front();
           wait_list.pop();
-          elem_id=iphtn->get_element();
-          if (mesh->mesh_available(elem_id)) {
+          cell_id=iphtn->get_cell();
+          if (mesh->mesh_available(cell_id)) {
             wait_flag = transport_single_photon(iphtn, mesh, rng, next_dt, exit_E,
                                                 census_E, census_count, rank_abs_E);
             if (wait_flag) wait_list.push(iphtn);
@@ -226,15 +226,15 @@ void transport_photons(Photon*& photon_vec,
     for (unsigned int wp =0; wp<wait_list.size(); wp++) {
       iphtn = wait_list.front();
       wait_list.pop();
-      elem_id=iphtn->get_element();
-      if (mesh->mesh_available(elem_id)) {
+      cell_id=iphtn->get_cell();
+      if (mesh->mesh_available(cell_id)) {
         wait_flag = transport_single_photon(iphtn, mesh, rng, next_dt, exit_E,
                                             census_E, census_count, rank_abs_E);
         if (wait_flag) wait_list.push(iphtn);
       }
       else {
         wait_list.push(iphtn);
-        mesh->request_element(elem_id);
+        mesh->request_cell(cell_id);
       }
     }
   } //end while wait_list not empty
@@ -300,7 +300,7 @@ void make_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec, unsigned 
 {
   using std::vector;
   using Constants::c;
-  unsigned int n_element =mesh->get_number_of_objects();
+  unsigned int n_cell =mesh->get_number_of_objects();
 
   vector<double> census_E = mesh->get_census_E_ref();
   vector<double> emission_E = mesh->get_emission_E_ref();
@@ -315,19 +315,19 @@ void make_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec, unsigned 
   n_photon = 0;
 
   // count the total number of photons 
-  for (unsigned int ielem = 0; ielem<n_element; ielem++) {
-    if (census_E[ielem] > 0.0) { 
-      unsigned int t_num_census = int(total_phtns*census_E[ielem]/total_E);
+  for (unsigned int icell = 0; icell<n_cell; icell++) {
+    if (census_E[icell] > 0.0) { 
+      unsigned int t_num_census = int(total_phtns*census_E[icell]/total_E);
       if (t_num_census == 0) t_num_census =1;
       n_photon+= t_num_census;
     }
-    if (emission_E[ielem] > 0.0) {
-      unsigned int t_num_emission = int(total_phtns*emission_E[ielem]/total_E);
+    if (emission_E[icell] > 0.0) {
+      unsigned int t_num_emission = int(total_phtns*emission_E[icell]/total_E);
       if (t_num_emission == 0) t_num_emission =1;
       n_photon+=t_num_emission;
     }
-    if (source_E[ielem] > 0.0) {
-      unsigned int t_num_source = int(total_phtns*source_E[ielem]/total_E);
+    if (source_E[icell] > 0.0) {
+      unsigned int t_num_source = int(total_phtns*source_E[icell]/total_E);
       if (t_num_source == 0) t_num_source =1;
       n_photon+=t_num_source; 
     }
@@ -336,29 +336,29 @@ void make_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec, unsigned 
   // make the photon vector
   phtn_vec = new Photon[n_photon];
 
-  Element elem;
+  Cell cell;
   double pos[3]; double angle[3];
   unsigned int g_ID;
   unsigned int p_index =0;
-  for (unsigned int ielem = 0; ielem<n_element; ielem++) {
-    elem = mesh->get_elem(ielem);
-    g_ID = elem.get_ID();
+  for (unsigned int icell = 0; icell<n_cell; icell++) {
+    cell = mesh->get_cell(icell);
+    g_ID = cell.get_ID();
 
     //Census photons scope
     {
-      if (census_E[ielem] > 0.0) { 
-        unsigned int t_num_census = int(total_phtns*census_E[ielem]/total_E);
+      if (census_E[icell] > 0.0) { 
+        unsigned int t_num_census = int(total_phtns*census_E[icell]/total_E);
         if (t_num_census == 0) t_num_census =1;
-        double census_phtn_E = census_E[ielem] / t_num_census;
+        double census_phtn_E = census_E[icell] / t_num_census;
         for (unsigned int iphtn = 0; iphtn< t_num_census; ++iphtn) {
-          elem.uniform_position_in_elem(rng, pos);
+          cell.uniform_position_in_cell(rng, pos);
           get_uniform_angle(angle, rng);
           Photon& census_photon = phtn_vec[p_index]; 
           census_photon.set_position(pos);
           census_photon.set_angle(angle);
           census_photon.set_E0(census_phtn_E);
           census_photon.set_distance_to_census(c*delta_t);
-          census_photon.set_element(g_ID);
+          census_photon.set_cell(g_ID);
           p_index++;
         }
       } 
@@ -366,19 +366,19 @@ void make_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec, unsigned 
 
     //Emission photons scope
     { 
-      if (emission_E[ielem] > 0.0) {
-        unsigned int t_num_emission = int(total_phtns*emission_E[ielem]/total_E);
+      if (emission_E[icell] > 0.0) {
+        unsigned int t_num_emission = int(total_phtns*emission_E[icell]/total_E);
         if (t_num_emission == 0) t_num_emission =1;
-        double emission_phtn_E = emission_E[ielem] / t_num_emission;
+        double emission_phtn_E = emission_E[icell] / t_num_emission;
         for (unsigned int iphtn = 0; iphtn< t_num_emission; ++iphtn) {
-          elem.uniform_position_in_elem(rng, pos);
+          cell.uniform_position_in_cell(rng, pos);
           get_uniform_angle(angle, rng);
           Photon& emission_photon = phtn_vec[p_index];
           emission_photon.set_position(pos);
           emission_photon.set_angle(angle);
           emission_photon.set_E0(emission_phtn_E);
           emission_photon.set_distance_to_census(rng->generate_random_number()*c*delta_t);
-          emission_photon.set_element(g_ID);
+          emission_photon.set_cell(g_ID);
           p_index++;
         }
       }
@@ -386,10 +386,10 @@ void make_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec, unsigned 
 
     //Source Photons scope
     {
-      if (source_E[ielem] > 0.0) {
-        unsigned int t_num_source = int(total_phtns*source_E[ielem]/total_E);
+      if (source_E[icell] > 0.0) {
+        unsigned int t_num_source = int(total_phtns*source_E[icell]/total_E);
         if (t_num_source == 0) t_num_source =1;
-        double source_phtn_E = source_E[ielem] / t_num_source;
+        double source_phtn_E = source_E[icell] / t_num_source;
         for (unsigned int iphtn = 0; iphtn<t_num_source; ++iphtn) {
           pos[0] = 0.0; pos[1] = 0.0;  pos[2] = 0.0;
           get_uniform_angle(angle, rng);
@@ -398,13 +398,13 @@ void make_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec, unsigned 
           source_photon.set_angle(angle);
           source_photon.set_E0(source_phtn_E);
           source_photon.set_distance_to_census(rng->generate_random_number()*c*delta_t);
-          source_photon.set_element(g_ID);
+          source_photon.set_cell(g_ID);
           p_index++;
         }
       }
     } //end source photons scope
 
-  } //end element loop
+  } //end cell loop
 }
 
 
@@ -412,7 +412,7 @@ void make_stratified_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec
 {
   using Constants::c;
   using std::vector;
-  unsigned int n_element =mesh->get_number_of_objects();
+  unsigned int n_cell =mesh->get_number_of_objects();
 
   vector<double> census_E = mesh->get_census_E_ref();
   vector<double> emission_E = mesh->get_emission_E_ref();
@@ -427,19 +427,19 @@ void make_stratified_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec
   n_photon = 0;
 
   // count the total number of photons 
-  for (unsigned int ielem = 0; ielem<n_element; ielem++) {
-    if (census_E[ielem] > 0.0) { 
-      unsigned int t_num_census = int(total_phtns*census_E[ielem]/total_E);
+  for (unsigned int icell = 0; icell<n_cell; icell++) {
+    if (census_E[icell] > 0.0) { 
+      unsigned int t_num_census = int(total_phtns*census_E[icell]/total_E);
       if (t_num_census == 0) t_num_census =1;
       n_photon+= t_num_census;
     }
-    if (emission_E[ielem] > 0.0) {
-      unsigned int t_num_emission = int(total_phtns*emission_E[ielem]/total_E);
+    if (emission_E[icell] > 0.0) {
+      unsigned int t_num_emission = int(total_phtns*emission_E[icell]/total_E);
       if (t_num_emission == 0) t_num_emission =1;
       n_photon+=t_num_emission;
     }
-    if (source_E[ielem] > 0.0) {
-      unsigned int t_num_source = int(total_phtns*source_E[ielem]/total_E);
+    if (source_E[icell] > 0.0) {
+      unsigned int t_num_source = int(total_phtns*source_E[icell]/total_E);
       if (t_num_source == 0) t_num_source =1;
       n_photon+=t_num_source; 
     }
@@ -448,24 +448,24 @@ void make_stratified_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec
   // make the photon vector
   phtn_vec = new Photon[n_photon];
 
-  Element elem;
+  Cell cell;
   double pos[3]; double angle[3];
   unsigned int g_ID;
   unsigned int p_index =0;
-  for (unsigned int ielem = 0; ielem<n_element; ielem++) {
-    elem = mesh->get_elem(ielem);
-    g_ID = elem.get_ID();
+  for (unsigned int icell = 0; icell<n_cell; icell++) {
+    cell = mesh->get_cell(icell);
+    g_ID = cell.get_ID();
 
     //Census photons scope
     {
-      if (census_E[ielem] > 0.0) { 
-        unsigned int t_num_census = int(total_phtns*census_E[ielem]/total_E);
+      if (census_E[icell] > 0.0) { 
+        unsigned int t_num_census = int(total_phtns*census_E[icell]/total_E);
         if (t_num_census == 0) t_num_census =1;
-        double census_phtn_E = census_E[ielem] / t_num_census;
+        double census_phtn_E = census_E[icell] / t_num_census;
         bool stratify = false;
         if (t_num_census >=8) stratify=true;
         for (unsigned int iphtn = 0; iphtn< t_num_census; ++iphtn) {
-          elem.uniform_position_in_elem(rng, pos);
+          cell.uniform_position_in_cell(rng, pos);
           if (stratify) get_stratified_angle(angle, rng, iphtn, t_num_census);
           else get_uniform_angle(angle, rng);
           Photon& census_photon = phtn_vec[p_index]; 
@@ -473,7 +473,7 @@ void make_stratified_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec
           census_photon.set_angle(angle);
           census_photon.set_E0(census_phtn_E);
           census_photon.set_distance_to_census(c*delta_t);
-          census_photon.set_element(g_ID);
+          census_photon.set_cell(g_ID);
           p_index++;
         }
       } 
@@ -481,14 +481,14 @@ void make_stratified_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec
 
     //Emission photons scope
     { 
-      if (emission_E[ielem] > 0.0) {
-        unsigned int t_num_emission = int(total_phtns*emission_E[ielem]/total_E);
+      if (emission_E[icell] > 0.0) {
+        unsigned int t_num_emission = int(total_phtns*emission_E[icell]/total_E);
         if (t_num_emission == 0) t_num_emission =1;
-        double emission_phtn_E = emission_E[ielem] / t_num_emission;
+        double emission_phtn_E = emission_E[icell] / t_num_emission;
         bool stratify = false;
         if (t_num_emission >=8) stratify=true;
         for (unsigned int iphtn = 0; iphtn< t_num_emission; ++iphtn) {
-          elem.uniform_position_in_elem(rng, pos);
+          cell.uniform_position_in_cell(rng, pos);
           if (stratify) get_stratified_angle(angle, rng, iphtn, t_num_emission);
           else get_uniform_angle(angle, rng);
           Photon& emission_photon = phtn_vec[p_index];
@@ -496,7 +496,7 @@ void make_stratified_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec
           emission_photon.set_angle(angle);
           emission_photon.set_E0(emission_phtn_E);
           emission_photon.set_distance_to_census(rng->generate_random_number()*c*delta_t);
-          emission_photon.set_element(g_ID);
+          emission_photon.set_cell(g_ID);
           p_index++;
         }
       }
@@ -504,10 +504,10 @@ void make_stratified_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec
 
     //Source Photons scope
     {
-      if (source_E[ielem] > 0.0) {
-        unsigned int t_num_source = int(total_phtns*source_E[ielem]/total_E);
+      if (source_E[icell] > 0.0) {
+        unsigned int t_num_source = int(total_phtns*source_E[icell]/total_E);
         if (t_num_source == 0) t_num_source =1;
-        double source_phtn_E = source_E[ielem] / t_num_source;
+        double source_phtn_E = source_E[icell] / t_num_source;
         for (unsigned int iphtn = 0; iphtn<t_num_source; ++iphtn) {
           pos[0] = 0.0; pos[1] = 0.0;  pos[2] = 0.0;
           get_uniform_angle(angle, rng);
@@ -516,13 +516,13 @@ void make_stratified_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec
           source_photon.set_angle(angle);
           source_photon.set_E0(source_phtn_E);
           source_photon.set_distance_to_census(rng->generate_random_number()*c*delta_t);
-          source_photon.set_element(g_ID);
+          source_photon.set_cell(g_ID);
           p_index++;
         }
       }
     } //end source photons scope
 
-  } //end element loop
+  } //end cell loop
 }
 
 

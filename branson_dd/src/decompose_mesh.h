@@ -66,14 +66,14 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
 
   //begin PARMETIS routines
 
-  //get the number of elements on each processor
+  //get the number of cells on each processor
   //vtxdist has number of vertices on each rank, same for all ranks
-  vector<int> start_nelements(nrank, 0);
+  vector<int> start_ncells(nrank, 0);
   vector<int> vtxdist(nrank, 0);
-  int nelem_on_rank = mesh->get_number_of_objects();
-  mpi::all_gather(world, nelem_on_rank, start_nelements);
-  partial_sum(start_nelements.begin(), 
-              start_nelements.end(), 
+  int ncell_on_rank = mesh->get_number_of_objects();
+  mpi::all_gather(world, ncell_on_rank, start_ncells);
+  partial_sum(start_ncells.begin(), 
+              start_ncells.end(), 
               vtxdist.begin());
   vtxdist.insert(vtxdist.begin(), 0); 
 
@@ -81,19 +81,19 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   vector<int> xadj;
   vector<int> adjncy;
   int adjncy_ctr = 0;
-  Element elem;
+  Cell cell;
   unsigned int g_ID; //! Global ID
   for (unsigned int i=0; i<mesh->get_number_of_objects();i++) {
-    elem = mesh->get_pre_elem(i);
-    g_ID = elem.get_ID();
-    unsigned int xm_neighbor =elem.get_next_element(X_NEG);
-    unsigned int xp_neighbor =elem.get_next_element(X_POS);
-    unsigned int ym_neighbor =elem.get_next_element(Y_NEG);
-    unsigned int yp_neighbor =elem.get_next_element(Y_POS);
-    unsigned int zm_neighbor =elem.get_next_element(Z_NEG);
-    unsigned int zp_neighbor =elem.get_next_element(Z_POS);
+    cell = mesh->get_pre_cell(i);
+    g_ID = cell.get_ID();
+    unsigned int xm_neighbor =cell.get_next_cell(X_NEG);
+    unsigned int xp_neighbor =cell.get_next_cell(X_POS);
+    unsigned int ym_neighbor =cell.get_next_cell(Y_NEG);
+    unsigned int yp_neighbor =cell.get_next_cell(Y_POS);
+    unsigned int zm_neighbor =cell.get_next_cell(Z_NEG);
+    unsigned int zp_neighbor =cell.get_next_cell(Z_POS);
     
-    xadj.push_back(adjncy_ctr); //starting index in xadj for this element's nodes
+    xadj.push_back(adjncy_ctr); //starting index in xadj for this cell's nodes
     if (xm_neighbor != g_ID) {adjncy.push_back(xm_neighbor); adjncy_ctr++;}
     if (xp_neighbor != g_ID) {adjncy.push_back(xp_neighbor); adjncy_ctr++;}
     if (ym_neighbor != g_ID) {adjncy.push_back(ym_neighbor); adjncy_ctr++;}
@@ -103,7 +103,7 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   }
   xadj.push_back(adjncy_ctr);  
 
-  int wgtflag = 0; //no weights for elements
+  int wgtflag = 0; //no weights for cells
   int numflag = 0; //C-style numbering
   int ncon = 1; 
   int nparts = nrank; //sub-domains = nrank
@@ -120,11 +120,11 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   options[2] = 1242; //random number seed
   
   int edgecut =0; 
-  int *part = new int[nelem_on_rank];
+  int *part = new int[ncell_on_rank];
 
-  ParMETIS_V3_PartKway( &vtxdist[0],   // array describing how elements are distributed
-                        &xadj[0],   // how elements are stored locally
-                        &adjncy[0], // how elements are stored loccaly
+  ParMETIS_V3_PartKway( &vtxdist[0],   // array describing how cells are distributed
+                        &xadj[0],   // how cells are stored locally
+                        &adjncy[0], // how cells are stored loccaly
                         NULL,       // weight of vertices
                         NULL,       // weight of edges
                         &wgtflag,   // 0 means no weights for node or edges
@@ -138,29 +138,29 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
                         part,       // OUTPUT: partition of each vertex
                         &comm); // MPI communicator
 
-  //send elements to other processors
+  //send cells to other processors
   for (unsigned int send_rank =0; send_rank<nrank; send_rank++) {
     for (unsigned int recv_rank =0; recv_rank<nrank; recv_rank++) {
       if (  (send_rank != recv_rank)  && (rank == send_rank || rank == recv_rank) ) {
         if(rank == send_rank) {
-          vector<Element> send_list;
-          for (unsigned int i=0; i<nelem_on_rank; i++) {
+          vector<Cell> send_list;
+          for (unsigned int i=0; i<ncell_on_rank; i++) {
             if(part[i] == recv_rank)
-              send_list.push_back(mesh->get_pre_elem(i));
+              send_list.push_back(mesh->get_pre_cell(i));
           }
           world.send(recv_rank, 0, send_list);
-          //Erase these elements from the mesh
-          for (unsigned int i=0; i<nelem_on_rank; i++) {
-            if(part[i] == recv_rank) mesh->remove_elem(i);
+          //Erase these cells from the mesh
+          for (unsigned int i=0; i<ncell_on_rank; i++) {
+            if(part[i] == recv_rank) mesh->remove_cell(i);
           }
         }
         // rank == recv_rank
         else {
-          vector<Element> recv_list;
+          vector<Cell> recv_list;
           world.recv(send_rank, 0, recv_list);
-          // add these elements to the mesh
+          // add these cells to the mesh
           for (unsigned int i = 0; i< recv_list.size(); i++) 
-            mesh->add_mesh_elem(recv_list[i]);
+            mesh->add_mesh_cell(recv_list[i]);
         }
       } //send_rank != recv_rank
     } // loop over recv_ranks
@@ -169,23 +169,23 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   //update the cell list on each processor
   mesh->update_mesh();
 
-  //get the number of elements on each processor
-  vector<unsigned int> out_elements_proc(nrank, 0);
-  vector<unsigned int> prefix_elements_proc(nrank, 0);
-  unsigned int n_elem = mesh->get_number_of_objects();
-  mpi::all_gather(world, n_elem, out_elements_proc);
-  partial_sum(out_elements_proc.begin(), out_elements_proc.end(), prefix_elements_proc.begin());
+  //get the number of cells on each processor
+  vector<unsigned int> out_cells_proc(nrank, 0);
+  vector<unsigned int> prefix_cells_proc(nrank, 0);
+  unsigned int n_cell = mesh->get_number_of_objects();
+  mpi::all_gather(world, n_cell, out_cells_proc);
+  partial_sum(out_cells_proc.begin(), out_cells_proc.end(), prefix_cells_proc.begin());
 
-  unsigned int g_start = prefix_elements_proc[rank]-n_elem;
-  unsigned int g_end = prefix_elements_proc[rank]-1;
+  unsigned int g_start = prefix_cells_proc[rank]-n_cell;
+  unsigned int g_end = prefix_cells_proc[rank]-1;
   mesh->set_global_bound(g_start, g_end);
   //append zero to the prefix array to make it a standard bounds array
-  prefix_elements_proc.insert( prefix_elements_proc.begin(), 0);
-  mesh->set_off_rank_bounds(prefix_elements_proc);
+  prefix_cells_proc.insert( prefix_cells_proc.begin(), 0);
+  mesh->set_off_rank_bounds(prefix_cells_proc);
 
   //make sure each index is remapped ONLY ONCE!
   vector< vector<bool> > remap_flag;
-  for (unsigned int i=0; i<n_elem; i++) remap_flag.push_back(vector<bool> (6,false));
+  for (unsigned int i=0; i<n_cell; i++) remap_flag.push_back(vector<bool> (6,false));
 
   //change global indices to match a simple number system for easy sorting,
   //this involves sending maps to each processor to get new indicies

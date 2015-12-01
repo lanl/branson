@@ -4,8 +4,8 @@
   Name: input.h
 */
 
-#ifndef Input_h_
-#define Input_h_
+#ifndef input_h_
+#define input_h_
 
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -15,20 +15,16 @@
 
 #include "constants.h"
 
-/*
-using std::cout;
-using std::endl;
-using std::vector;
-using boost::property_tree::ptree;
-using Constants::a;
-using Constants::c;
-using Constants::bc_type;
-using Constants::dir_type;
-using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
-using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
-using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT;
-*/
-
+//==============================================================================
+/*!
+ * \class Input
+ * \brief Reads input data from an XML file and stores that data
+ *
+ * Boost's XML parser is used to read an XML input file. This class stores that
+ * information and provides functions to access it. This class also prints the 
+ * problem information.
+ */
+//==============================================================================
 class Input
 {
   public:
@@ -61,18 +57,21 @@ class Input
         seed = v.second.get<int>("seed");
         map_size = v.second.get<int>("map_size");
         output_freq = v.second.get<int>("output_frequency",1);
-        tempString = v.second.get<std::string>("tilt", std::string("FALSE"));       
+        tempString = v.second.get<std::string>("tilt", std::string("FALSE"));
         if (tempString == "TRUE") use_tilt = 1;
         else use_tilt = 0;
-        tempString = v.second.get<std::string>("use_combing", std::string("TRUE"));
+        tempString = v.second.get<std::string>("use_combing", 
+                                                std::string("TRUE"));
         if (tempString == "TRUE") use_comb= 1;
         else use_comb = 0;
         //stratified sampling
-        tempString = v.second.get<std::string>("stratified_sampling", std::string("FALSE"));
+        tempString = v.second.get<std::string>("stratified_sampling", 
+                                                std::string("FALSE"));
         if (tempString == "TRUE") use_strat= true;
         else use_strat = false;
         //ghost map flag
-        tempString = v.second.get<std::string>("use_ghost_map", std::string("FALSE"));
+        tempString = v.second.get<std::string>("use_ghost_map", 
+                                               std::string("FALSE"));
         if (tempString == "TRUE") use_ghost_cells= true;
         else use_ghost_cells = false;
         //check MPI message frequency
@@ -94,13 +93,13 @@ class Input
       //read in spatial data
       if(v.first =="spatial")
       {
-        n_x_elements = v.second.get<unsigned int>("n_x_elements");
+        n_x_cells = v.second.get<unsigned int>("n_x_cells");
         dx = v.second.get<double>("dx");
 
-        n_y_elements = v.second.get<unsigned int>("n_y_elements");
+        n_y_cells = v.second.get<unsigned int>("n_y_cells");
         dy = v.second.get<double>("dy");
 
-        n_z_elements = v.second.get<unsigned int>("n_z_elements");
+        n_z_cells = v.second.get<unsigned int>("n_z_cells");
         dz = v.second.get<double>("dz");
 
         //read in boundary conditions
@@ -157,7 +156,6 @@ class Input
       else if(v.first == "source")
       {
         T_source = v.second.get<double>("T_source", 0.0);
-        source_element = v.second.get<unsigned int>("source_element", 0);
       }
     } //end xml parse
 
@@ -198,7 +196,8 @@ class Input
     if (print_verbose) cout<<"Verbose printing mode enabled"<<endl;
     else cout<<"Terse printing mode (default)"<<endl;
 
-    cout<<"Spatial Information -- elements x,y,z: "<<n_x_elements<<" "<<n_y_elements<<" "<<n_z_elements<<endl;
+    cout<<"Spatial Information -- cells x,y,z: "<<n_x_cells<<" ";
+    cout<<n_y_cells<<" "<<n_z_cells<<endl;
     cout<<"dx: "<< dx<<" dy: "<<dy<<" dz: "<<dz<<endl;
 
     cout<<"Material Information -- heat capacity: "<<CV;
@@ -215,9 +214,9 @@ class Input
     cout<<endl;
   }
 
-  int get_n_x_elements(void) const {return n_x_elements;}
-  int get_n_y_elements(void) const {return n_y_elements;}
-  int get_n_z_elements(void) const {return n_z_elements;}
+  int get_n_x_cells(void) const {return n_x_cells;}
+  int get_n_y_cells(void) const {return n_y_cells;}
+  int get_n_z_cells(void) const {return n_z_cells;}
 
   double get_dx(void) const {return dx;}
   double get_dy(void) const {return dy;}
@@ -244,7 +243,6 @@ class Input
   int get_check_frequency(void) const {return check_frequency;}
 
   //source functions
-  unsigned int get_source_element(void) const {return source_element;}
   double get_source_T(void) const {return T_source;}
 
   //material functions
@@ -255,64 +253,66 @@ class Input
   double get_opacity_C(void) {return opacC;}
   double get_opacity_S(void) {return opacS;}
 
-  Constants::bc_type get_bc(const Constants::dir_type& direction) const { return bc[direction];}
+  Constants::bc_type get_bc(const Constants::dir_type& direction) const 
+  { 
+    return bc[direction];
+  }
   
   unsigned int get_map_size(void) const {return map_size;}
 
   private:
 
   // geometry
-  unsigned int n_x_elements;
-  unsigned int n_y_elements;
-  unsigned int n_z_elements;
+  unsigned int n_x_cells; //!< Total x cells
+  unsigned int n_y_cells; //!< Total y cells
+  unsigned int n_z_cells; //!< Total z cells
 
-  double dx;
-  double dy;
-  double dz;
+  double dx; //!< x grid spacing (cm)
+  double dy; //!< y grid spacing (cm)
+  double dz; //!< z grid spacing (cm)
 
-  Constants::bc_type bc[6];  
+  Constants::bc_type bc[6]; //!< Boundary condition array 
 
   // timing
-  double tStart;
-  double dt;
-  double tFinish;
-  double tMult;
-  double dtMax;
+  double tStart; //!< Starting time
+  double dt; //!< Timestep size
+  double tFinish; //!< Finish time
+  double tMult; //!< Timestep multiplier
+  double dtMax; //!< Maximum timestep size
 
   // initial conditions
-  double Tm_initial;
-  double Tr_initial;
+  double Tm_initial; //!< Initial material temperature 
+  double Tr_initial; //!< Initial radiation temperature
 
   //material
-  double rho;
-  double CV;
-  double opacA; //! Constant opacity
-  double opacB; //! Opacity temperature multiplier 
-  double opacC; //! Opacity temperature power
-  double opacS; //! Scattering opacity
+  double rho; //!< Density (g/cc)
+  double CV; //!< Heat capacity (jk/keV/g)
+  double opacA; //!< Constant opacity
+  double opacB; //!< Opacity temperature multiplier 
+  double opacC; //!< Opacity temperature power
+  double opacS; //!< Scattering opacity
 
   //source
-  double T_source;
-  double source_element;
+  double T_source; //!< Temperature of source
 
   // Monte Carlo parameters
-  unsigned int n_photons;
-  unsigned int seed;
+  unsigned int n_photons; //!< Photons to source each timestep
+  unsigned int seed; //!< Random number seed
 
   // Method parameters
-  bool use_tilt; //! Use tilting for emission sampling
-  bool use_comb; //! Comb census photons
-  bool use_strat; //! Use strafifed sampling
+  bool use_tilt; //!< Use tilting for emission sampling
+  bool use_comb; //!< Comb census photons
+  bool use_strat; //!< Use strafifed sampling
 
   // Debug paramters
-  int output_freq;
-  bool print_verbose;
-  bool print_mesh_info;
+  int output_freq; //!< How often to print temperature information
+  bool print_verbose; //!< Verbose printing flag
+  bool print_mesh_info; //!< Mesh information printing flag
 
   //parallel performance parameters
-  unsigned int map_size; //! Size of stored off-rank mesh cells
-  bool use_ghost_cells; //! Always keep first ghost cells
-  int check_frequency; //! How often to check for MPI passed data
+  unsigned int map_size; //!< Size of stored off-rank mesh cells
+  bool use_ghost_cells; //!< Always keep first ghost cells
+  int check_frequency; //!< How often to check for MPI passed data
 };
 
-#endif // Input_h_
+#endif // input_h_

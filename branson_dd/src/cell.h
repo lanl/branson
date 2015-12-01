@@ -1,14 +1,14 @@
 /*
   Author: Alex Long
   Date: 3/16/2015
-  Name: element.h
+  Name: cell.h
 */
 
-#ifndef element_h_
-#define element_h_
-
+#ifndef cell_h_
+#define cell_h_
 
 #include <iostream>
+
 #include "RNG.h"
 #include "constants.h"
 
@@ -18,35 +18,41 @@ template <typename T> int sgn(T val) {
 
 //==============================================================================
 /*!
- * \class Element
- * \brief Basic geometry unit, also holds physical data that is read only during transport.
+ * \class Cell
+ * \brief Basic geometry unit, holds physical data that is read only during 
+ * transport.
  *
- * A cartesian mesh cell. Holds location of each node, boundary information for each face,
- * opacity data and temperature data. The temperature data probably does not need to be
- * stored in an element because it's not essential information for transport.
+ * A cartesian mesh cell. Holds location of each node, boundary information for
+ * each face, opacity data and temperature data. The temperature data probably
+ * stored in an cell because it's not essential information for transport.
  */
 //==============================================================================
-class Element
+class Cell
 {
 
   public:
   
-  Element(void) {
+  Cell(void) {
     op_a = 0.0;
     op_s = 0.0;
     f = 0.0;
   }
 
-  ~Element(void) {}
+  ~Cell(void) {}
 
 /*****************************************************************************/
 /* const functions                                                           */
 /*****************************************************************************/
   Constants::bc_type get_bc(const unsigned int& dir) const {return bc[dir];}
-  unsigned int get_next_element(const unsigned int& dir) const {return e_next[dir];} 
+  unsigned int get_next_cell(const unsigned int& dir) const 
+  {
+    return e_next[dir];
+  } 
 
-  double get_distance_to_boundary(const double *pos, const double *angle, unsigned int& surface_cross) const {
-
+  double get_distance_to_boundary(const double *pos, 
+                                  const double *angle, 
+                                  unsigned int& surface_cross) const 
+  {
     double min_dist = 1.0e16;
     double dist = 0.0;
     unsigned int index;
@@ -62,18 +68,18 @@ class Element
     return min_dist;
   }
 
-  void uniform_position_in_elem(RNG* rng, double* pos) const {
+  void uniform_position_in_cell(RNG* rng, double* pos) const {
     pos[0]= nodes[0] + rng->generate_random_number()*(nodes[1]-nodes[0]);
     pos[1]= nodes[2] + rng->generate_random_number()*(nodes[3]-nodes[2]);
     pos[2]= nodes[4] + rng->generate_random_number()*(nodes[5]-nodes[4]);
   }
 
-  bool check_in_element(const double * pos) const {
-    bool in_element = true;
-    if (pos[0] < nodes[0] || pos[0] > nodes[1]) in_element = false;
-    if (pos[1] < nodes[2] || pos[1] > nodes[3]) in_element = false;
-    if (pos[2] < nodes[4] || pos[2] > nodes[5]) in_element = false;
-    return in_element;
+  bool check_in_cell(const double * pos) const {
+    bool in_cell = true;
+    if (pos[0] < nodes[0] || pos[0] > nodes[1]) in_cell = false;
+    if (pos[1] < nodes[2] || pos[1] > nodes[3]) in_cell = false;
+    if (pos[2] < nodes[4] || pos[2] > nodes[5]) in_cell = false;
+    return in_cell;
   }
 
   double get_cV(void) const {return cV;}
@@ -81,14 +87,17 @@ class Element
   double get_op_s(void) const {return op_s;}
   double get_f(void) const {return f;}
   double get_rho(void) const {return rho;}
-  double get_volume(void) const {return (nodes[1]-nodes[0])*(nodes[3]-nodes[2])*(nodes[5]-nodes[4]);}
+  double get_volume(void) const 
+  {
+    return (nodes[1]-nodes[0])*(nodes[3]-nodes[2])*(nodes[5]-nodes[4]);
+  }
   double get_T_e(void) const {return T_e;}
   double get_T_r(void) const {return T_r;}
   double get_T_s(void) const {return T_s;}
   unsigned int get_ID(void) const {return g_ID;}
 
   //override great than operator to sort
-  bool operator <(const Element& compare) const {
+  bool operator <(const Cell& compare) const {
     return g_ID < compare.get_ID();
   }
   
@@ -102,7 +111,8 @@ class Element
       if (bc[i] == PROCESSOR) boundary = true;
     }
     
-    cout<<my_rank<<" "<<nodes[0]<<" "<<nodes[2]<<" "<<nodes[4]<<" "<<g_ID<<" "<<boundary<<endl;
+    cout<<my_rank<<" "<<nodes[0]<<" "<<nodes[2]<<" "<<nodes[4]<<" ";
+    cout<<g_ID<<" "<<boundary<<endl;
     /*
     cout<<"Rank: "<<my_rank<<" Global ID: "<<g_ID<<endl;
     cout<<nodes[0]<<" "<<nodes[2]<<" "<<nodes[4]<<" "<<endl;
@@ -115,11 +125,11 @@ class Element
 /* non-const functions (set)                                                 */
 /*****************************************************************************/
   void set_neighbor(Constants::dir_type neighbor_dir, unsigned int index) {
-     e_next[neighbor_dir] = index;
+    e_next[neighbor_dir] = index;
   }
 
   void set_bc(Constants::dir_type direction, Constants::bc_type _bc) {
-     bc[direction] = _bc; 
+    bc[direction] = _bc; 
   }
 
   void set_op_a(double _op_a) {op_a = _op_a;}
@@ -131,7 +141,9 @@ class Element
   void set_T_r(double _T_r) {T_r = _T_r;}
   void set_T_s(double _T_s) {T_s = _T_s;}
   void set_ID(double _id) {g_ID = _id;}
-  void set_coor(double x_low, double x_high, double y_low, double y_high, double z_low, double z_high) {
+  void set_coor(double x_low, double x_high, double y_low, 
+                double y_high, double z_low, double z_high) 
+  {
     nodes[0] = x_low;
     nodes[1] = x_high;
     nodes[2] = y_low;
@@ -146,7 +158,7 @@ class Element
 /*****************************************************************************/
   private:
   unsigned int g_ID; //!< Global ID, valid across all ranks
-  unsigned int e_next[6]; //!< Bordering element, given as global ID
+  unsigned int e_next[6]; //!< Bordering cell, given as global ID
   Constants::bc_type bc[6];   //!< Boundary conditions for each face 
   double nodes[6]; //!< x_low, x_high, y_low, y_high, z_low, z_high
   
@@ -181,4 +193,4 @@ class Element
 };
 
 
-#endif // element_h_
+#endif // cell_h_
