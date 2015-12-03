@@ -17,11 +17,11 @@
 
 //==============================================================================
 /*!
- * \class Mesh
- * \brief Contains spatial information for a subdomain and handles communication
- * and storage of mesh information between subdomains
- *
- * The mesh object contains the cell data 
+ * \class Photon
+ * \brief Contains position, direction, cell ID and energy for transport.
+ * 
+ * Holds all of the internal state of a photon and provides functions for
+ * sorting photons based on census and global cell ID.
  */
 //==============================================================================
 class Photon
@@ -48,7 +48,7 @@ class Photon
   double get_E(void) const { return m_E;}
   double get_E0(void) const { return m_E0;}
   bool get_census_flag(void) const {return m_census_flag;}
-  double get_distance_remaining(void) const {return m_life_dx;}  
+  double get_distance_remaining(void) const {return m_life_dx;}
 
   void print_info(const unsigned int& rank) const {
     using std::cout;
@@ -127,7 +127,7 @@ class Photon
   double m_E; //!< current photon energy
   double m_E0; //!< photon energy at creation
 
-  double m_cell_ID; //!< Cell ID
+  unsigned int m_cell_ID; //!< Cell ID
   bool m_census_flag; //!< Flag for census, true if photon reaches census
   double m_life_dx; //!< Distance remaining this time step
 

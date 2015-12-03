@@ -6,18 +6,21 @@
 #include <time.h>
 #include <sys/time.h>
 
+#include "constants.h"
 #include "mesh.h"
+#include "mesh_cell_pass.h"
+#include "mesh_particle_pass.h"
 #include "imc_state.h"
 #include "timing_functions.h"
 #include "input.h"
 #include "decompose_mesh.h"
-#include "decompose_photons.h"
-#include "transport.h"
 
 using std::vector;
 using std::endl;
 using std::cout;
 using std::string;
+using Constants::PARTICLE_PASS;
+using Constants::CELL_PASS;
 
 namespace mpi = boost::mpi;
 
@@ -47,7 +50,13 @@ int main(int argc, char *argv[])
   imc_state = new IMC_State(input);
 
   // make mesh from input object
-  Mesh *mesh = new Mesh(input);
+  Mesh *mesh;
+  if (input->get_dd_mode() == PARTICLE_PASS)
+    Mesh *mesh = new Mesh_Particle_Pass(input, rank, size);
+  else if (input->get_dd_mode() == CELL_PASS)
+    Mesh *mesh = new Mesh_Cell_Pass(input, rank, size);
+  else 
+    cout<<"Error: DD type not recognized"
 
   // decompose mesh with ParMETIS and Boost MPI
   decompose_mesh(mesh, world, argc, argv);
@@ -62,81 +71,13 @@ int main(int argc, char *argv[])
 
 /******************************************************************************/ 
 // TRT PHYSICS CALCULATION
-/******************************************************************************/ 
-  vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
-  Photon* photon_vec;
-  Photon* census_list;
-  unsigned int n_photon;
+/******************************************************************************/
+  
+  if (input->get_dd_mode() == PARTICLE_PASS)
+    imc_particle_pass(mesh);
+  else if (input->get_dd_mode() == CELL_PASS)
+    imc_cell_pass(mesh);
 
-  while (!imc_state->finished())
-  {
-    if (rank==0) imc_state->print_timestep_header();
-
-    //set opacity, Fleck factor all energy to source
-    mesh->calculate_photon_energy(imc_state);
-
-    //all reduce to get total source energy to make correct number of
-    //particles on each rank
-    double global_source_energy = mesh->get_total_photon_E();
-    MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, 
-                              &global_source_energy, 
-                              1, 
-                              MPI_DOUBLE, 
-                              MPI_SUM);
-
-    //make photons on mesh owned by rank
-    if (!input->get_stratified_bool()) make_photons(mesh, 
-                                                    imc_state, 
-                                                    photon_vec, n_photon, 
-                                                    global_source_energy);
-    else make_stratified_photons( mesh, 
-                                  imc_state, 
-                                  photon_vec, 
-                                  n_photon, 
-                                  global_source_energy);
-
-    imc_state->set_transported_photons(n_photon);
-    //append census list to photon vector, rebalance
-    if (imc_state->get_step() > 1) {
-      unsigned int n_census = imc_state->get_census_size();
-      imc_state->set_pre_census_E(get_photon_list_energy(census_list, n_census));
-      imc_state->set_transported_photons(n_photon + n_census);
-      //rebalances census photons, adds new census to photon vector
-      on_rank_rebalance_photons(photon_vec, n_photon, census_list, n_census, mesh, world);
-    }
-
-    proto_load_balance_photons( photon_vec, 
-                                n_photon, 
-                                mesh, 
-                                world);
-
-    //cout<<"Rank: "<<rank<<" about to transport ";
-    //cout<<n_photon<<" particles."<<endl;
-
-    //cell properties are set in calculate_photon_energy. 
-    //make sure everybody gets here together so that windows are not changing 
-    //when transport starts
-    MPI::COMM_WORLD.Barrier();
-
-    //transport photons
-    transport_photons(photon_vec, n_photon, mesh, imc_state, abs_E, 
-                      census_list, input->get_check_frequency(), world);
-
-    //using MPI_IN_PLACE allows the same vector to send and be overwritten
-    MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(), MPI_DOUBLE, MPI_SUM);
-
-    //cout<<"updating temperature..."<<endl;
-    mesh->update_temperature(abs_E, imc_state);
-
-    imc_state->print_conservation();
-
-    //purge the working mesh, it will be updated by other ranks and is now 
-    //invalid
-    mesh->purge_working_mesh();
-
-    //update time for next step
-    imc_state->next_time_step();
-  }
 
   if (rank==0) {
     gettimeofday(&end, &tzp);

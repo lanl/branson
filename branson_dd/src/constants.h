@@ -18,9 +18,11 @@ const double a_SO(1.0); //!< Boltzmann constant for SO problems
 
 enum bc_type {REFLECT, VACUUM, ELEMENT, PROCESSOR}; //!< Boundary conditions
 enum dir_type {X_NEG, X_POS, Y_NEG, Y_POS, Z_NEG, Z_POS}; //<! Directions
+enum {PARTICLE_PASS, CELL_PASS};
 const int cell_tag(1);
 const int cell_id_tag(2);
 const int finish_tag(3);
+const int proc_null(1000000000); //!< High number unlikely to be used
 };
 
-#endif
+#endif // constants_h_
