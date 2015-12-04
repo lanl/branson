@@ -17,6 +17,8 @@
 #include <vector>
 
 
+#include "mesh.h"
+
 namespace mpi = boost::mpi;
 
 void print_MPI_out(Mesh *mesh, unsigned int rank, unsigned int size) {

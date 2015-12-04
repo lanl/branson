@@ -15,7 +15,6 @@
 
 #include "constants.h"
 #include "mesh.h"
-#include "mesh_cell_pass.h"
 #include "sampling_functions.h"
 #include "RNG.h"
 #include "request.h"
@@ -23,7 +22,7 @@
 namespace mpi = boost::mpi;
 
 bool transport_single_photon( Photon* iphtn,
-                              Mesh_Cell_Pass* mesh,
+                              Mesh* mesh,
                               RNG* rng,
                               double& next_dt,
                               double& exit_E,
@@ -128,7 +127,7 @@ bool transport_single_photon( Photon* iphtn,
 
 void transport_photons(Photon*& photon_vec,
                         unsigned int n_photon,
-                        Mesh_Cell_Pass* mesh,
+                        Mesh* mesh,
                         IMC_State* imc_state,
                         std::vector<double>& rank_abs_E,
                         Photon*& census_list,

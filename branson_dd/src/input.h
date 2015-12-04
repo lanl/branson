@@ -34,6 +34,8 @@ class Input
     using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT;
     using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
     using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
+    using Constants::PARTICLE_PASS;
+    using Constants::CELL_PASS;
     using std::cout;  
     using std::endl;
 
@@ -64,19 +66,27 @@ class Input
                                                 std::string("TRUE"));
         if (tempString == "TRUE") use_comb= 1;
         else use_comb = 0;
+
         //stratified sampling
         tempString = v.second.get<std::string>("stratified_sampling", 
                                                 std::string("FALSE"));
         if (tempString == "TRUE") use_strat= true;
         else use_strat = false;
+
         //ghost map flag
         tempString = v.second.get<std::string>("use_ghost_map", 
                                                std::string("FALSE"));
         if (tempString == "TRUE") use_ghost_cells= true;
         else use_ghost_cells = false;
+
         //check MPI message frequency
         check_frequency = v.second.get<int>("check_MPI_frequency", 1);
 
+        // domain decomposed transport aglorithm
+        tempString = v.second.get<std::string>("dd_transport_type", 
+                                               std::string("CELL_PASS"));
+        if (tempString == "CELL_PASS") dd_mode = CELL_PASS;
+        else dd_mode = PARTICLE_PASS;
       } //end common
 
       //read in basic problem parameters      
@@ -138,7 +148,6 @@ class Input
           cout<<"Boundary type not reconginzed"<<endl;
           exit(EXIT_FAILURE);
         }
-
       }
       
       //read in material data
@@ -169,6 +178,8 @@ class Input
     using Constants::c;
     using std::cout;  
     using std::endl;
+    using Constants::PARTICLE_PASS;
+    using Constants::CELL_PASS;
 
     cout<<"Problem Specifications:";
     cout<<"Constants -- c: "<<c<<" (cm/sh) , a: "<<a <<endl;
@@ -204,12 +215,20 @@ class Input
     cout<<" opacity constants: "<<opacA<<" + "<<opacB<<"^"<<opacC;
     cout<<", scattering opacity: "<<opacS<<endl;
     
-    cout<<"Parallel Information -- map size: "<<map_size;
-    cout<<", make ghost cell map: ";
-    if (use_ghost_cells) cout<<"TRUE";
-    else cout<<"FALSE";
-    cout<<",  Check MPI message freqeuncy: "<<check_frequency;
-    cout<<endl;
+    cout<<"Parallel Information -- DD algorithm: ";
+    if (dd_mode == CELL_PASS) {
+      cout<<"CELL PASSING"<<endl;
+      cout<<"map size: "<<map_size;
+      cout<<",  make ghost cell map: ";
+      if (use_ghost_cells) cout<<"TRUE";
+      else cout<<"FALSE";
+      cout<<", Check MPI message freqeuncy: "<<check_frequency;
+      cout<<endl;
+    }
+    else {
+      cout<<"PARTICLE PASSING"<<endl;
+      cout<<"(Currently there are no parameters for this method)"<<endl;
+    }
 
     cout<<endl;
   }
@@ -259,6 +278,7 @@ class Input
   }
   
   unsigned int get_map_size(void) const {return map_size;}
+  unsigned int get_dd_mode(void) const {return dd_mode;}
 
   private:
 
@@ -304,13 +324,14 @@ class Input
   bool use_comb; //!< Comb census photons
   bool use_strat; //!< Use strafifed sampling
 
-  // Debug paramters
+  // Debug parameters
   int output_freq; //!< How often to print temperature information
   bool print_verbose; //!< Verbose printing flag
   bool print_mesh_info; //!< Mesh information printing flag
 
   //parallel performance parameters
   unsigned int map_size; //!< Size of stored off-rank mesh cells
+  unsigned int dd_mode; //!< Mode of domain decomposed transport algorithm
   bool use_ghost_cells; //!< Always keep first ghost cells
   int check_frequency; //!< How often to check for MPI passed data
 };

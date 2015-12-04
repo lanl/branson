@@ -10,7 +10,6 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <omp.h>
 
 #include "input.h"
 #include "photon.h"

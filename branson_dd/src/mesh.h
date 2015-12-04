@@ -171,11 +171,6 @@ class Mesh {
   
   }
 
-
-
-
-
-
   //free buffers and delete MPI allocated cell
   ~Mesh() {
     delete[] r_cell_reqs;
@@ -255,7 +250,7 @@ class Mesh {
     return  (index>=on_rank_start) && (index<=on_rank_end) ; 
   }
 
-  void print_map(void) const {
+  void print_map(void)  {
     for ( std::map<unsigned int,Cell>::iterator map_i =
       stored_cells.begin();
       map_i!=stored_cells.end(); map_i++)
@@ -623,6 +618,9 @@ class Mesh {
   std::vector<double>& get_census_E_ref(void) {return m_census_E;}
   std::vector<double>& get_emission_E_ref(void) {return m_emission_E;}
   std::vector<double>& get_source_E_ref(void) {return m_source_E;}
+  std::vector<double> get_census_E(void) const {return m_census_E;}
+  std::vector<double> get_emission_E(void) const {return m_emission_E;}
+  std::vector<double> get_source_E(void) const {return m_source_E;}
 
 /*****************************************************************************/
   //member variables

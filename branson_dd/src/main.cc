@@ -7,13 +7,13 @@
 #include <sys/time.h>
 
 #include "constants.h"
-#include "mesh.h"
-#include "mesh_cell_pass.h"
-#include "mesh_particle_pass.h"
-#include "imc_state.h"
-#include "timing_functions.h"
-#include "input.h"
 #include "decompose_mesh.h"
+#include "imc_drivers.h"
+#include "imc_state.h"
+#include "imc_parameters.h"
+#include "input.h"
+#include "mesh.h"
+#include "timing_functions.h"
 
 using std::vector;
 using std::endl;
@@ -45,18 +45,17 @@ int main(int argc, char *argv[])
   input = new Input(filename);
   if(rank ==0) input->print_problem_info();
 
+  //IMC paramters setup
+  IMC_Parameters *imc_p;
+  imc_p = new IMC_Parameters(input);
+
   //IMC state setup
   IMC_State *imc_state;
   imc_state = new IMC_State(input);
 
+
   // make mesh from input object
-  Mesh *mesh;
-  if (input->get_dd_mode() == PARTICLE_PASS)
-    Mesh *mesh = new Mesh_Particle_Pass(input, rank, size);
-  else if (input->get_dd_mode() == CELL_PASS)
-    Mesh *mesh = new Mesh_Cell_Pass(input, rank, size);
-  else 
-    cout<<"Error: DD type not recognized"
+  Mesh *mesh = new Mesh(input, rank, size);
 
   // decompose mesh with ParMETIS and Boost MPI
   decompose_mesh(mesh, world, argc, argv);
@@ -72,12 +71,11 @@ int main(int argc, char *argv[])
 /******************************************************************************/ 
 // TRT PHYSICS CALCULATION
 /******************************************************************************/
-  
-  if (input->get_dd_mode() == PARTICLE_PASS)
-    imc_particle_pass(mesh);
-  else if (input->get_dd_mode() == CELL_PASS)
-    imc_cell_pass(mesh);
 
+  if (input->get_dd_mode() == PARTICLE_PASS)
+    imc_particle_pass_driver(rank, mesh, imc_state, imc_p, world);
+  else if (input->get_dd_mode() == CELL_PASS)
+    imc_cell_pass_driver(rank, mesh, imc_state, imc_p, world);
 
   if (rank==0) {
     gettimeofday(&end, &tzp);
@@ -89,5 +87,7 @@ int main(int argc, char *argv[])
 
   MPI::COMM_WORLD.Barrier();
   delete mesh;
+  delete imc_state;
+  delete imc_p;
   MPI::Finalize();
 }
