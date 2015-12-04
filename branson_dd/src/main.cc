@@ -53,7 +53,6 @@ int main(int argc, char *argv[])
   IMC_State *imc_state;
   imc_state = new IMC_State(input);
 
-
   // make mesh from input object
   Mesh *mesh = new Mesh(input, rank, size);
 
@@ -61,7 +60,7 @@ int main(int argc, char *argv[])
   decompose_mesh(mesh, world, argc, argv);
 
   MPI::COMM_WORLD.Barrier();
-  //print_MPI_out(mesh, rank, size);  
+  //print_MPI_out(mesh, rank, size);
 
   //timing 
   struct timeval start,end;

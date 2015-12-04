@@ -80,7 +80,11 @@ void imc_cell_pass_driver(const int& rank,
                       census_list, imc_p->get_check_frequency(), world);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
-    MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(), MPI_DOUBLE, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, 
+                              &abs_E[0], 
+                              mesh->get_global_num_cells(), 
+                              MPI_DOUBLE, 
+                              MPI_SUM);
 
     //cout<<"updating temperature..."<<endl;
     mesh->update_temperature(abs_E, imc_state);
