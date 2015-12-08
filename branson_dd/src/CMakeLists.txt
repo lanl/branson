@@ -9,10 +9,10 @@ project (BRANSON)
 message ("Compiler: " ${CMAKE_CXX_COMPILER} )
 
 # add compiler flags
-SET( DEBUG_FLAGS -gdwarf-3)
-SET( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
-SET( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
-SET( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${DEBUG_FLAGS}" )
+set( DEBUG_FLAGS -gdwarf-3)
+set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
+#set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
+set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${DEBUG_FLAGS}" )
 message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
 
 #set version number
@@ -48,13 +48,13 @@ link_directories(${PARMETIS_LIBRARY_DIR})
 
 # add Boost library
 #set(BOOST_ROOT /projects/opt/boost/1.58.0/draco/vendors/boost-1.58.0)
-#set(BOOST_ROOT /usr/projects/draco/vendors/boost-1.58.0/openmpi-1.6.5-intel-14/ )
+#set(BOOST_ROOT /usr/projects/draco/vendors/boost-1.59.0/moonlight-openmpi-1.6.5-intel-15.0.3)
 set(BOOST_ROOT /users/along/boost/boost_install)
 
 #set(BOOST_ROOT /usr/lib/i386-linux-gnu)
 #set(BOOST_ROOT $ENV{BOOST_ROOT})
 #message ("Boost Root: " ${BOOST_ROOT})
-set(Boost_NO_SYSTEM_PATH ON)
+#set(Boost_NO_SYSTEM_PATH ON)
 #find_package(Boost 1.58.0 COMPONENTS mpi REQUIRED)
 set(Boost_INCLUDE_DIR ${BOOST_ROOT}/include)
 set(Boost_LIBRARY_DIR ${BOOST_ROOT}/lib)
@@ -64,9 +64,17 @@ link_directories(${Boost_LIBRARY_DIR})
 #message ("Boost Flags: " ${Boost_INCLUDE_DIRS} " " ${Boost_VERSION} )
 message ("Boost Libraries: " ${Boost_LIBRARIES})
 
+# add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
+#SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+
 add_executable(BRANSON main.cc)
 target_link_libraries(BRANSON parmetis)
 target_link_libraries(BRANSON metis)
 target_link_libraries(BRANSON boost_mpi-mt)
 target_link_libraries(BRANSON boost_serialization-mt)
 target_link_libraries(BRANSON boost_wserialization-mt)
+
+
+#install(TARGETS BRANSON DESTINATION bin)
