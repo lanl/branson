@@ -11,6 +11,7 @@
 #include "imc_state.h"
 #include "imc_parameters.h"
 #include "mesh.h"
+#include "RNG.h"
 #include "source.h"
 #include "transport.h"
 //#include "transport_particle_pass.h"
@@ -129,6 +130,11 @@ void imc_particle_pass_driver(const int& rank,
 
 
     Source source(mesh, imc_state, global_source_energy);
+    RNG * rng = imc_state->get_rng();
+
+    for (unsigned int i=0; i<source.get_n_photon();i++) {
+      Photon photon= source.get_photon(rng, imc_state->get_dt() );
+    }
 
     //update time for next step
     imc_state->next_time_step();

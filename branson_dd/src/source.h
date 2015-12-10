@@ -71,17 +71,25 @@ class Source {
   }
   ~Source() {}
 
+  unsigned int get_n_photon(void) const {return n_photon;}
+
   Photon get_photon(RNG *rng, const double& dt) {
     Photon return_photon;
+    //check to increment cell
     if (n_p_in_cell == n_p_cell[icell]) {
       icell++; 
       cell = mesh->get_cell(icell);
       n_p_in_cell=0;
     }
-    if (n_p_in_cell < n_p_cell_emission[icell]) 
+    // get correct photon
+    if (n_p_in_cell < n_p_cell_emission[icell]) {
       return_photon = get_emission_photon(cell, emission_phtn_E, dt, rng);
-    else 
+      n_p_in_cell++;
+    }
+    else {
       return_photon = get_census_photon(cell, census_phtn_E, dt, rng);
+      n_p_in_cell++;
+    }
     return return_photon;
   }
 
@@ -124,7 +132,7 @@ class Source {
   }
  
   private:
-  const Mesh const *mesh;
+  const Mesh * const mesh;
   unsigned int icell;
   Cell cell; 
   unsigned int n_p_in_cell;
