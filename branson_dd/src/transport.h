@@ -7,12 +7,76 @@
 #ifndef transport_h_
 #define transport_h_
 
+#include <vector>
+
+#include "photon.h"
+
 double get_photon_list_energy(Photon* photon_list, const unsigned int& n_photon) {
   double list_E = 0.0;
   for (unsigned int iphtn=0; iphtn<n_photon; iphtn++)
     list_E += photon_list[iphtn].get_E();
   return list_E;
 }
+
+double get_photon_list_E(std::vector<Photon> photons) {
+  double total_E = 0.0;
+  for (std::vector<Photon>::iterator iphtn=photons.begin(); 
+      iphtn<photons.end(); 
+      iphtn++)
+    total_E += iphtn->get_E();
+  return total_E;
+}
+
+
+std::vector<Photon> make_initial_census_photons(Mesh* mesh, 
+                                          IMC_State* imc_state, 
+                                          const double& total_E, 
+                                          const unsigned int& n_user_photon) {
+  using std::vector;
+  using Constants::c;
+
+  vector<double> census_E = mesh->get_census_E_ref();
+
+  unsigned int n_cell =mesh->get_number_of_objects();
+
+  double delta_t = imc_state->get_dt();
+
+  RNG *rng = imc_state->get_rng(); 
+
+  vector<Photon> census_photons;
+
+  // make the photons
+  Cell cell;
+  double pos[3]; double angle[3];
+  unsigned int g_ID;
+  unsigned int p_index =0;
+  for (unsigned int icell = 0; icell<n_cell; icell++) {
+    cell = mesh->get_cell(icell);
+    g_ID = cell.get_ID();
+
+    //Census photons scope
+    if (census_E[icell] > 0.0) { 
+      unsigned int t_num_census = int(n_user_photon*census_E[icell]/total_E);
+      if (t_num_census == 0) t_num_census =1;
+      double census_phtn_E = census_E[icell] / t_num_census;
+      for (unsigned int iphtn = 0; iphtn< t_num_census; ++iphtn) {
+        cell.uniform_position_in_cell(rng, pos);
+        get_uniform_angle(angle, rng);
+        Photon census_photon;
+        census_photon.set_position(pos);
+        census_photon.set_angle(angle);
+        census_photon.set_E0(census_phtn_E);
+        census_photon.set_distance_to_census(c*delta_t);
+        census_photon.set_cell(g_ID);
+        census_photons.push_back(census_photon);
+        p_index++;
+      }
+    }
+  } //end cell loop
+  return census_photons;
+}
+
+
 
 void make_photons(Mesh* mesh, IMC_State* imc_state, Photon*& phtn_vec, unsigned int& n_photon, const double& total_E)
 {

@@ -14,7 +14,7 @@
 #include "RNG.h"
 #include "source.h"
 #include "transport.h"
-//#include "transport_particle_pass.h"
+#include "transport_particle_pass.h"
 #include "transport_mesh_pass.h"
 
 namespace mpi = boost::mpi;
@@ -107,9 +107,11 @@ void imc_particle_pass_driver(const int& rank,
                               IMC_State *imc_state,
                               IMC_Parameters *imc_p,
                               mpi::communicator world) {
+
   using std::vector;
+
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
-  unsigned int n_photon;
+  vector<Photon> census_photons;
 
   while (!imc_state->finished())
   {
@@ -117,7 +119,7 @@ void imc_particle_pass_driver(const int& rank,
 
     //set opacity, Fleck factor, all energy to source
     mesh->calculate_photon_energy(imc_state);
-    
+
     //all reduce to get total source energy to make correct number of
     //particles on each rank
     double global_source_energy = mesh->get_total_photon_E();
@@ -127,16 +129,31 @@ void imc_particle_pass_driver(const int& rank,
                               MPI_DOUBLE, 
                               MPI_SUM);
 
+    //make initial census photons
+    //on subsequent timesteps, this comes from transport
+    if (imc_state->get_step() ==1)
+      census_photons = make_initial_census_photons(mesh, 
+                                                  imc_state, 
+                                                  global_source_energy,
+                                                  imc_p->get_n_user_photon());
 
+    imc_state->set_pre_census_E(get_photon_list_E(census_photons)); 
 
-    Source source(mesh, imc_state, global_source_energy);
-    RNG * rng = imc_state->get_rng();
+    Source source(mesh, imc_state, global_source_energy, census_photons);
 
-    for (unsigned int i=0; i<source.get_n_photon();i++) {
-      Photon photon= source.get_photon(rng, imc_state->get_dt() );
-    }
+    imc_state->set_transported_photons(source.get_n_photon());
 
+    census_photons = transport_photons( source, 
+                                        mesh, 
+                                        imc_state, 
+                                        abs_E, 
+                                        imc_p->get_check_frequency(),
+                                        world);
+    
+    mesh->update_temperature(abs_E, imc_state);
     //update time for next step
+    
+    imc_state->print_conservation();
     imc_state->next_time_step();
   }
 }

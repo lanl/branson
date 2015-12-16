@@ -33,7 +33,6 @@ bool transport_single_photon( Photon* iphtn,
 {
   using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT; 
   using Constants::PROCESSOR;
-  using Constants::finish_tag;
   using Constants::bc_type;
   using Constants::c;
   using std::min;
@@ -154,7 +153,7 @@ void transport_photons(Photon*& photon_vec,
 
   vector<vector<bool> > r_finished;
   vector<bool> b_r_finished(n_rank-1, false);
-  for (unsigned int ir=0; ir<n_rank-1; ir++) {
+  for (int ir=0; ir<n_rank-1; ir++) {
     vector<bool> empty_bool_cell;
     r_finished.push_back(empty_bool_cell); 
   }
@@ -163,10 +162,10 @@ void transport_photons(Photon*& photon_vec,
   mpi::request *r_finished_reqs = new mpi::request[ (n_rank-1)];
 
   // Post the receive calls for finished message
-  for (unsigned int ir=0; ir<n_rank; ir++) {
+  for (int ir=0; ir<n_rank; ir++) {
     if (ir != rank) {
       //get correct index into requests and vectors 
-      unsigned int r_index = ir - (ir>rank);
+      int r_index = ir - (ir>rank);
       r_finished_reqs[r_index] = world.irecv(ir, finish_tag, r_finished[r_index]);
     }
   }
@@ -240,10 +239,10 @@ void transport_photons(Photon*& photon_vec,
 
   // This rank is finished transporting, post finished
   vector<bool> s_bool(1,true);
-  for (unsigned int ir=0; ir<n_rank; ir++) {
+  for (int ir=0; ir<n_rank; ir++) {
     if (ir != rank) {
       //get correct index into requests and vectors 
-      unsigned int r_index = ir - (ir>rank);
+      int r_index = ir - (ir>rank);
       s_finished_reqs[r_index] = world.isend(ir, finish_tag, s_bool);
     }
   }
@@ -252,10 +251,10 @@ void transport_photons(Photon*& photon_vec,
   bool all_finished = false;
   while (!all_finished) {
     mesh->process_mesh_requests(world);
-    for (unsigned int ir=0; ir<n_rank; ir++) {
+    for (int ir=0; ir<n_rank; ir++) {
       if (ir != rank) {
         //get correct index into requests and vectors 
-        unsigned int r_index = ir - (ir>rank);
+        int r_index = ir - (ir>rank);
         //don't check message if it's been received
         if (!b_r_finished[r_index]) {
           if (r_finished_reqs[r_index].test()) {

@@ -237,6 +237,10 @@ class Mesh {
     return r_rank;
   }
 
+  unsigned int get_local_ID(const unsigned int& index) const {
+    return index-on_rank_start;
+  }
+
   Cell get_on_rank_cell(const unsigned int& index) {
     //this can only be called with valid on rank indexes
     if (on_processor(index)) 
@@ -244,7 +248,6 @@ class Mesh {
     else 
       return stored_cells[index];
   }
-
 
   bool on_processor(const unsigned int& index) const { 
     return  (index>=on_rank_start) && (index<=on_rank_end) ; 

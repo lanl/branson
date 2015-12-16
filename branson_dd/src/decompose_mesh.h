@@ -62,8 +62,8 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   using std::map;
   using std::partial_sum;
   
-  unsigned int rank = MPI::COMM_WORLD.Get_rank();
-  unsigned int nrank = MPI::COMM_WORLD.Get_size();
+  int rank = MPI::COMM_WORLD.Get_rank();
+  int nrank = MPI::COMM_WORLD.Get_size();
   MPI_Comm comm = MPI::COMM_WORLD.Dup();
 
   //begin PARMETIS routines
@@ -111,10 +111,10 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   int nparts = nrank; //sub-domains = nrank
 
   float *tpwgts = new float[nparts];
-  for (unsigned int i=0; i<nparts; i++) tpwgts[i]=1.0/nparts;
+  for (int i=0; i<nparts; i++) tpwgts[i]=1.0/nparts;
 
   float *ubvec = new float[ncon];
-  for (unsigned int i=0; i<ncon; i++) ubvec[i]=1.05;
+  for (int i=0; i<ncon; i++) ubvec[i]=1.05;
 
   int options[3];
   options[0] = 1; // 0--use default values, 1--use the values in 1 and 2
@@ -141,8 +141,8 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
                         &comm); // MPI communicator
 
   //send cells to other processors
-  for (unsigned int send_rank =0; send_rank<nrank; send_rank++) {
-    for (unsigned int recv_rank =0; recv_rank<nrank; recv_rank++) {
+  for (int send_rank =0; send_rank<nrank; send_rank++) {
+    for (int recv_rank =0; recv_rank<nrank; recv_rank++) {
       if (  (send_rank != recv_rank)  && (rank == send_rank || rank == recv_rank) ) {
         if(rank == send_rank) {
           vector<Cell> send_list;
@@ -193,8 +193,8 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   //this involves sending maps to each processor to get new indicies
   map<unsigned int, unsigned int> local_map = mesh->get_map();
   // Send maps
-  for (unsigned int send_rank =0; send_rank<nrank; send_rank++) {
-    for (unsigned int recv_rank =0; recv_rank<nrank; recv_rank++) {
+  for (int send_rank =0; send_rank<nrank; send_rank++) {
+    for (int recv_rank =0; recv_rank<nrank; recv_rank++) {
       if (  (send_rank != recv_rank)  && (rank == send_rank || rank == recv_rank) ) {
         if(rank == send_rank) {
           world.send(recv_rank, 0, local_map);

@@ -10,6 +10,7 @@
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/foreach.hpp>
+#include <iostream>
 #include <stdlib.h>
 #include <string>
 
