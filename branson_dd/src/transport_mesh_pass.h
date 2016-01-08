@@ -130,7 +130,7 @@ void transport_photons(Photon*& photon_vec,
                         IMC_State* imc_state,
                         std::vector<double>& rank_abs_E,
                         Photon*& census_list,
-                        int chk_freq,
+                        unsigned int batch_size,
                         mpi::communicator world)
 {
   using Constants::finish_tag;
@@ -193,9 +193,9 @@ void transport_photons(Photon*& photon_vec,
       wait_list.push(iphtn);
     }
 
-    // with some frequency, check for requests and try to transport the
+    // run a batch of particles then check for requests and try to transport the
     // waiting list
-    if (i%chk_freq == 0) {
+    if (i%batch_size == 0) {
       new_data = mesh->process_mesh_requests(world);
       // if data was received, try to transport photons on waiting list
       if (new_data) {

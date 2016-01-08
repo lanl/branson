@@ -11,7 +11,7 @@ class Buffer {
 
   public:
   Buffer() 
-  : status(CREATED)
+  : status(EMPTY)
     {}
   ~Buffer() {}
  
@@ -22,8 +22,7 @@ class Buffer {
 
   std::vector<T>& get_buffer (void) {return object;}
 
-  void reset(void) {status=CREATED;} 
-
+  void reset(void) {object.clear(); status=EMPTY;} 
   void set_sent(void) {status = SENT;}
   void set_received(void) {status = RECEIVED;}
   void set_awaiting(void) {status = AWAITING;}
@@ -32,13 +31,13 @@ class Buffer {
   bool awaiting(void) {return status == AWAITING;}
   bool ready(void) {return status == READY;}
   bool received(void) {return status == RECEIVED;}
-  bool empty(void) {return status == CREATED;}
+  bool empty(void) {return status == EMPTY;}
 
 
   private:
   std::vector<T> object;
   unsigned int status;
-  enum {CREATED, READY, SENT, AWAITING, RECEIVED};
+  enum {EMPTY, READY, SENT, AWAITING, RECEIVED};
 
 };
 

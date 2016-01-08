@@ -118,7 +118,7 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
 
   int options[3];
   options[0] = 1; // 0--use default values, 1--use the values in 1 and 2
-  options[1] = 0; //output level
+  options[1] = 3; //output level
   options[2] = 1242; //random number seed
   
   int edgecut =0; 
@@ -140,34 +140,37 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
                         part,       // OUTPUT: partition of each vertex
                         &comm); // MPI communicator
 
-  //send cells to other processors
-  for (int send_rank =0; send_rank<nrank; send_rank++) {
-    for (int recv_rank =0; recv_rank<nrank; recv_rank++) {
-      if (  (send_rank != recv_rank)  && (rank == send_rank || rank == recv_rank) ) {
-        if(rank == send_rank) {
-          vector<Cell> send_list;
-          for (unsigned int i=0; i<ncell_on_rank; i++) {
-            if(part[i] == recv_rank)
-              send_list.push_back(mesh->get_pre_cell(i));
-          }
-          world.send(recv_rank, 0, send_list);
-          //Erase these cells from the mesh
-          for (unsigned int i=0; i<ncell_on_rank; i++) {
-            if(part[i] == recv_rank) mesh->remove_cell(i);
-          }
-        }
-        // rank == recv_rank
-        else {
-          vector<Cell> recv_list;
-          world.recv(send_rank, 0, recv_list);
-          // add these cells to the mesh
-          for (unsigned int i = 0; i< recv_list.size(); i++) 
-            mesh->add_mesh_cell(recv_list[i]);
-        }
-      } //send_rank != recv_rank
-    } // loop over recv_ranks
-  } // loop over send ranks
+  //if edgecuts are made (edgecut > 0) send cells to other processors
+  //otherwise mesh is already partitioned
 
+  if (edgecut) {
+    for (int send_rank =0; send_rank<nrank; send_rank++) {
+      for (int recv_rank =0; recv_rank<nrank; recv_rank++) {
+        if (  (send_rank != recv_rank)  && (rank == send_rank || rank == recv_rank) ) {
+          if(rank == send_rank) {
+            vector<Cell> send_list;
+            for (unsigned int i=0; i<ncell_on_rank; i++) {
+              if(part[i] == recv_rank)
+                send_list.push_back(mesh->get_pre_cell(i));
+            }
+            world.send(recv_rank, 0, send_list);
+            //Erase these cells from the mesh
+            for (unsigned int i=0; i<ncell_on_rank; i++) {
+              if(part[i] == recv_rank) mesh->remove_cell(i);
+            }
+          }
+          // rank == recv_rank
+          else {
+            vector<Cell> recv_list;
+            world.recv(send_rank, 0, recv_list);
+            // add these cells to the mesh
+            for (unsigned int i = 0; i< recv_list.size(); i++) 
+              mesh->add_mesh_cell(recv_list[i]);
+          }
+        } //send_rank != recv_rank
+      } // loop over recv_ranks
+    } // loop over send ranks
+  }
   //update the cell list on each processor
   mesh->update_mesh();
 

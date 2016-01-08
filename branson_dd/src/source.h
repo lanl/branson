@@ -122,7 +122,7 @@ class Source {
     emission_photon.set_position(pos);
     emission_photon.set_angle(angle);
     emission_photon.set_E0(phtn_E);
-    emission_photon.set_distance_to_census(c*dt);
+    emission_photon.set_distance_to_census(rng->generate_random_number()*c*dt);
     emission_photon.set_cell(cell.get_ID());
     return emission_photon;
   }

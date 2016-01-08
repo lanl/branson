@@ -22,7 +22,7 @@ namespace mpi = boost::mpi;
 void imc_cell_pass_driver(const int& rank, 
                           Mesh *mesh, 
                           IMC_State *imc_state,
-                          IMC_Parameters *imc_p,
+                          IMC_Parameters *imc_parameters,
                           mpi::communicator world) {
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
@@ -78,7 +78,7 @@ void imc_cell_pass_driver(const int& rank,
 
     //transport photons
     transport_photons(photon_vec, n_photon, mesh, imc_state, abs_E, 
-                      census_list, imc_p->get_check_frequency(), world);
+                      census_list, imc_parameters->get_batch_size(), world);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
     MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, 
@@ -90,7 +90,7 @@ void imc_cell_pass_driver(const int& rank,
     //cout<<"updating temperature..."<<endl;
     mesh->update_temperature(abs_E, imc_state);
 
-    imc_state->print_conservation();
+    imc_state->print_conservation(imc_parameters->get_dd_mode());
 
     //purge the working mesh, it will be updated by other ranks and is now 
     //invalid
@@ -105,7 +105,7 @@ void imc_cell_pass_driver(const int& rank,
 void imc_particle_pass_driver(const int& rank, 
                               Mesh *mesh, 
                               IMC_State *imc_state,
-                              IMC_Parameters *imc_p,
+                              IMC_Parameters *imc_parameters,
                               mpi::communicator world) {
 
   using std::vector;
@@ -135,7 +135,7 @@ void imc_particle_pass_driver(const int& rank,
       census_photons = make_initial_census_photons(mesh, 
                                                   imc_state, 
                                                   global_source_energy,
-                                                  imc_p->get_n_user_photon());
+                                                  imc_parameters->get_n_user_photon());
 
     imc_state->set_pre_census_E(get_photon_list_E(census_photons)); 
 
@@ -146,14 +146,14 @@ void imc_particle_pass_driver(const int& rank,
     census_photons = transport_photons( source, 
                                         mesh, 
                                         imc_state, 
+                                        imc_parameters,
                                         abs_E, 
-                                        imc_p->get_check_frequency(),
                                         world);
     
     mesh->update_temperature(abs_E, imc_state);
     //update time for next step
     
-    imc_state->print_conservation();
+    imc_state->print_conservation(imc_parameters->get_dd_mode());
     imc_state->next_time_step();
   }
 }

@@ -13,6 +13,7 @@
 
 #include "input.h"
 #include "photon.h"
+#include "constants.h"
 #include "RNG.h"
 
 class IMC_State
@@ -80,9 +81,11 @@ class IMC_State
 /*****************************************************************************/
 /* non-const functions                                                       */
 /*****************************************************************************/
-  void print_conservation() {
+  void print_conservation(unsigned int dd_type ) {
     using std::cout;
     using std::endl;
+    using Constants::PARTICLE_PASS;
+    using Constants::CELL_PASS;
 
     //define global value
     double g_absorbed_E=0.0; 
@@ -95,7 +98,14 @@ class IMC_State
     unsigned int g_census_size=0;
     unsigned int g_off_rank_reads=0;
     unsigned int g_trans_photons=0;
-    //reduce all of the values
+    unsigned int g_n_photon_messages=0;
+    unsigned int g_n_photons_sent=0;
+    unsigned int g_n_sends_posted=0;
+    unsigned int g_n_sends_completed=0;
+    unsigned int g_n_receives_posted=0;
+    unsigned int g_n_receives_completed=0;
+
+    //reduce energy conservation values
     MPI::COMM_WORLD.Allreduce(&absorbed_E, &g_absorbed_E, 1, MPI_DOUBLE, MPI_SUM);
     MPI::COMM_WORLD.Allreduce(&emission_E, &g_emission_E, 1, MPI_DOUBLE, MPI_SUM);
     MPI::COMM_WORLD.Allreduce(&pre_census_E, &g_pre_census_E, 1, MPI_DOUBLE, MPI_SUM);
@@ -103,9 +113,18 @@ class IMC_State
     MPI::COMM_WORLD.Allreduce(&post_census_E, &g_post_census_E, 1, MPI_DOUBLE, MPI_SUM);
     MPI::COMM_WORLD.Allreduce(&post_mat_E, &g_post_mat_E, 1, MPI_DOUBLE, MPI_SUM);
     MPI::COMM_WORLD.Allreduce(&exit_E, &g_exit_E, 1, MPI_DOUBLE, MPI_SUM);
+
+    // reduce diagnostic values
     MPI::COMM_WORLD.Allreduce(&census_size, &g_census_size, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&off_rank_reads, &g_off_rank_reads, 1, MPI_UNSIGNED, MPI_SUM);
     MPI::COMM_WORLD.Allreduce(&m_trans_photons, &g_trans_photons, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(&off_rank_reads, &g_off_rank_reads, 1, MPI_UNSIGNED, MPI_SUM);
+
+    MPI::COMM_WORLD.Allreduce(&n_photon_messages, &g_n_photon_messages, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(&n_photons_sent, &g_n_photons_sent, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(&n_sends_posted, &g_n_sends_posted, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(&n_sends_completed, &g_n_sends_completed, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(&n_receives_posted, &g_n_receives_posted, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(&n_receives_completed, &g_n_receives_completed, 1, MPI_UNSIGNED, MPI_SUM);
     
     double rad_conservation = (g_absorbed_E + g_post_census_E + g_exit_E) - 
                             (g_pre_census_E + g_emission_E + source_E);
@@ -113,15 +132,26 @@ class IMC_State
     double mat_conservation = g_post_mat_E - (g_pre_mat_E + g_absorbed_E - g_emission_E);
 
     if (MPI::COMM_WORLD.Get_rank() == 0) {
-      cout<<"Total Photons transported: "<<g_trans_photons;
-      cout<<", Total RMA requests: "<<g_off_rank_reads<<endl;
-      cout<<"Emission E: "<<g_emission_E<<" Exit E: "<<g_exit_E<<endl;
+      cout<<"Total Photons transported: "<<g_trans_photons<<endl;
+      cout<<"Emission E: "<<g_emission_E<<", Absorption E: "<<g_absorbed_E;
+      cout<<", Exit E: "<<g_exit_E<<endl;
       cout<<"Pre Census E: "<<g_pre_census_E<<" Post census E: "<<g_post_census_E<<" Post Census Size: "<< g_census_size<<endl;
       cout<<"Pre mat E: "<<g_pre_mat_E<<" Post mat E: "<<g_post_mat_E<<endl;
       cout<<"Radiation Conservation: "<<rad_conservation<<endl;
       cout<<"Material Conservation: "<<mat_conservation<<endl;
-    }
-    total_off_rank_reads+=g_off_rank_reads;
+      if (dd_type == PARTICLE_PASS) {
+        cout<<"Photons messages sent: "<<g_n_photon_messages;
+        cout<<", Total photons sent: "<<g_n_photons_sent<<endl;
+        cout<<"Sends posted: "<<g_n_sends_posted;
+        cout<<", sends completed: "<<g_n_sends_completed<<endl;
+        cout<<"Receives posted: "<<g_n_receives_posted;
+        cout<<", receives completed: "<<g_n_receives_completed<<endl;
+      }
+      else {
+        cout<<"Total RMA requests: "<<g_off_rank_reads<<endl;
+      }
+      total_off_rank_reads+=g_off_rank_reads;
+    } // if rank==0
   }
 
   RNG* get_rng(void) const { return m_RNG;}
@@ -143,8 +173,28 @@ class IMC_State
   void set_source_E(double _source_E) {source_E = _source_E;}
   void set_absorbed_E(double _absorbed_E) {absorbed_E = _absorbed_E;}
   void set_exit_E(double _exit_E) {exit_E = _exit_E;}
+  //set diagnostic values
   void set_census_size(unsigned int _census_size) {census_size = _census_size;}
   void set_off_rank_read(unsigned int _off_rank_reads) {off_rank_reads = _off_rank_reads;}
+
+  void set_n_photon_messages(unsigned int _n_photon_messages) {
+    n_photon_messages=_n_photon_messages;
+  }
+  void set_n_photons_sent(unsigned int _n_photons_sent) {
+    n_photons_sent=_n_photons_sent;
+  }
+  void set_n_sends_posted(unsigned int _n_sends_posted) {
+    n_sends_posted=_n_sends_posted;
+  }
+  void set_n_sends_completed(unsigned int _n_sends_completed) {
+    n_sends_completed=_n_sends_completed;
+  }
+  void set_n_receives_posted(unsigned int _n_receives_posted) {
+    n_receives_posted=_n_receives_posted;
+  }
+  void set_n_receives_completed(unsigned int _n_receives_completed) { 
+    n_receives_completed=_n_receives_completed;
+  }
 
 /*****************************************************************************/
 /* member variables and private functions                                    */
@@ -175,6 +225,12 @@ class IMC_State
   unsigned int census_size; //! Number of particles in census
   unsigned int off_rank_reads; //! Number of off rank reads by this rank
   unsigned int total_off_rank_reads; //! Number of RMA reads total for simulation
+  unsigned int n_photon_messages; //! Number of photon messages
+  unsigned int n_photons_sent; //! Number of photons passed
+  unsigned int n_sends_posted; //! Number of sent messages posted
+  unsigned int n_sends_completed; //! Number of sent messages completed
+  unsigned int n_receives_posted; //! Number of received messages completed
+  unsigned int n_receives_completed; //! Number of received messages completed
 
   //RNG
   RNG* m_RNG;

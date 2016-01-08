@@ -201,7 +201,8 @@ void on_rank_rebalance_photons(Photon*& photon_vec,
                                Photon*& census_list,
                                const unsigned int& n_census,
                                Mesh *mesh, 
-                               mpi::communicator world) {
+                               mpi::communicator world) 
+{
 
   using std::vector;
 

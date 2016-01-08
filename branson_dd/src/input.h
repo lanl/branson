@@ -80,14 +80,19 @@ class Input
         if (tempString == "TRUE") use_ghost_cells= true;
         else use_ghost_cells = false;
 
-        //check MPI message frequency
-        check_frequency = v.second.get<int>("check_MPI_frequency", 1);
+        //number of particles to run between MPI message checks
+        batch_size = v.second.get<unsigned int>("batch_size", 100);
 
         // domain decomposed transport aglorithm
         tempString = v.second.get<std::string>("dd_transport_type", 
                                                std::string("CELL_PASS"));
         if (tempString == "CELL_PASS") dd_mode = CELL_PASS;
-        else dd_mode = PARTICLE_PASS;
+        else if (tempString == "PARTICLE_PASS") dd_mode = PARTICLE_PASS;
+        else {
+          cout<<"WARNING: Domain decomposition method not recognized ";
+          cout<<"setting to PARTICLE PASSING method";
+          dd_mode = PARTICLE_PASS;
+        }
       } //end common
 
       //read in basic problem parameters      
@@ -223,12 +228,12 @@ class Input
       cout<<",  make ghost cell map: ";
       if (use_ghost_cells) cout<<"TRUE";
       else cout<<"FALSE";
-      cout<<", Check MPI message freqeuncy: "<<check_frequency;
+      cout<<", Batch size: "<<batch_size;
       cout<<endl;
     }
     else {
       cout<<"PARTICLE PASSING"<<endl;
-      cout<<"(Currently there are no parameters for this method)"<<endl;
+      cout<<"Batch size: "<<batch_size<<endl;
     }
 
     cout<<endl;
@@ -260,7 +265,7 @@ class Input
   double get_dt_max(void) const {return dtMax;}
   int get_number_photons(void) const {return n_photons;}
   int get_rng_seed(void) const {return seed;}
-  int get_check_frequency(void) const {return check_frequency;}
+  unsigned int get_batch_size(void) const {return batch_size;}
 
   //source functions
   double get_source_T(void) const {return T_source;}
@@ -334,7 +339,8 @@ class Input
   unsigned int map_size; //!< Size of stored off-rank mesh cells
   unsigned int dd_mode; //!< Mode of domain decomposed transport algorithm
   bool use_ghost_cells; //!< Always keep first ghost cells
-  int check_frequency; //!< How often to check for MPI passed data
+  unsigned int batch_size; //!< Particles to run between MPI message checks
+
 };
 
 #endif // input_h_

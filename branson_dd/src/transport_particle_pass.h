@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <vector>
 #include <stack>
+#include <iostream>
 #include <numeric>
 #include <queue>
 #include <boost/mpi.hpp>
@@ -137,8 +138,8 @@ Constants::event_type transport_single_photon(Photon& phtn,
 std::vector<Photon> transport_photons(Source& source,
                                       Mesh* mesh,
                                       IMC_State* imc_state,
+                                      IMC_Parameters* imc_parameters,
                                       std::vector<double>& rank_abs_E,
-                                      int chk_freq,
                                       mpi::communicator world)
 {
   using Constants::event_type;
@@ -150,6 +151,8 @@ std::vector<Photon> transport_photons(Source& source,
   using std::stack;
   using Constants::proc_null;
   using Constants::count_tag;
+  using std::cout;
+  using std::endl;
 
   double census_E=0.0;
   double exit_E = 0.0;
@@ -160,6 +163,14 @@ std::vector<Photon> transport_photons(Source& source,
 
   int n_rank = world.size();
   int rank   = world.rank();
+
+  // parallel event counters
+  unsigned int n_photon_messages=0;; //! Number of photon messages
+  unsigned int n_photons_sent=0; //! Number of photons passed
+  unsigned int n_sends_posted=0; //! Number of sent messages posted
+  unsigned int n_sends_completed=0; //! Number of sent messages completed
+  unsigned int n_receives_posted=0; //! Number of received messages completed
+  unsigned int n_receives_completed=0; //! Number of received messages completed
 
   //get global photon count
   unsigned int n_local = source.get_n_photon();
@@ -216,17 +227,12 @@ std::vector<Photon> transport_photons(Source& source,
   vector<Buffer<Photon> > phtn_recv_buffer(n_rank-1);
   vector<Buffer<Photon> > phtn_send_buffer(n_rank-1);
 
-  //Post receives for photon counts from parent and each child
-  if (child1 != proc_null) {
-    c1_recv_request = world.irecv(child1, count_tag, c1_recv_buffer.get_buffer());  
-    c1_recv_buffer.set_awaiting();
-  }
-  if (child2 != proc_null) {
-    c2_recv_request = world.irecv(child2, count_tag, c2_recv_buffer.get_buffer());
-    c2_recv_buffer.set_awaiting();
-  }
+  // Message propogates from parent to children, back to parents
+  // Post receives for photon counts from parent now, post receives
+  // from children after parents message is received
   if (parent != proc_null) {
     p_recv_request = world.irecv(parent, count_tag, p_recv_buffer.get_buffer() );
+    n_receives_posted++;
     p_recv_buffer.set_awaiting();
   }
 
@@ -241,10 +247,14 @@ std::vector<Photon> transport_photons(Source& source,
       //get correct index into requests and vectors 
       int r_index = ir - (ir>rank);
       phtn_recv_request[r_index] = world.irecv(ir, photon_tag, phtn_recv_buffer[r_index].get_buffer());
+      n_receives_posted++;
       phtn_recv_buffer[r_index].set_awaiting();
     }
   }
- 
+
+  // Communication sequence flag, if false root node begins send propogation
+  bool comm_sequence_init = false; 
+
   ////////////////////////////////////////////////////////////////////////
   // main transport loop
   ////////////////////////////////////////////////////////////////////////
@@ -256,17 +266,26 @@ std::vector<Photon> transport_photons(Source& source,
   unsigned int n_complete = 0; //!< Completed histories, regardless of origin
   unsigned int n_local_sourced = 0; //!< Photons pulled from source object
   unsigned int tree_count = 0; //!< Total for this node and all children
+  unsigned int parent_count = 0;//!< Total complete from the parent node
+  unsigned int c1_count = 0; //!< Total complete from child1 subtree
+  unsigned int c2_count = 0; //!< Total complete from child2 subtree
   bool finished = false;
   bool from_receive_stack = false;
   Photon iphtn;
   event_type event;
 
+  // Number of particles to run between MPI communication 
+  const unsigned int batch_size = imc_parameters->get_batch_size();
+
   while (!finished) {
 
     //unsigned int n = imc_state->get_batch_size();
     //hardcoded for now, fix later
-    unsigned int n = 100;
-
+    unsigned int n = batch_size;
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // Transport photons from source and received list
+    ////////////////////////////////////////////////////////////////////////////
     //first, try to transport photons from the received list
     while (n && (!phtn_recv_stack.empty() || (n_local_sourced < n_local))) {
       
@@ -303,7 +322,9 @@ std::vector<Photon> transport_photons(Source& source,
       if (from_receive_stack) phtn_recv_stack.pop();
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     // process photon send and receives 
+    ////////////////////////////////////////////////////////////////////////////
     for (int ir=0; ir<n_rank; ir++) {
       if (ir != rank) {
         int r_index = ir - (ir>rank);
@@ -312,12 +333,16 @@ std::vector<Photon> transport_photons(Source& source,
         if (phtn_send_buffer[r_index].sent()) {
           if (phtn_send_request[r_index].test()) {
             phtn_send_buffer[r_index].reset();
+            n_sends_completed++;
           } 
         }
 
         if (phtn_send_buffer[r_index].ready()) {
+          n_photons_sent += (phtn_send_buffer[r_index].get_buffer()).size();
           phtn_send_request[r_index] = world.isend(ir, photon_tag, phtn_send_buffer[r_index].get_buffer());
+          n_sends_posted++;
           phtn_send_buffer[r_index].set_sent();
+          n_photon_messages++;
         }
 
         if (phtn_send_buffer[r_index].empty() &&  !send_list[r_index].empty()) {
@@ -328,96 +353,276 @@ std::vector<Photon> transport_photons(Source& source,
         //process receive buffer
         if (phtn_recv_buffer[r_index].awaiting()) {
           if (phtn_recv_request[r_index].test()) {
+            n_receives_completed++;
             vector<Photon> receive_list = phtn_recv_buffer[r_index].get_buffer();
             for (unsigned int i=0; i<receive_list.size(); i++) 
               phtn_recv_stack.push(receive_list[i]);
             phtn_recv_buffer[r_index].reset();
             //post receive again
             phtn_recv_request[r_index] = world.irecv(ir, photon_tag, phtn_recv_buffer[r_index].get_buffer());
+            n_receives_posted++;
             phtn_recv_buffer[r_index].set_awaiting();
           }
         }
       }
     } // end loop over ranks
 
+    ////////////////////////////////////////////////////////////////////////////
+    // binary tree completion communication
+    ////////////////////////////////////////////////////////////////////////////
 
-    //send number of completed to parent, children
+    //initiate sends from root node to children and post receives from children
+    if (parent == proc_null && !comm_sequence_init) {
+      //begin send chain down tree
+      tree_count = n_complete;
+      if ( child1 != proc_null) {
+        c1_send_buffer.fill(vector<unsigned int> (1,tree_count));
+        c1_send_request = world.isend(child1, count_tag, c1_send_buffer.get_buffer());
+        n_sends_posted++;
+        c1_send_buffer.set_sent();
+        //receive
+        c1_recv_buffer.reset();
+        c1_recv_request = world.irecv(child1, count_tag, c1_recv_buffer.get_buffer());
+        n_receives_posted++;
+        c1_recv_buffer.set_awaiting();
+      }
+      if ( child2 != proc_null) {
+        c2_send_buffer.fill(vector<unsigned int> (1,tree_count));
+        c2_send_request = world.isend(child2, count_tag, c2_send_buffer.get_buffer());
+        n_sends_posted++;
+        c2_send_buffer.set_sent();
+        //receive
+        c2_recv_buffer.reset();
+        c2_recv_request = world.irecv(child2, count_tag, c2_recv_buffer.get_buffer());
+        n_receives_posted++;
+        c2_recv_buffer.set_awaiting();
+      }
+      comm_sequence_init = true;
+    }
+
+    //test receives from children and parent
+    if (c1_recv_buffer.awaiting()) {
+      if (c1_recv_request.test()) {
+        n_receives_completed++;
+        c1_recv_buffer.set_received();
+        c1_count = c1_recv_buffer.get_buffer()[0];
+      }
+    }
+    if (c2_recv_buffer.awaiting()) {
+      if (c2_recv_request.test()) {
+        n_receives_completed++;
+        c2_recv_buffer.set_received();
+        c2_count = c2_recv_buffer.get_buffer()[0];
+      }
+    }
+    if (p_recv_buffer.awaiting()) {
+      if (p_recv_request.test()) {
+        n_receives_completed++;
+        p_recv_buffer.set_received();
+        parent_count = p_recv_buffer.get_buffer()[0];
+      }
+    }
+
+    // test sends from child and parent
+    if (c1_send_buffer.sent() ) {
+      if (c1_send_request.test()) {
+        n_sends_completed++;
+        c1_send_buffer.reset();
+      }
+    }
+    if (c2_send_buffer.sent() ) {
+      if (c2_send_request.test()) { 
+        n_sends_completed++;
+        c2_send_buffer.reset();
+      }
+    }
+    if (p_send_buffer.sent() ) {
+      if (p_send_request.test()) {
+        n_sends_completed++;
+        p_send_buffer.reset();
+      }
+    }
+
+    //if recieved from children, compute tree count
+    if ( ( c1_recv_buffer.received() || child1==proc_null) 
+      && ( c2_recv_buffer.received() || child2==proc_null) )
     {
-      if (c1_recv_buffer.awaiting()) 
-        if (c1_recv_request.test()) 
-          c1_recv_buffer.set_received();
-      if (c2_recv_buffer.awaiting()) 
-        if (c2_recv_request.test()) 
-          c2_recv_buffer.set_received();
+      if (child1 == proc_null) c1_count = 0;
+      if (child2 == proc_null) c2_count = 0;
+      tree_count = n_complete + c1_count + c2_count; 
+    }
+    else tree_count = n_complete;
 
-      //if recieved from both children, compute tree count
-      if ( ( c1_recv_buffer.received() || child1==proc_null) 
-        && ( c2_recv_buffer.received() || child2==proc_null)) {
-        unsigned int c1_count = 0; unsigned int c2_count = 0;
-        if (child1 == proc_null) c1_count = 0;
-        else c1_count = c1_recv_buffer.get_buffer()[0]; 
-        if (child2 == proc_null) c2_count = 0;
-        else c2_count = c2_recv_buffer.get_buffer()[0]; 
-        tree_count = n_complete + c1_count + c2_count;
-      }
-      else tree_count = n_complete;
+    // If finished, set flag. Otherwise, continue tree messaging
+    if (tree_count == n_global || parent_count == n_global) finished = true;
+    else {
+      // If parent received, send to children. If terminating branch, send up
+      if (p_recv_buffer.received() && 
+        (c1_send_buffer.empty() && c2_send_buffer.empty()) ) { 
 
-      //if received from parent, overwrite tree count
-      if (p_recv_buffer.awaiting()) {
-        if (p_recv_request.test()) {
-          p_recv_buffer.set_received();
-          tree_count = p_recv_buffer.get_buffer()[0];
-        }
-      }
-
-      // If finished, set flag. Otherwise, post receives from children.
-      if (tree_count == n_global) finished = true;
-      // Otherwise, send messages up tree and receive from down tree
-      else {
-        if (child1 != proc_null &&  c1_recv_buffer.received())
+        // reset received buffer so this does not trigger again until
+        // a new parent receive is posted
+        p_recv_buffer.reset();
+        
+        // send to child 1 and post receive from child1
+        if (child1 != proc_null) {
+          //send
+          c1_send_buffer.fill(vector<unsigned int> (1,tree_count));
+          c1_send_request = world.isend(child1, count_tag, c1_send_buffer.get_buffer());
+          n_sends_posted++;
+          c1_send_buffer.set_sent();
+          //receive
+          c1_recv_buffer.reset();
           c1_recv_request = world.irecv(child1, count_tag, c1_recv_buffer.get_buffer());
-        if (child2 != proc_null &&  c2_recv_buffer.received()) 
+          n_receives_posted++;
+          c1_recv_buffer.set_awaiting();
+        }
+        // send to child2 and post receive from child2
+        if (child2 != proc_null) {
+          //send
+          c2_send_buffer.fill(vector<unsigned int> (1,tree_count));
+          c2_send_request = world.isend(child2, count_tag, c2_send_buffer.get_buffer());
+          n_sends_posted++;
+          c2_send_buffer.set_sent();
+          //receive
+          c2_recv_buffer.reset();
           c2_recv_request = world.irecv(child2, count_tag, c2_recv_buffer.get_buffer());
-        if (rank) {
-          //send to parent, if unsent
-          if (p_send_buffer.sent()) {
-            if (p_send_request.test()) p_send_buffer.reset();
-          }
-          if (p_send_buffer.empty() ) {
-            p_send_buffer.fill(vector<unsigned int> (1,tree_count));
-            p_send_request = world.isend(parent, count_tag, p_send_buffer.get_buffer());
-            p_send_buffer.set_sent();
-          }
-        } // if  non-root ranks
-      }
+          n_receives_posted++;
+          c2_recv_buffer.set_awaiting();
+        }
 
-    } //end send block
+        // terminal branch sends up and post parent receive
+        if ((child1 == proc_null && child2 == proc_null) && p_send_buffer.empty() ) {
+          // send up 
+          p_send_buffer.fill(vector<unsigned int> (1,tree_count));
+          p_send_request = world.isend(parent, count_tag, p_send_buffer.get_buffer());
+          n_sends_posted++;
+          p_send_buffer.set_sent();
+          // post receive from parent
+          p_recv_buffer.reset();
+          p_recv_request = world.irecv(parent, count_tag, p_recv_buffer.get_buffer());
+          n_receives_posted++;
+          p_recv_buffer.set_awaiting();
+        }
+      } //end if parent received
 
+      // If children received, send to parent (if not terminating branch)
+      // or send to children if you're root
+      if ( (c1_recv_buffer.received() || child1==proc_null) 
+        && (c2_recv_buffer.received() || child2==proc_null)
+        &&  p_send_buffer.empty() )
+      {
+        //reset buffers to avoid triggering loop again
+        c1_recv_buffer.reset();
+        c2_recv_buffer.reset();
+        //all ranks can update tree count (child messages were just received)
+        if (child1 == proc_null) c1_count = 0;
+        if (child2 == proc_null) c2_count = 0;
+        tree_count = n_complete + c1_count + c2_count; 
+        // non-root sends to parent and post parent receives
+        if (parent != proc_null && (child1!=proc_null || child2!=proc_null) ) {
+          //send to parent
+          p_send_buffer.fill(vector<unsigned int> (1,tree_count));
+          p_send_request = world.isend(parent, count_tag, p_send_buffer.get_buffer());
+          n_sends_posted++;
+          p_send_buffer.set_sent();
+          // post receive from parent
+          p_recv_buffer.reset();
+          p_recv_request = world.irecv(parent, count_tag, p_recv_buffer.get_buffer());
+          n_receives_posted++;
+          p_recv_buffer.set_awaiting();
+        }
+        // root sends to children and posts child receives
+        // note--terminals enter this else but don't do anything
+        else {
+          // send down to child 1 and post receive
+          if (child1 != proc_null) {
+            c1_send_buffer.fill(vector<unsigned int> (1,tree_count));
+            c1_send_request = world.isend(child1, count_tag, c1_send_buffer.get_buffer());
+            n_sends_posted++;
+            c1_send_buffer.set_sent();
+            c1_recv_buffer.reset();
+            c1_recv_request = world.irecv(child1, count_tag, c1_recv_buffer.get_buffer());
+            n_receives_posted++;
+            c1_recv_buffer.set_awaiting();
+          }
+          // send down to child 2 and post receive
+          if (child2 != proc_null) {
+            c2_send_buffer.fill(vector<unsigned int> (1,tree_count));
+            c2_send_request = world.isend(child2, count_tag, c2_send_buffer.get_buffer());
+            n_sends_posted++;
+            c2_send_buffer.set_sent();
+            c2_recv_buffer.reset();
+            c2_recv_request = world.irecv(child2, count_tag, c2_recv_buffer.get_buffer());
+            n_receives_posted++;
+            c2_recv_buffer.set_awaiting();
+          }
+        }  
+      } //end if received
+    } //end if finished
   } // end while
 
-  //once finished, send finished count down
-  if (child1 != proc_null) {
-    c1_send_buffer.fill(vector<unsigned int> (1,tree_count));
+  //send finished count down tree to children and wait for completion
+  if (child1 != proc_null) { 
+    if (c1_send_buffer.sent()) c1_send_request.wait();
+    c1_send_buffer.fill(vector<unsigned int> (1,n_global));
     c1_send_request = world.isend(child1, count_tag, c1_send_buffer.get_buffer());
+    n_sends_posted++;
+    c1_send_request.wait();
+    n_sends_completed++;
   }
   if (child2 != proc_null)  {
-    c2_send_buffer.fill(vector<unsigned int> (1,tree_count));
+    if (c2_send_buffer.sent()) c2_send_request.wait();
+    c2_send_buffer.fill(vector<unsigned int> (1,n_global));
     c2_send_request = world.isend(child2, count_tag, c2_send_buffer.get_buffer());
+    n_sends_posted++;
+    c2_send_request.wait();
+    n_sends_completed++;
   }
 
+  // wait for parent send to complete
   /*
+  if (p_send_buffer.sent()) { 
+    p_send_request.wait();
+    n_sends_completed++;
+  }
+  */
+
+  // wait for all ranks to finish then send empty photon messages.
+  // Do this because it's possible for a rank to receive the empty message
+  // while it's still in the transport loop. In that case, it will post a 
+  // receive again, which will never have a matching send
+  MPI::COMM_WORLD.Barrier();
+
+  //finish off posted photon receives
+  vector<Photon> empty_buffer;
   for (int ir=0; ir<n_rank; ir++) {
     if (ir != rank) {
       //get correct index into requests and vectors 
       int r_index = ir - (ir>rank);
-      send_buffer[r_index].clear();
-      phtn_send_request[r_index] = world.isend(ir, photon_tag, send_buffer[r_index]);
+      //wait for completion of previous sends
+      if (phtn_send_buffer[r_index].sent()) phtn_send_request[r_index].wait();
+      //send empty buffer to finish off receives
+      phtn_send_request[r_index] = world.isend(ir, photon_tag, empty_buffer);
+      n_sends_posted++;
     }
   }
-  */  
+
+  // Wait for receive requests
+  for (int i=0; i<n_rank-1 ;i++) {
+    phtn_recv_request[i].wait();
+    n_receives_completed++;
+  }
+
+  // Wait for send requests
+  for (int i=0; i<n_rank-1 ;i++) {
+    phtn_send_request[i].wait();
+    n_sends_completed++;
+  }
 
   MPI::COMM_WORLD.Barrier();
 
+  cout.flush();
   std::sort(census_list.begin(), census_list.end(), Photon::census_flag_compare);
   //All ranks have now finished transport
   delete[] phtn_recv_request;
@@ -426,6 +631,13 @@ std::vector<Photon> transport_photons(Source& source,
   imc_state->set_exit_E(exit_E);
   imc_state->set_post_census_E(census_E);
   imc_state->set_census_size(census_list.size());
+  //set diagnostic
+  imc_state->set_n_photon_messages(n_photon_messages);
+  imc_state->set_n_photons_sent(n_photons_sent);
+  imc_state->set_n_sends_posted(n_sends_posted);
+  imc_state->set_n_sends_completed(n_sends_completed);
+  imc_state->set_n_receives_posted(n_receives_posted);
+  imc_state->set_n_receives_completed(n_receives_completed);
 
   return census_list;
 }
