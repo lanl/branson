@@ -83,6 +83,9 @@ class Input
         //number of particles to run between MPI message checks
         batch_size = v.second.get<unsigned int>("batch_size", 100);
 
+        //preferred number of particles per MPI send
+        particle_message_size = v.second.get<unsigned int>("particle_message_size", 100);
+
         // domain decomposed transport aglorithm
         tempString = v.second.get<std::string>("dd_transport_type", 
                                                std::string("CELL_PASS"));
@@ -233,7 +236,8 @@ class Input
     }
     else {
       cout<<"PARTICLE PASSING"<<endl;
-      cout<<"Batch size: "<<batch_size<<endl;
+      cout<<"Batch size: "<<batch_size;
+      cout<<", particle message size: "<<particle_message_size;
     }
 
     cout<<endl;
@@ -266,6 +270,7 @@ class Input
   int get_number_photons(void) const {return n_photons;}
   int get_rng_seed(void) const {return seed;}
   unsigned int get_batch_size(void) const {return batch_size;}
+  unsigned int get_particle_message_size(void) const {return particle_message_size;}
 
   //source functions
   double get_source_T(void) const {return T_source;}
@@ -340,6 +345,7 @@ class Input
   unsigned int dd_mode; //!< Mode of domain decomposed transport algorithm
   bool use_ghost_cells; //!< Always keep first ghost cells
   unsigned int batch_size; //!< Particles to run between MPI message checks
+  unsigned int particle_message_size; //!< Preferred number of particles in MPI sends
 
 };
 

@@ -93,5 +93,10 @@ target_link_libraries(BRANSON boost_mpi-mt)
 target_link_libraries(BRANSON boost_serialization-mt)
 target_link_libraries(BRANSON boost_wserialization-mt)
 
+enable_testing()
+
+add_subdirectory(test)
+get_directory_property(Boost_INCLUDE_DIR DIRECTORY test VARIABLES Boost_INCLUDE_DIR)
+get_directory_property(Boost_LIB_DIR DIRECTORY test VARIABLES Boost_LIB_DIR)
 
 #install(TARGETS BRANSON DESTINATION bin)

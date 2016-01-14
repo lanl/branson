@@ -72,7 +72,7 @@ class Photon
 /*****************************************************************************/
 /* non-const functions (set)                                                 */
 /*****************************************************************************/
-  void move(const double& distance) { 
+  void move(const double& distance) {
     m_pos[0] += m_angle[0]*distance;
     m_pos[1] += m_angle[1]*distance;
     m_pos[2] += m_angle[2]*distance;

@@ -15,7 +15,9 @@ class IMC_Parameters
     : n_user_photon(input->get_number_photons()),
       map_size(input->get_map_size()),
       dd_mode(input->get_dd_mode()) ,
-      use_ghost_cells(input->get_ghost_cell_bool())
+      use_ghost_cells(input->get_ghost_cell_bool()),
+      batch_size(input->get_batch_size()),
+      particle_message_size(input->get_particle_message_size())
     {}
   ~IMC_Parameters() {}
 
@@ -26,7 +28,8 @@ class IMC_Parameters
   unsigned int get_map_size(void) const {return map_size;}
   unsigned int get_dd_mode(void) const {return dd_mode;}
   bool get_ghost_cell_bool(void) const {return use_ghost_cells;}
-  int  get_batch_size(void) const {return batch_size;}
+  unsigned int  get_batch_size(void) const {return batch_size;}
+  unsigned int  get_particle_message_size(void) const {return particle_message_size;}
 
 /*****************************************************************************/
 /* member variables and private functions                                    */
@@ -38,7 +41,8 @@ class IMC_Parameters
   unsigned int map_size; //!< Size of stored off-rank mesh cells
   unsigned int dd_mode; //!< Mode of domain decomposed transport algorithm
   bool use_ghost_cells; //!< Always keep first ghost cells
-  int batch_size; //!< How often to check for MPI passed data
+  unsigned int batch_size; //!< How often to check for MPI passed data
+  unsigned int particle_message_size; //!< Preferred number of particles in MPI sends
 };
 
 #endif // #ifdef imc_parameters_h_

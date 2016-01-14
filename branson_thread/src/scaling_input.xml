@@ -1,22 +1,18 @@
+<!-- Input file for the Tophat problem with refined geometry -->
 <prototype>
   <common>
     <method>IMC</method>
     <t_start>0.0</t_start>
-    <t_stop>0.01</t_stop>
+    <t_stop>0.1</t_stop>
     <dt_start>0.01</dt_start>
     <t_mult>1.0</t_mult>
     <dt_max>1.0</dt_max>
     <Tm_initial>1.0</Tm_initial>
     <Tr_initial>1.0</Tr_initial>
-    <photons>100000</photons>
+    <photons>250000</photons>
     <seed>14706</seed>
-    <map_size>50000</map_size>
     <tilt>FALSE</tilt>
-    <stratified_sampling>FALSE</stratified_sampling>
     <output_frequency>1</output_frequency>
-    <batch_size>100000</batch_size>
-    <particle_message_size>1000</particle_message_size>
-    <dd_transport_type>PARTICLE_PASS</dd_transport_type>
   </common>
 
   <debug_options>
@@ -26,11 +22,11 @@
 
 
   <spatial>
-    <n_x_cells>10</n_x_cells>
+    <n_x_elements>20</n_x_elements>
     <dx>1.0</dx>
-    <n_y_cells>10</n_y_cells>
+    <n_y_elements>20</n_y_elements>
     <dy>1.0</dy>
-    <n_z_cells>10</n_z_cells>
+    <n_z_elements>20</n_z_elements>
     <dz>1.0</dz>
 
     <bc_right>REFLECT</bc_right>
@@ -50,11 +46,10 @@
 
   <material>
     <density>1.0</density>
-    <CV>1.0</CV>
+    <CV>10.0</CV>
     <opacA>100.0</opacA>
     <opacB>0.0</opacB>
     <opacC>0.0</opacC>
-    <opacS>0.0</opacS>
   </material>
 
 </prototype>

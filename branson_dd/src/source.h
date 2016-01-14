@@ -129,11 +129,11 @@ class Source {
  
   private:
   const Mesh * const mesh; //!< Pointer to mesh (source cannot change Mesh)
-  std::vector<Photon>&  census_photons; //!< Pointer to census photons
+  std::vector<Photon>&  census_photons; //!< Reference to census photons
   unsigned int icell; //!< Index of current cell to generate photons from
   unsigned int icensus; //!< Index of current census photon to be returned
   Cell cell;  //!< Current cell
-  unsigned int n_p_in_cell;
+  unsigned int n_p_in_cell; 
   unsigned int n_cell;
   double emission_phtn_E;  //!< Energy of emitted photon in current cell
   unsigned int n_photon;  //!< User requested number of photons to create

@@ -8,6 +8,7 @@
 #define cell_h_
 
 #include <iostream>
+#include <boost/mpi.hpp>
 
 #include "RNG.h"
 #include "constants.h"
@@ -44,6 +45,7 @@ class Cell
 /* const functions                                                           */
 /*****************************************************************************/
   Constants::bc_type get_bc(const unsigned int& dir) const {return bc[dir];}
+
   unsigned int get_next_cell(const unsigned int& dir) const 
   {
     return e_next[dir];

@@ -20,7 +20,6 @@
 #include "mesh.h"
 #include "sampling_functions.h"
 #include "RNG.h"
-#include "request.h"
 #include "photon.h"
 
 namespace mpi = boost::mpi;
@@ -165,7 +164,7 @@ std::vector<Photon> transport_photons(Source& source,
   int rank   = world.rank();
 
   // parallel event counters
-  unsigned int n_photon_messages=0;; //! Number of photon messages
+  unsigned int n_photon_messages=0; //! Number of photon messages
   unsigned int n_photons_sent=0; //! Number of photons passed
   unsigned int n_sends_posted=0; //! Number of sent messages posted
   unsigned int n_sends_completed=0; //! Number of sent messages completed
@@ -180,7 +179,6 @@ std::vector<Photon> transport_photons(Source& source,
                            1, 
                            MPI_UNSIGNED, 
                            MPI_SUM);
-
 
   int parent = (rank + 1) / 2 - 1;
   int child1 = rank * 2 + 1;
@@ -276,6 +274,9 @@ std::vector<Photon> transport_photons(Source& source,
 
   // Number of particles to run between MPI communication 
   const unsigned int batch_size = imc_parameters->get_batch_size();
+  // Preferred size of MPI message
+  const unsigned int max_buffer_size 
+    = imc_parameters->get_particle_message_size();
 
   while (!finished) {
 
@@ -337,17 +338,22 @@ std::vector<Photon> transport_photons(Source& source,
           } 
         }
 
-        if (phtn_send_buffer[r_index].ready()) {
-          n_photons_sent += (phtn_send_buffer[r_index].get_buffer()).size();
-          phtn_send_request[r_index] = world.isend(ir, photon_tag, phtn_send_buffer[r_index].get_buffer());
+        if (phtn_send_buffer[r_index].empty() && 
+          (send_list[r_index].size() >= max_buffer_size || n_local_sourced == n_local) ) {
+          unsigned int n_photons_to_send = max_buffer_size;
+          if ( send_list[r_index].size() < max_buffer_size) 
+            n_photons_to_send = send_list[r_index].size();
+          vector<Photon>::iterator copy_start = send_list[r_index].begin();
+          vector<Photon>::iterator copy_end = send_list[r_index].begin()+n_photons_to_send;
+          vector<Photon> send_now_list(copy_start, copy_end);
+          send_list[r_index].erase(copy_start,copy_end); 
+          phtn_send_buffer[r_index].fill(send_now_list);
+          n_photons_sent += n_photons_to_send;
+          phtn_send_request[r_index] = 
+            world.isend(ir, photon_tag, phtn_send_buffer[r_index].get_buffer());
           n_sends_posted++;
           phtn_send_buffer[r_index].set_sent();
           n_photon_messages++;
-        }
-
-        if (phtn_send_buffer[r_index].empty() &&  !send_list[r_index].empty()) {
-          phtn_send_buffer[r_index].fill(send_list[r_index]);
-          send_list[r_index].clear();
         }
 
         //process receive buffer
@@ -605,6 +611,8 @@ std::vector<Photon> transport_photons(Source& source,
       //send empty buffer to finish off receives
       phtn_send_request[r_index] = world.isend(ir, photon_tag, empty_buffer);
       n_sends_posted++;
+      phtn_send_request[r_index].wait();
+      n_sends_completed++;
     }
   }
 
