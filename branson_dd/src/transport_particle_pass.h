@@ -338,7 +338,7 @@ std::vector<Photon> transport_photons(Source& source,
           } 
         }
 
-        if (phtn_send_buffer[r_index].empty() && 
+        if ( (phtn_send_buffer[r_index].empty() && !send_list[r_index].empty()) &&
           (send_list[r_index].size() >= max_buffer_size || n_local_sourced == n_local) ) {
           unsigned int n_photons_to_send = max_buffer_size;
           if ( send_list[r_index].size() < max_buffer_size) 
@@ -570,7 +570,10 @@ std::vector<Photon> transport_photons(Source& source,
 
   //send finished count down tree to children and wait for completion
   if (child1 != proc_null) { 
-    if (c1_send_buffer.sent()) c1_send_request.wait();
+    if (c1_send_buffer.sent()) {
+      c1_send_request.wait();
+      n_sends_completed++;
+    }
     c1_send_buffer.fill(vector<unsigned int> (1,n_global));
     c1_send_request = world.isend(child1, count_tag, c1_send_buffer.get_buffer());
     n_sends_posted++;
@@ -578,7 +581,10 @@ std::vector<Photon> transport_photons(Source& source,
     n_sends_completed++;
   }
   if (child2 != proc_null)  {
-    if (c2_send_buffer.sent()) c2_send_request.wait();
+    if (c2_send_buffer.sent()) {
+      c2_send_request.wait();
+      n_sends_completed++;
+    }
     c2_send_buffer.fill(vector<unsigned int> (1,n_global));
     c2_send_request = world.isend(child2, count_tag, c2_send_buffer.get_buffer());
     n_sends_posted++;
@@ -620,12 +626,6 @@ std::vector<Photon> transport_photons(Source& source,
   for (int i=0; i<n_rank-1 ;i++) {
     phtn_recv_request[i].wait();
     n_receives_completed++;
-  }
-
-  // Wait for send requests
-  for (int i=0; i<n_rank-1 ;i++) {
-    phtn_send_request[i].wait();
-    n_sends_completed++;
   }
 
   MPI::COMM_WORLD.Barrier();
