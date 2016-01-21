@@ -1,10 +1,12 @@
+/*
+  Author: Alex Long
+  Date: 12/15/2015
+  Name: buffer.h
+*/
 #ifndef buffer_h_
 #define buffer_h_
 
 #include <vector>
-
-namespace mpi = boost::mpi;
-
 
 template<class T>
 class Buffer {

@@ -17,28 +17,31 @@
 #include "mesh.h"
 #include "sampling_functions.h"
 #include "RNG.h"
-#include "request.h"
 
 namespace mpi = boost::mpi;
 
-bool transport_single_photon( Photon* iphtn,
+Constants::event_type transport_photon_mesh_pass(Photon& phtn,
                               Mesh* mesh,
                               RNG* rng,
                               double& next_dt,
                               double& exit_E,
                               double& census_E,
-                              unsigned int& census_count,
                               std::vector<double>& rank_abs_E)
 
 {
-  using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT; 
-  using Constants::PROCESSOR;
+  using Constants::VACUUM; using Constants::REFLECT; 
+  using Constants::ELEMENT; using Constants::PROCESSOR;
+  //events
+  using Constants::WAIT; using Constants::CENSUS;
+  using Constants::KILL; using Constants::EXIT;
   using Constants::bc_type;
+  using Constants::event_type;
   using Constants::c;
   using std::min;
 
   unsigned int cell_id, next_cell;
   bc_type boundary_event;
+  event_type event;
   double dist_to_scatter, dist_to_boundary, dist_to_census, dist_to_event;
   double sigma_a, sigma_s, f, absorbed_E;
   double angle[3];
@@ -47,10 +50,9 @@ bool transport_single_photon( Photon* iphtn,
   unsigned int surface_cross = 0;
   double cutoff_fraction = 0.001; //note: get this from IMC_state
 
-  cell_id=iphtn->get_cell();
+  cell_id=phtn.get_cell();
   cell = mesh->get_on_rank_cell(cell_id);
   bool active = true;
-  bool wait_flag = false;
   //transport this photon
   while(active) {
     sigma_a = cell.get_op_a();
@@ -59,28 +61,29 @@ bool transport_single_photon( Photon* iphtn,
 
     //get distance to event
     dist_to_scatter = -log(rng->generate_random_number())/((1.0-f)*sigma_a + sigma_s);
-    dist_to_boundary = cell.get_distance_to_boundary(iphtn->get_position(),
-                                                      iphtn->get_angle(),
+    dist_to_boundary = cell.get_distance_to_boundary(phtn.get_position(),
+                                                      phtn.get_angle(),
                                                       surface_cross);
-    dist_to_census = iphtn->get_distance_remaining();
+    dist_to_census = phtn.get_distance_remaining();
 
     //select minimum distance event
     dist_to_event = min(dist_to_scatter, min(dist_to_boundary, dist_to_census));
 
     //Calculate energy absorbed by material, update photon and material energy
-    absorbed_E = iphtn->get_E()*(1.0 - exp(-sigma_a*f*dist_to_event));
-    iphtn->set_E(iphtn->get_E() - absorbed_E);
+    absorbed_E = phtn.get_E()*(1.0 - exp(-sigma_a*f*dist_to_event));
+    phtn.set_E(phtn.get_E() - absorbed_E);
 
     rank_abs_E[cell_id] += absorbed_E;
     
     //update position
-    iphtn->move(dist_to_event);
+    phtn.move(dist_to_event);
 
     //Apply variance/runtime reduction
-    if (iphtn->below_cutoff(cutoff_fraction)) {
-      rank_abs_E[cell_id] += iphtn->get_E();
-      iphtn->set_dead();
+    if (phtn.below_cutoff(cutoff_fraction)) {
+      rank_abs_E[cell_id] += phtn.get_E();
+      phtn.set_dead();
       active=false;
+      event=KILL;
     }
     // or apply event
     else {
@@ -88,206 +91,327 @@ bool transport_single_photon( Photon* iphtn,
       //EVENT TYPE: SCATTER
       if(dist_to_event == dist_to_scatter) {
         get_uniform_angle(angle, rng);
-        iphtn->set_angle(angle);
+        phtn.set_angle(angle);
       }
       //EVENT TYPE: BOUNDARY CROSS
       else if(dist_to_event == dist_to_boundary) {
         boundary_event = cell.get_bc(surface_cross);
         if(boundary_event == ELEMENT || boundary_event == PROCESSOR) {
           next_cell = cell.get_next_cell(surface_cross);
-          iphtn->set_cell(next_cell);
+          phtn.set_cell(next_cell);
           cell_id=next_cell;
           //look for this cell, if it's not there transport later
           if (mesh->mesh_available(cell_id))
             cell = mesh->get_on_rank_cell(cell_id);
           else {
-            mesh->request_cell(cell_id);
-            wait_flag = true;
+            event= WAIT;
             active=false;
           }
         }
-        else if(boundary_event == VACUUM) {active=false; exit_E+=iphtn->get_E();}
-        else iphtn->reflect(surface_cross); 
+        else if(boundary_event == VACUUM) {
+          active=false; 
+          exit_E+=phtn.get_E();
+          event=EXIT;
+        }
+        else phtn.reflect(surface_cross); 
       }
       //EVENT TYPE: REACH CENSUS
       else if(dist_to_event == dist_to_census) {
-        iphtn->set_census_flag(true);
-        iphtn->set_distance_to_census(c*next_dt);
+        phtn.set_census_flag(true);
+        phtn.set_distance_to_census(c*next_dt);
         active=false;
-        census_count++;
-        census_E+=iphtn->get_E();
+        census_E+=phtn.get_E();
+        event=CENSUS;
       }
     } //end event loop
   } // end while alive
-  return wait_flag;
+  return event;
 }
 
 
 
-void transport_photons(Photon*& photon_vec,
-                        unsigned int n_photon,
-                        Mesh* mesh,
-                        IMC_State* imc_state,
-                        std::vector<double>& rank_abs_E,
-                        Photon*& census_list,
-                        unsigned int batch_size,
-                        mpi::communicator world)
+std::vector<Photon> transport_mesh_pass(Source& source,
+                                        Mesh* mesh,
+                                        IMC_State* imc_state,
+                                        IMC_Parameters* imc_parameters,
+                                        std::vector<double>& rank_abs_E,
+                                        mpi::communicator world)
 {
   using Constants::finish_tag;
   using std::queue;
   using std::vector;
+  using Constants::proc_null;
+  using Constants::event_type;
+  //events
+  using Constants::WAIT; using Constants::CENSUS;
+  using Constants::KILL; using Constants::EXIT;
+
+  unsigned int n_local = source.get_n_photon();
+  unsigned int n_local_sourced = 0;
 
   unsigned int cell_id;
-  unsigned int census_count = 0;
-  double census_E=0.0;
+  double census_E = 0.0;
   double exit_E = 0.0;
-  double next_dt = imc_state->get_next_dt();
+  double dt = imc_state->get_next_dt(); //<! For making current photons
+  double next_dt = imc_state->get_next_dt(); //<! For census photons
 
   RNG *rng = imc_state->get_rng();
-  Photon* iphtn;
+  Photon phtn;
 
   int n_rank =world.size();
   int rank   =world.rank();
 
-  bool new_data = false;
+  // parallel event counters
+  unsigned int n_cell_messages=0; //! Number of cell messages
+  unsigned int n_cells_sent=0; //! Number of cells passed
+  unsigned int n_sends_posted=0; //! Number of sent messages posted
+  unsigned int n_sends_completed=0; //! Number of sent messages completed
+  unsigned int n_receives_posted=0; //! Number of received messages completed
+  unsigned int n_receives_completed=0; //! Number of received messages completed
 
-  vector<vector<bool> > r_finished;
-  vector<bool> b_r_finished(n_rank-1, false);
-  for (int ir=0; ir<n_rank-1; ir++) {
-    vector<bool> empty_bool_cell;
-    r_finished.push_back(empty_bool_cell); 
-  }
+  // set parent and children for binary tree communication of finish
+  int parent = (rank + 1) / 2 - 1;
+  int child1 = rank * 2 + 1;
+  int child2 = child1 + 1;
 
-  mpi::request *s_finished_reqs = new mpi::request[ (n_rank-1)];
-  mpi::request *r_finished_reqs = new mpi::request[ (n_rank-1)];
+  // set missing nodes to proc_null
+  { 
+    if (!rank)
+        parent = proc_null;
 
-  // Post the receive calls for finished message
-  for (int ir=0; ir<n_rank; ir++) {
-    if (ir != rank) {
-      //get correct index into requests and vectors 
-      int r_index = ir - (ir>rank);
-      r_finished_reqs[r_index] = world.irecv(ir, finish_tag, r_finished[r_index]);
+    // maximum valid node id
+    const int last_node = n_rank - 1;
+
+    if (child1 > last_node)
+    {
+        child1 = proc_null;
+        child2 = proc_null;
     }
+    else if (child1 == last_node)
+        child2 = proc_null;
   }
 
-  queue<Photon*> wait_list; //! Photons waiting for mesh data
-  bool wait_flag = false;
+
+  //Message requests for finished flags
+  mpi::request c1_recv_request;
+  mpi::request c2_recv_request;
+  mpi::request p_recv_request;
+  mpi::request c1_send_request;
+  mpi::request c2_send_request; 
+  mpi::request p_send_request;
+
+  //Buffers for finished flags
+  Buffer<bool> c1_recv_buffer;
+  Buffer<bool> c2_recv_buffer;
+  Buffer<bool> p_recv_buffer;
+  Buffer<bool> c1_send_buffer;
+  Buffer<bool> c2_send_buffer;
+  Buffer<bool> p_send_buffer;
+
+  // finished message propagates from children to parent, then back down the
+  // tree
+
+  //post finish message receives from children and parents
+  if (parent != proc_null) {
+    p_recv_request = world.irecv(parent, finish_tag, p_recv_buffer.get_buffer() );
+    n_receives_posted++;
+    p_recv_buffer.set_awaiting();
+  }
+  if (child1 != proc_null) {
+    c1_recv_request = world.irecv(child1, finish_tag, c1_recv_buffer.get_buffer() );
+    n_receives_posted++;
+    c1_recv_buffer.set_awaiting();
+  }
+  if (child2 != proc_null) {
+    c2_recv_request = world.irecv(child2, finish_tag, c2_recv_buffer.get_buffer() );
+    n_receives_posted++;
+    c2_recv_buffer.set_awaiting();
+  }
+
+  // New data flag is initially false
+  bool new_data = false;
+  // Number of particles to run between MPI communication 
+  const unsigned int batch_size = imc_parameters->get_batch_size();
+  event_type event;
 
   ////////////////////////////////////////////////////////////////////////
   // main loop over photons
   ////////////////////////////////////////////////////////////////////////
-  for ( unsigned int i=0;i<n_photon; i++) {
-    iphtn = &photon_vec[i];
-    //get start cell, only change when cell crossing event
-    cell_id=iphtn->get_cell();
+  vector<Photon> census_list; //!< End of timestep census list
+  queue<Photon> wait_list; //!< Photons waiting for mesh data 
+  while ( n_local_sourced < n_local) {
+    
+    unsigned int n = batch_size;
 
-    //should always return true for photons before transport
-    // but in the future we'll want to check this
-    if (mesh->mesh_available(cell_id)) {
-      wait_flag = transport_single_photon(iphtn, mesh, rng, next_dt, exit_E,
-                                          census_E, census_count, rank_abs_E);
-      if (wait_flag) wait_list.push(iphtn);
-    } 
-    else {
-      mesh->request_cell(cell_id);
-      wait_list.push(iphtn);
+    while (n && n_local_sourced < n_local) {
+
+      phtn =source.get_photon(rng, dt); 
+      n_local_sourced++;
+
+      //get start cell, this only changea with cell crossing event
+      cell_id=phtn.get_cell();
+
+      // if mesh available, transport and process, otherwise put on the
+      // waiting list
+      if (mesh->mesh_available(cell_id)) {
+        event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
+                                        census_E, rank_abs_E);
+      }
+      else event = WAIT;
+
+      if (event==CENSUS) census_list.push_back(phtn);
+      else if (event==WAIT) {
+        cell_id=phtn.get_cell();
+        mesh->request_cell(cell_id);
+        wait_list.push(phtn);
+      }
+      n--;
+    } // end batch transport
+
+    //process mesh requests
+    new_data = mesh->process_mesh_requests(world, n_cell_messages, n_cells_sent,
+                                            n_sends_posted, n_sends_completed,
+                                            n_receives_posted, n_receives_completed);
+    // if data was received, try to transport photons on waiting list
+    if (new_data) {
+      for (unsigned int wp =0; wp<wait_list.size(); wp++) {
+        phtn = wait_list.front();
+        wait_list.pop();
+        cell_id=phtn.get_cell();
+        if (mesh->mesh_available(cell_id)) {
+          event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
+                                          census_E, rank_abs_E);
+          if (event==CENSUS) census_list.push_back(phtn);
+          else if (event==WAIT) {
+            cell_id=phtn.get_cell();
+            mesh->request_cell(cell_id);
+            wait_list.push(phtn);
+          }
+        }
+        else wait_list.push(phtn);
+      } // end wp in wait_list
     }
 
-    // run a batch of particles then check for requests and try to transport the
-    // waiting list
-    if (i%batch_size == 0) {
-      new_data = mesh->process_mesh_requests(world);
-      // if data was received, try to transport photons on waiting list
-      if (new_data) {
-        for (unsigned int wp =0; wp<wait_list.size(); wp++) {
-          iphtn = wait_list.front();
-          wait_list.pop();
-          cell_id=iphtn->get_cell();
-          if (mesh->mesh_available(cell_id)) {
-            wait_flag = transport_single_photon(iphtn, mesh, rng, next_dt, exit_E,
-                                                census_E, census_count, rank_abs_E);
-            if (wait_flag) wait_list.push(iphtn);
-          }
-          else wait_list.push(iphtn);
-        } // end wp in wait_list
-      }
-    } // end if !n_photon%check_frequency
-
-  } // end for iphtn
+  } //end while (n_local_source < n_local)
 
   ////////////////////////////////////////////////////////////////////////
   // Main transport loop finished, transport photons waiting for data
   ////////////////////////////////////////////////////////////////////////
   while (!wait_list.empty()) {
-    new_data = mesh->process_mesh_requests(world);
+    new_data = mesh->process_mesh_requests(world, n_cell_messages, n_cells_sent,
+                                            n_sends_posted, n_sends_completed,
+                                            n_receives_posted, n_receives_completed);
     // if new data received, transport waiting list 
     for (unsigned int wp =0; wp<wait_list.size(); wp++) {
-      iphtn = wait_list.front();
+      phtn = wait_list.front();
       wait_list.pop();
-      cell_id=iphtn->get_cell();
+      cell_id=phtn.get_cell();
       if (mesh->mesh_available(cell_id)) {
-        wait_flag = transport_single_photon(iphtn, mesh, rng, next_dt, exit_E,
-                                            census_E, census_count, rank_abs_E);
-        if (wait_flag) wait_list.push(iphtn);
+        event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
+                                            census_E, rank_abs_E);
+        if (event==CENSUS) census_list.push_back(phtn);
+        else if (event==WAIT) {
+          cell_id=phtn.get_cell();
+          mesh->request_cell(cell_id);
+          wait_list.push(phtn);
+        }
       }
       else {
-        wait_list.push(iphtn);
+        wait_list.push(phtn);
         mesh->request_cell(cell_id);
       }
     }
   } //end while wait_list not empty
 
-  // This rank is finished transporting, post finished
   vector<bool> s_bool(1,true);
-  for (int ir=0; ir<n_rank; ir++) {
-    if (ir != rank) {
-      //get correct index into requests and vectors 
-      int r_index = ir - (ir>rank);
-      s_finished_reqs[r_index] = world.isend(ir, finish_tag, s_bool);
-    }
-  }
 
+  ////////////////////////////////////////////////////////////////////////
   // While waiting for other ranks to finish, check for other messages
-  bool all_finished = false;
-  while (!all_finished) {
-    mesh->process_mesh_requests(world);
-    for (int ir=0; ir<n_rank; ir++) {
-      if (ir != rank) {
-        //get correct index into requests and vectors 
-        int r_index = ir - (ir>rank);
-        //don't check message if it's been received
-        if (!b_r_finished[r_index]) {
-          if (r_finished_reqs[r_index].test()) {
-            all_finished = r_finished[r_index][0];
-            b_r_finished[r_index] = true;
-          }
-          else {
-            all_finished = false;
-            break;
-          }
-        }
-        else all_finished = true;
-      } //end if
-      else all_finished = true;
-    } //end for 
+  ////////////////////////////////////////////////////////////////////////
+  bool c1_finished = false || child1==proc_null;
+  bool c2_finished = false || child2==proc_null;
+  bool p_finished  = false || parent==proc_null;
+
+  while (!((c1_finished && c2_finished) && p_finished)) {
+    if (c1_recv_buffer.awaiting()) {
+      if (c1_recv_request.test()) {
+        n_receives_completed++;
+        c1_recv_buffer.set_received();
+        c1_finished = c1_recv_buffer.get_buffer()[0];
+      }
+    }
+    if (c2_recv_buffer.awaiting()) {
+      if (c2_recv_request.test()) {
+        n_receives_completed++;
+        c2_recv_buffer.set_received();
+        c2_finished = c2_recv_buffer.get_buffer()[0];
+      }
+    }
+    if (p_recv_buffer.awaiting()) {
+      if (p_recv_request.test()) {
+        n_receives_completed++;
+        p_recv_buffer.set_received();
+        p_finished = p_recv_buffer.get_buffer()[0];
+      }
+    }
+    
+    // if children complete or terminating branch, send to parent (only once)
+    if ((c1_finished && c2_finished) && 
+        (parent != proc_null && !p_send_buffer.sent()) ) {
+      p_send_buffer.fill(s_bool);
+      p_send_request = world.isend(parent, finish_tag, p_send_buffer.get_buffer());
+      n_sends_posted++;
+      p_send_buffer.set_sent();
+    }
+    
+    mesh->process_mesh_requests(world, n_cell_messages, n_cells_sent,
+                                n_sends_posted, n_sends_completed,
+                                n_receives_posted, n_receives_completed);
   } //end while
 
-  std::sort(photon_vec, photon_vec+n_photon, Photon::census_flag_compare);
-  //make the census list
-  census_list = new Photon[census_count];
-  unsigned int num_bytes = sizeof(Photon)*census_count;
-  memcpy(census_list, photon_vec, num_bytes);
+  // wait for completion of send
+  if (p_send_buffer.sent()) {
+    p_send_request.wait();
+    n_sends_completed++;
+  }
+
+  //send complete message down the tree
+  if (child1 != proc_null) { 
+    c1_send_buffer.fill(s_bool);
+    c1_send_request = world.isend(child1, finish_tag, c1_send_buffer.get_buffer());
+    n_sends_posted++;
+    c1_send_request.wait();
+    n_sends_completed++;
+  }
+  if (child2 != proc_null)  {
+    c2_send_buffer.fill(s_bool);
+    c2_send_request = world.isend(child2, finish_tag, c2_send_buffer.get_buffer());
+    n_sends_posted++;
+    c2_send_request.wait();
+    n_sends_completed++;
+  }
+
+  //wait for all ranks to finish transport to finish off cell and cell id
+  //requests and sends
+  MPI::COMM_WORLD.Barrier();
+  mesh->finish_mesh_pass_messages(world, n_sends_posted, n_sends_completed,
+                                  n_receives_posted, n_receives_completed);
 
   MPI::COMM_WORLD.Barrier();
 
-  delete[] photon_vec;
   //All ranks have now finished transport
-  delete[] s_finished_reqs;
-  delete[] r_finished_reqs;
 
   imc_state->set_exit_E(exit_E);
   imc_state->set_post_census_E(census_E);
-  imc_state->set_census_size(census_count);
+  imc_state->set_census_size(census_list.size());
+  imc_state->set_n_cell_messages(n_cell_messages);
+  imc_state->set_n_cells_sent(n_cells_sent);
+  imc_state->set_n_sends_posted(n_sends_posted);
+  imc_state->set_n_sends_completed(n_sends_completed);
+  imc_state->set_n_receives_posted(n_receives_posted);
+  imc_state->set_n_receives_completed(n_receives_completed);
+
+  return census_list;
 }
 
 #endif // def transport_mesh_pass_h_

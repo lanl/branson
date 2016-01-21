@@ -13,7 +13,7 @@
 #include "imc_state.h"
 #include "cell.h"
 #include "constants.h"
-#include "request.h"
+#include "buffer.h"
 
 namespace mpi = boost::mpi;
 
@@ -143,40 +143,33 @@ class Mesh {
 
     //bool flags to say if data is needed
     need_data = vector<bool>(n_rank-1, false);
-    send_data = vector<bool>(n_rank-1, false);
 
     //allocate mpi requests objects
-    r_cell_reqs = new Request[ (n_rank-1)];
-    r_cell_ids_reqs = new Request[ (n_rank-1)];
-    s_cell_reqs = new Request[ (n_rank-1)];
-    s_cell_ids_reqs = new Request[ (n_rank-1)];
+    r_cell_reqs = new mpi::request[n_rank-1];
+    r_id_reqs = new mpi::request[n_rank-1];
+    s_cell_reqs = new mpi::request[n_rank-1];
+    s_id_reqs = new mpi::request[n_rank-1];
    
-    b_r_cell_reqs    = vector<bool> (n_rank-1, false);
-    b_r_cell_ids_reqs = vector<bool> (n_rank-1, false);
-    b_s_cell_reqs    = vector<bool> (n_rank-1, false);
-    b_s_cell_ids_reqs = vector<bool> (n_rank-1, false);
+    recv_cell_buffer = vector<Buffer<Cell> >(n_rank-1);
+    send_cell_buffer = vector<Buffer<Cell> >(n_rank-1);
+    recv_id_buffer =  vector<Buffer<unsigned int> >(n_rank-1);
+    send_id_buffer =  vector<Buffer<unsigned int> >(n_rank-1);
 
     // size the send and receive buffers
     // they are size n_rank -1
     for (unsigned int ir=0; ir<n_rank-1; ir++) {
-      vector<Cell> empty_vec_cell;
-      r_cells.push_back(empty_vec_cell);
-      s_cells.push_back(empty_vec_cell);
       vector<unsigned int> empty_vec_ids;
-      r_cell_ids.push_back(empty_vec_ids);
-      s_cell_ids.push_back(empty_vec_ids);
       //ids needed from other ranks
       ids_needed.push_back(empty_vec_ids); 
     }
-  
   }
 
   //free buffers and delete MPI allocated cell
   ~Mesh() {
     delete[] r_cell_reqs;
-    delete[] r_cell_ids_reqs;
+    delete[] r_id_reqs;
     delete[] s_cell_reqs;
-    delete[] s_cell_ids_reqs;
+    delete[] s_id_reqs;
   }
 
 /*****************************************************************************/
@@ -473,9 +466,16 @@ class Mesh {
 
 
 
-  bool process_mesh_requests(mpi::communicator world) {
+  bool process_mesh_requests(mpi::communicator world,
+                              unsigned int& n_cell_messages,
+                              unsigned int& n_cells_sent,
+                              unsigned int& n_sends_posted,
+                              unsigned int& n_sends_completed,
+                              unsigned int& n_receives_posted,
+                              unsigned int& n_receives_completed) {
     using Constants::cell_tag;
     using Constants::cell_id_tag;
+    using std::vector;
 
     bool new_data = false;
     for (unsigned int ir=0; ir<n_rank; ir++) {
@@ -487,104 +487,113 @@ class Mesh {
         // if you need data from this rank, process request
         ////////////////////////////////////////////////////////////////////////
         if (need_data[r_index]) {
-          //if you haven't requested cells, do that
-          if (!b_s_cell_ids_reqs[r_index]) {
+  
+          //test completion of send/receives
+          if (recv_cell_buffer[r_index].awaiting()) {
+            if (r_cell_reqs[r_index].test()) {
+              n_receives_completed++;
+              recv_cell_buffer[r_index].set_received();
+            }
+          }
+          if (send_id_buffer[r_index].sent()) {
+            if (s_id_reqs[r_index].test()) {
+              n_sends_completed++;
+              send_id_buffer[r_index].reset();
+            }
+          }
+
+          // if receive buffer is empty, all receive processing has completed
+          // a new send id receive cell cycle can begin
+          if (recv_cell_buffer[r_index].empty() ) {
             //copy needed cells to the send buffer
-            s_cell_ids[r_index].assign(
-              ids_needed[r_index].begin(), ids_needed[r_index].end());
-            //cout<<"Number of cells needed by "<<rank<<" from "<<ir;
-            //cout<<" is " <<ids_needed[r_index].size()<<endl;
-            //cout<<"Total IDS requested by rank "<<rank<<" is: ";
-            //cout<<off_rank_reads<<endl;
-            s_cell_ids_reqs[r_index].request( 
-              world.isend(ir, cell_id_tag, s_cell_ids[r_index]));
-            b_s_cell_ids_reqs[r_index] = true;
+            send_id_buffer[r_index].fill(ids_needed[r_index]);
+            //send to ir
+            s_id_reqs[r_index] = 
+              world.isend(ir, cell_id_tag, send_id_buffer[r_index].get_buffer());
+            n_sends_posted++;
+            send_id_buffer[r_index].set_sent();
             // clear requested cell ids 
             // (requested cells will not be requested again)
             // because they are still stored in requested_ids set
             ids_needed[r_index].clear();
+            //post receive
+            r_cell_reqs[r_index] = 
+              world.irecv(ir, cell_tag, recv_cell_buffer[r_index].get_buffer());
+            n_receives_posted++;
+            recv_cell_buffer[r_index].set_awaiting();
           }
-          //otherwise, check to see if send completed, then reset buffer
-          //post receive for this rank, if not done
-          if (!b_r_cell_reqs[r_index]) {
-            r_cell_reqs[r_index].request( 
-              world.irecv(ir, cell_tag, r_cells[r_index]));
-            b_r_cell_reqs[r_index] = true;
-          }
-          else {
-            //check for completion
-            if (r_cell_reqs[r_index].test()) {
-              //reset send and receive flags and need_data flag 
-              b_s_cell_ids_reqs[r_index] = false;
-              b_r_cell_reqs[r_index] = false;
-              if (ids_needed[r_index].empty()) need_data[r_index] = false;
-              new_data = true;
+          // if send id buffer has completed and cell buffer has receieved, 
+          // process received data
+          if (send_id_buffer[r_index].empty() && recv_cell_buffer[r_index].received()) {
+            //reset need_data flag if there is no more data needed
+            if (ids_needed[r_index].empty()) need_data[r_index] = false;
+            new_data = true;
 
-              //add received cells to working mesh
-              for (unsigned int i=0; i<r_cells[r_index].size();i++) {
-                unsigned int index = r_cells[r_index][i].get_ID();
-                //add this cell to the map, if possible, otherwise manage map
-                if (stored_cells.size() < max_map_size) 
-                  stored_cells[index] = r_cells[r_index][i];
-                else {
-                  //remove from map and from requests so it can be 
-                  // reqeusted again if needed
-                  unsigned int removed_id = (stored_cells.begin())->first ;
-                  ids_requested.erase(removed_id);
-                  stored_cells.erase(stored_cells.begin());
-                  stored_cells[index] = r_cells[r_index][i];
-                }
-              } // for i in r_cells[r_index]
-              r_cells[r_index].clear();
-              s_cell_ids[r_index].clear();
-            } // if r_cells_reqs[r_index].test()
-          }
+            //add received cells to working mesh
+            vector<Cell> r_cells = recv_cell_buffer[r_index].get_buffer();
+            for (unsigned int i=0; i<r_cells.size();i++) {
+              unsigned int index = r_cells[i].get_ID();
+              //add this cell to the map, if possible, otherwise manage map
+              if (stored_cells.size() < max_map_size) 
+                stored_cells[index] = r_cells[i];
+              else {
+                //remove from map and from requests so it can be 
+                // reqeusted again if needed
+                unsigned int removed_id = (stored_cells.begin())->first ;
+                ids_requested.erase(removed_id);
+                stored_cells.erase(stored_cells.begin());
+                stored_cells[index] = r_cells[i];
+              }
+            } // for i in r_cells[r_index]
+            recv_cell_buffer[r_index].reset();
+          } // if recv_cell_buffer[r_index].received()
         } // if need_data[r_index]
 
 
         ////////////////////////////////////////////////////////////////////////
         // receiving cell ids needed by other ranks (post receives to all)
         ////////////////////////////////////////////////////////////////////////
-        // check to see if receive call made
-        if (!b_r_cell_ids_reqs[r_index]) {
-          r_cell_ids_reqs[r_index].request(
-            world.irecv( ir, cell_id_tag, r_cell_ids[r_index]));
-          b_r_cell_ids_reqs[r_index] = true;
+        // check to see if cell ids received  and send has completed
+        if ( recv_id_buffer[r_index].empty() &&
+             send_cell_buffer[r_index].empty()) {
+          r_id_reqs[r_index] =
+            world.irecv( ir, cell_id_tag, recv_id_buffer[r_index].get_buffer());
+          n_receives_posted++;
+          recv_id_buffer[r_index].set_awaiting();
         }
+
         // add cell ids to requested for a rank
-        else if (!send_data[r_index]) {
-          if (r_cell_ids_reqs[r_index].test())  {
-            //send data to this rank
-            send_data[r_index] = true;
-            //make cell send list for this rank
-            for (unsigned int i=0; i<r_cell_ids[r_index].size();i++)
-              s_cells[r_index].push_back(cells[r_cell_ids[r_index][i]]);
-          } // if (r_cell_ids[r_index].test() )
+        if (recv_id_buffer[r_index].received()) {
+          //make cell send list for this rank
+          vector<unsigned int> r_ids = recv_id_buffer[r_index].get_buffer();
+          vector<Cell> s_cell;
+          for (unsigned int i=0; i<r_ids.size();i++)
+            s_cell.push_back(cells[r_ids[i]]);
+          send_cell_buffer[r_index].fill(s_cell);
+          s_cell_reqs[r_index] = 
+            world.isend( ir, cell_tag, send_cell_buffer[r_index].get_buffer());
+          n_sends_posted++;
+          n_cell_messages++;
+          n_cells_sent+=s_cell.size();
+          send_cell_buffer[r_index].set_sent();
+          //reset receive buffer
+          recv_id_buffer[r_index].reset();
         }
    
-        //send cells needed by other ranks
-        //check to see if this rank need your data
-        if (send_data[r_index]) {
-          if(!b_s_cell_reqs[r_index]) {
-            //cout<<"Number of cells sent by "<<rank<<" to "<<ir<<" is " ;
-            //cout<<s_cells[r_index].size()<<endl;
-            s_cell_reqs[r_index].request(
-              world.isend( ir, cell_tag, s_cells[r_index]));
-            b_s_cell_reqs[r_index] = true;
-          } 
-          else {
-            //check for completion of send message
-            if (s_cell_reqs[r_index].test()) {
-              //data is no longer needed by this rank, buffers can be reused
-              // and receive and send messages can be posted again
-              send_data[r_index] = false;
-              b_r_cell_ids_reqs[r_index] = false;
-              b_s_cell_reqs[r_index] = false;
-              r_cell_ids[r_index].clear();
-              s_cells[r_index].clear();
-            }
+        // test receive id buffer
+        if (recv_id_buffer[r_index].awaiting()) {
+          if (r_id_reqs[r_index].test()) {
+            n_receives_completed++;
+            recv_id_buffer[r_index].set_received();
           }
-        } // if send_data[r_index]
+        }
+        //test send cell buffer
+        if (send_cell_buffer[r_index].sent()) {
+          if (s_cell_reqs[r_index].test()) {
+            n_sends_completed++;
+            send_cell_buffer[r_index].reset();
+          }
+        }
       } //if (ir != rank)
     } //for ir in rank
     return new_data;
@@ -596,24 +605,71 @@ class Mesh {
     ids_requested.clear();  
   }
 
-  /*
-  void clear_messages(void) {
+  void finish_mesh_pass_messages(mpi::communicator world,
+                                unsigned int& n_sends_posted,
+                                unsigned int& n_sends_completed,
+                                unsigned int& n_receives_posted,
+                                unsigned int& n_receives_completed) {
+    using Constants::cell_id_tag;
+    using std::vector;
+    //post receives for ids to all ranks
     for (unsigned int ir=0; ir<n_rank; ir++) {
       if (ir != rank) {
         //get correct index into requests and vectors 
         unsigned int r_index = ir - (ir>rank);
-        b_r_cell_ids_reqs[r_index] = false;
-        b_s_cell_ids_reqs[r_index] = false;
-        b_r_cell_reqs[r_index] = false;
-        b_s_cell_reqs[r_index] = false;
-        r_cell_ids_reqs[r_index].cancel();
-        s_cell_ids_reqs[r_index].cancel();
-        r_cell_reqs[r_index].cancel();
-        s_cell_reqs[r_index].cancel();
+        //if receive buffer is not awaiting, post receive
+        if (!recv_id_buffer[r_index].awaiting()) {
+          recv_id_buffer[r_index].reset();
+          r_id_reqs[r_index] = 
+              world.irecv(ir, cell_id_tag, recv_id_buffer[r_index].get_buffer());
+          recv_id_buffer[r_index].set_awaiting();
+          n_receives_posted++;
+        }
+      }
+    }
+    
+    //send empty cell id vector to all ranks 
+    for (unsigned int ir=0; ir<n_rank; ir++) {
+      if (ir != rank) {
+        //get correct index into requests and vectors 
+        unsigned int r_index = ir - (ir>rank);
+        //make sure sent cell id messages have completed
+        if (send_cell_buffer[r_index].sent()) {
+          s_cell_reqs[r_index].wait();
+          n_sends_completed++;
+        }
+        send_cell_buffer[r_index].reset();
+        //make sure sent id messages have completed
+        if (send_id_buffer[r_index].sent()) {
+          s_id_reqs[r_index].wait();
+          n_sends_completed++;
+        }
+        //send empty id message to finish awaiting receives
+        vector<unsigned int> empty_id_vector;
+        send_id_buffer[r_index].fill(empty_id_vector);
+        s_id_reqs[r_index] = 
+          world.isend(ir, cell_id_tag, send_id_buffer[r_index].get_buffer());
+        n_sends_posted++;
+        //wait for message to send
+        s_id_reqs[r_index].wait();
+        n_sends_completed++;
+        //reset send if buffer
+        send_id_buffer[r_index].reset();
+      }
+    }
+
+    //wait for id receives to complete 
+    for (unsigned int ir=0; ir<n_rank; ir++) {
+      if (ir != rank) {
+        //get correct index into requests and vectors 
+        unsigned int r_index = ir - (ir>rank);
+        //wait for receives to complete
+        r_id_reqs[r_index].wait();
+        n_receives_completed++;
+        recv_id_buffer[r_index].reset();
       }
     }
   }
-  */
 
   void add_mesh_cell(Cell new_cell) {new_cell_list.push_back(new_cell);}
   void remove_cell(unsigned int index) {remove_cell_list.push_back(index);}
@@ -666,27 +722,19 @@ class Mesh {
   unsigned int off_rank_reads; //!< Number of off rank reads
 
   //send and receive buffers
-  std::vector<std::vector<Cell> > r_cells; //!< Receive buffer for cells
-  std::vector<std::vector<unsigned int> > r_cell_ids; //!< Receive cell ids needed by other ranks
-  std::vector<std::vector<Cell> > s_cells; //!< Cells to send to each rank
-  std::vector<std::vector<unsigned int> > s_cell_ids; //!< Send buffer for cell ids needed by this rank
+  std::vector<Buffer<Cell> > recv_cell_buffer; //!< Receive buffer for cells
+  std::vector<Buffer<Cell> > send_cell_buffer; //!< Send buffer for cells
+  std::vector<Buffer<unsigned int> > recv_id_buffer; //!< Receive buffer for cell IDs
+  std::vector<Buffer<unsigned int> > send_id_buffer; //!< Receive buffer for cell IDs
 
-  //Data bools needed from off rank and other ranks that need data here
+  //Data bools needed from off rank 
   std::vector<bool> need_data; //!< Vector of size nrank-1, flag for needed data from rank
-  std::vector<bool> send_data; //!< Vector of size nrank-1, flag to send data to rank
 
-  // MPI requests for non-blocking communication and the 
-  // bools for if the request has been made
-  //receive requests and bool flags
-  Request* r_cell_reqs; //!< Received cell requests
-  std::vector<bool>  b_r_cell_reqs; //!< Bool for received call requests
-  Request* r_cell_ids_reqs; //!< Received cell id requests
-  std::vector<bool>  b_r_cell_ids_reqs; //!< Bool for received call requests
-  //send requests and bool flags
-  Request* s_cell_reqs; //!< Sent cell requests
-  std::vector<bool>  b_s_cell_reqs; //!< Bool for received call requests
-  Request* s_cell_ids_reqs; //!< Sent cell id requests
-  std::vector<bool>  b_s_cell_ids_reqs; //!< Bool for received call requests
+  // MPI requests for non-blocking cell communication
+  mpi::request* r_cell_reqs; //!< Received cell requests
+  mpi::request* s_cell_reqs; //!< Send cell requests
+  mpi::request* r_id_reqs; //!< Received cell ID requests
+  mpi::request* s_id_reqs; //!< Send cell ID requests
 
   std::map<unsigned int, Cell> stored_cells; //!< Cells that have been accessed off rank
   std::map<unsigned int, Cell> ghost_cells; //!< Static list of off-rank cells next to boundary

@@ -100,6 +100,8 @@ class IMC_State
     unsigned int g_trans_photons=0;
     unsigned int g_n_photon_messages=0;
     unsigned int g_n_photons_sent=0;
+    unsigned int g_n_cell_messages=0;
+    unsigned int g_n_cells_sent=0;
     unsigned int g_n_sends_posted=0;
     unsigned int g_n_sends_completed=0;
     unsigned int g_n_receives_posted=0;
@@ -121,6 +123,8 @@ class IMC_State
 
     MPI::COMM_WORLD.Allreduce(&n_photon_messages, &g_n_photon_messages, 1, MPI_UNSIGNED, MPI_SUM);
     MPI::COMM_WORLD.Allreduce(&n_photons_sent, &g_n_photons_sent, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(&n_cell_messages, &g_n_cell_messages, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(&n_cells_sent, &g_n_cells_sent, 1, MPI_UNSIGNED, MPI_SUM);
     MPI::COMM_WORLD.Allreduce(&n_sends_posted, &g_n_sends_posted, 1, MPI_UNSIGNED, MPI_SUM);
     MPI::COMM_WORLD.Allreduce(&n_sends_completed, &g_n_sends_completed, 1, MPI_UNSIGNED, MPI_SUM);
     MPI::COMM_WORLD.Allreduce(&n_receives_posted, &g_n_receives_posted, 1, MPI_UNSIGNED, MPI_SUM);
@@ -139,15 +143,17 @@ class IMC_State
       cout<<"Pre mat E: "<<g_pre_mat_E<<" Post mat E: "<<g_post_mat_E<<endl;
       cout<<"Radiation Conservation: "<<rad_conservation<<endl;
       cout<<"Material Conservation: "<<mat_conservation<<endl;
+      cout<<"Sends posted: "<<g_n_sends_posted;
+      cout<<", sends completed: "<<g_n_sends_completed<<endl;
+      cout<<"Receives posted: "<<g_n_receives_posted;
+      cout<<", receives completed: "<<g_n_receives_completed<<endl;
       if (dd_type == PARTICLE_PASS) {
         cout<<"Photons messages sent: "<<g_n_photon_messages;
         cout<<", Total photons sent: "<<g_n_photons_sent<<endl;
-        cout<<"Sends posted: "<<g_n_sends_posted;
-        cout<<", sends completed: "<<g_n_sends_completed<<endl;
-        cout<<"Receives posted: "<<g_n_receives_posted;
-        cout<<", receives completed: "<<g_n_receives_completed<<endl;
       }
       else {
+        cout<<"Cell messages sent: "<<g_n_cell_messages;
+        cout<<", Total cells sent: "<<g_n_cells_sent<<endl;
         cout<<"Total RMA requests: "<<g_off_rank_reads<<endl;
       }
       total_off_rank_reads+=g_off_rank_reads;
@@ -182,6 +188,12 @@ class IMC_State
   }
   void set_n_photons_sent(unsigned int _n_photons_sent) {
     n_photons_sent=_n_photons_sent;
+  }
+  void set_n_cell_messages(unsigned int _n_cell_messages) {
+    n_cell_messages=_n_cell_messages;
+  }
+  void set_n_cells_sent(unsigned int _n_cells_sent) {
+    n_cells_sent=_n_cells_sent;
   }
   void set_n_sends_posted(unsigned int _n_sends_posted) {
     n_sends_posted=_n_sends_posted;
@@ -227,6 +239,8 @@ class IMC_State
   unsigned int total_off_rank_reads; //! Number of RMA reads total for simulation
   unsigned int n_photon_messages; //! Number of photon messages
   unsigned int n_photons_sent; //! Number of photons passed
+  unsigned int n_cell_messages; //! Number of cell messages
+  unsigned int n_cells_sent; //! Number of cells passed
   unsigned int n_sends_posted; //! Number of sent messages posted
   unsigned int n_sends_completed; //! Number of sent messages completed
   unsigned int n_receives_posted; //! Number of received messages completed

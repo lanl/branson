@@ -20,3 +20,7 @@ add_executable(test_photon_exe test_photon.cc)
 target_link_libraries(test_photon_exe boost_serialization-mt)
 target_link_libraries(test_photon_exe boost_wserialization-mt)
 add_test(NAME test_photon COMMAND test_photon_exe)
+
+# Buffer class test
+add_executable(test_buffer_exe test_buffer.cc)
+add_test(NAME test_buffer COMMAND test_buffer_exe)

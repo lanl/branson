@@ -18,7 +18,7 @@ const double a_SO(1.0); //!< Boltzmann constant for SO problems
 
 enum bc_type {REFLECT, VACUUM, ELEMENT, PROCESSOR}; //!< Boundary conditions
 enum dir_type {X_NEG, X_POS, Y_NEG, Y_POS, Z_NEG, Z_POS}; //<! Directions
-enum event_type {KILL, EXIT, PASS, CENSUS}; //!< Events
+enum event_type {KILL, EXIT, PASS, CENSUS, WAIT}; //!< Events
 enum {PARTICLE_PASS, CELL_PASS}; //!< DD types
 const int cell_tag(1);
 const int cell_id_tag(2);

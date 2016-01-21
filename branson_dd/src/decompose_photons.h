@@ -196,6 +196,105 @@ vector<Photon> decompose_photons_zoltan(vector<Photon>& photon_vec,  mpi::commun
 */
 
 
+
+
+
+/*
+void rebalance_photons(Source) {
+  //get work on this rank
+  
+}
+*/
+
+
+
+std::vector<Photon> rebalance_census(std::vector<Photon>& census_list,
+                                     Mesh* mesh, 
+                                     mpi::communicator world) 
+{
+  using std::vector;
+  using std::sort;
+
+  unsigned int rank = MPI::COMM_WORLD.Get_rank();
+  unsigned int size = MPI::COMM_WORLD.Get_size();
+
+  //sort the census vector by cell ID (global ID)
+  sort(census_list.begin(), census_list.end());
+  
+  unsigned int n_census = census_list.size();
+
+  //count the photons belonging to each rank and the start index of each
+  //count the ranks that you will send to, add them to a vector
+  vector<unsigned int> rank_count(size, 0);
+  vector<unsigned int> rank_start(size+1, 0);
+  vector<bool> rank_found(size, false);
+  unsigned int r;
+  for (unsigned int i=0; i<n_census; i++) {
+    r = mesh->get_rank(census_list[i].get_cell());
+    rank_count[r]++;
+    if(rank_found[r]==false) {
+      rank_found[r]=true;
+      rank_start[r] =i;
+    }
+  }
+
+  // end of rank count is the total number of census photons
+  rank_start[size] = n_census;
+
+  //send photons to other processors
+  mpi::request* reqs = new mpi::request[ (size-1)*2];
+  vector<vector<Photon> > recv_photons;
+  //make size-1 receive lists
+  for (unsigned int ir=0; ir<size-1; ir++) {
+    vector<Photon> empty_vec;
+    recv_photons.push_back(empty_vec);
+  }
+
+  unsigned int icount = 0;
+  vector<Photon>::iterator start = census_list.begin();
+  for (unsigned int ir=0; ir<size; ir++) {
+    if (rank != ir) {
+      //build send list
+      vector<Photon> send_photons(rank_count[ir]);
+      unsigned int start_send;
+      start_send = rank_start[ir];
+      memcpy(&send_photons[0], &census_list[start_send], sizeof(Photon)*rank_count[ir]);
+      reqs[icount] = world.isend(ir, 0, send_photons);
+      icount++;
+      //get correct index into received photon vector
+      unsigned int r_index = ir - (ir>rank);
+      reqs[icount] = world.irecv(ir,0,recv_photons[r_index]);
+      icount++;
+    }
+  }
+
+  mpi::wait_all(reqs, reqs+(size-1)*2);
+
+  //copy on rank census photons to new census list
+  vector<Photon> new_census_list;
+  unsigned int start_on_rank = rank_start[rank];
+  new_census_list.insert(new_census_list.end(),
+                         start+start_on_rank,
+                         start+(start_on_rank+rank_count[rank]));
+
+  //free memory from census list
+  census_list.clear();
+
+  for (unsigned int ir=0; ir<size-1; ir++)
+    new_census_list.insert(new_census_list.end(), 
+      recv_photons[ir].begin(), 
+      recv_photons[ir].end());
+
+  //Explicitly delete the MPI requests
+  delete[] reqs;
+
+  sort(new_census_list.begin(), new_census_list.end());
+
+  return new_census_list;
+}
+
+
+/*
 void on_rank_rebalance_photons(Photon*& photon_vec, 
                                unsigned int& n_photon,
                                Photon*& census_list,
@@ -231,14 +330,12 @@ void on_rank_rebalance_photons(Photon*& photon_vec,
   //communication. I don't want to do that right now. I'll allow empty
   //messages
   //
-  /*
   //reduce the rank_found array to get the number of ranks to receive from
-  vector<unsigned int> recv_message(world.size(),0);
-  for (unsigned int ir=0; ir<size; ir++) 
-    if(rank_found[ir]==true) recv_message[ir]=1;
-  recv_message[rank]=0; // can't receive message from self
-  MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, &recv_message[0], size, MPI_UNSIGNED, MPI_SUM);
-  */
+  //vector<unsigned int> recv_message(world.size(),0);
+  //for (unsigned int ir=0; ir<size; ir++) 
+    //if(rank_found[ir]==true) recv_message[ir]=1;
+  //recv_message[rank]=0; // can't receive message from self
+  //MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, &recv_message[0], size, MPI_UNSIGNED, MPI_SUM);
 
   //end of rank count is the total number of census photons
   rank_start[size] = n_census;
@@ -309,9 +406,9 @@ void on_rank_rebalance_photons(Photon*& photon_vec,
   n_photon = n_photon+new_census_size;
   //print_MPI_photons(photon_vec, rank, size);
 }
+*/
 
-
-
+/*
 void proto_load_balance_photons(Photon*& photon_vec, 
                                 unsigned int& n_photon,
                                 Mesh *mesh, 
@@ -392,5 +489,5 @@ void proto_load_balance_photons(Photon*& photon_vec,
   n_photon = new_photon_size;
   //print_MPI_photons(photon_vec, rank, size);
 }
-
+*/
 #endif // decompose_photons_h

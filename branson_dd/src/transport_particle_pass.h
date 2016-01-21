@@ -24,13 +24,13 @@
 
 namespace mpi = boost::mpi;
 
-Constants::event_type transport_single_photon(Photon& phtn,
-                                              Mesh* mesh,
-                                              RNG* rng,
-                                              double& next_dt,
-                                              double& exit_E,
-                                              double& census_E,
-                                              std::vector<double>& rank_abs_E)
+Constants::event_type transport_photon_particle_pass(Photon& phtn,
+                                                      Mesh* mesh,
+                                                      RNG* rng,
+                                                      double& next_dt,
+                                                      double& exit_E,
+                                                      double& census_E,
+                                                      std::vector<double>& rank_abs_E)
 {
   using Constants::VACUUM; using Constants::REFLECT; 
   using Constants::ELEMENT; using Constants::PROCESSOR;
@@ -134,16 +134,17 @@ Constants::event_type transport_single_photon(Photon& phtn,
 
 
 
-std::vector<Photon> transport_photons(Source& source,
-                                      Mesh* mesh,
-                                      IMC_State* imc_state,
-                                      IMC_Parameters* imc_parameters,
-                                      std::vector<double>& rank_abs_E,
-                                      mpi::communicator world)
+std::vector<Photon> transport_particle_pass(Source& source,
+                                            Mesh* mesh,
+                                            IMC_State* imc_state,
+                                            IMC_Parameters* imc_parameters,
+                                            std::vector<double>& rank_abs_E,
+                                            mpi::communicator world)
 {
   using Constants::event_type;
   using Constants::PASS; using Constants::CENSUS;
   using Constants::KILL; using Constants::EXIT;
+  using Constants::WAIT;
   using Constants::photon_tag;
   using std::queue;
   using std::vector;
@@ -269,7 +270,7 @@ std::vector<Photon> transport_photons(Source& source,
   unsigned int c2_count = 0; //!< Total complete from child2 subtree
   bool finished = false;
   bool from_receive_stack = false;
-  Photon iphtn;
+  Photon phtn;
   event_type event;
 
   // Number of particles to run between MPI communication 
@@ -280,8 +281,6 @@ std::vector<Photon> transport_photons(Source& source,
 
   while (!finished) {
 
-    //unsigned int n = imc_state->get_batch_size();
-    //hardcoded for now, fix later
     unsigned int n = batch_size;
     
     ////////////////////////////////////////////////////////////////////////////
@@ -291,18 +290,21 @@ std::vector<Photon> transport_photons(Source& source,
     while (n && (!phtn_recv_stack.empty() || (n_local_sourced < n_local))) {
       
       if (!phtn_recv_stack.empty()) {
-        iphtn = phtn_recv_stack.top();
+        phtn = phtn_recv_stack.top();
         from_receive_stack=true;
       }
       else {
-        iphtn =source.get_photon(rng, dt); 
+        phtn =source.get_photon(rng, dt); 
         n_local_sourced++;
         from_receive_stack=false;
       }
 
-      event = transport_single_photon(iphtn, mesh, rng, next_dt, exit_E,
-                                          census_E, rank_abs_E);
+      event = transport_photon_particle_pass(phtn, mesh, rng, next_dt, exit_E,
+                                            census_E, rank_abs_E);
       switch(event) {
+        // this case should never be reached
+        case WAIT:
+          break;
         case KILL: 
           n_complete++;
           break;
@@ -310,13 +312,13 @@ std::vector<Photon> transport_photons(Source& source,
           n_complete++;
           break;
         case CENSUS:
-          census_list.push_back(iphtn);
+          census_list.push_back(phtn);
           n_complete++;
           break;
         case PASS:
-          send_rank = mesh->get_rank(iphtn.get_cell());
+          send_rank = mesh->get_rank(phtn.get_cell());
           int r_index = send_rank - (send_rank>rank);
-          send_list[r_index].push_back(iphtn);
+          send_list[r_index].push_back(phtn);
           break;
       }
       n--;
@@ -631,7 +633,7 @@ std::vector<Photon> transport_photons(Source& source,
   MPI::COMM_WORLD.Barrier();
 
   cout.flush();
-  std::sort(census_list.begin(), census_list.end(), Photon::census_flag_compare);
+  std::sort(census_list.begin(), census_list.end());
   //All ranks have now finished transport
   delete[] phtn_recv_request;
   delete[] phtn_send_request;
