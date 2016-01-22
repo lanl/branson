@@ -282,7 +282,7 @@ class Mesh {
     using Constants::a;
     total_photon_E = 0.0;
     double dt = imc_s->get_dt();
-    double op_a, op_s, f, cV;
+    double op_a, op_s, f, cV, rho;
     double vol;
     double T, Tr, Ts;
     unsigned int step = imc_s->get_step();
@@ -297,6 +297,7 @@ class Mesh {
       T = e.get_T_e();
       Tr = e.get_T_r();
       Ts = e.get_T_s();
+      rho = e.get_rho();
       op_a = m_opA + m_opB*pow(T, m_opC);
       op_s = m_opS;
       f =1.0/(1.0 + dt*op_a*c*(4.0*a*pow(T,3)/cV));
@@ -310,7 +311,7 @@ class Mesh {
       else m_census_E[i] =vol*a*pow(Tr,4); 
       m_source_E[i] = dt*op_a*a*c*pow(Ts,4);
 
-      pre_mat_E+=T*cV*vol;
+      pre_mat_E+=T*cV*vol*rho;
       tot_emission_E+=m_emission_E[i];
       tot_census_E  +=m_census_E[i];
       tot_source_E  +=m_source_E[i];
@@ -435,7 +436,7 @@ class Mesh {
       T_new = T + (abs_E[i+on_rank_start] - m_emission_E[i])/(cV*vol*rho);
       e.set_T_e(T_new);
       total_abs_E+=abs_E[i+on_rank_start];
-      total_post_mat_E+= T_new*cV*vol;
+      total_post_mat_E+= T_new*cV*vol*rho;
     }
     //zero out absorption tallies for all cells (global) 
     for (unsigned int i=0; i<abs_E.size();++i) {
