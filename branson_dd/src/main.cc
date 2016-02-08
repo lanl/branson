@@ -77,11 +77,11 @@ int main(int argc, char *argv[])
     imc_cell_pass_driver(rank, mesh, imc_state, imc_p, world);
 
   if (rank==0) {
-    gettimeofday(&end, &tzp);
-    print_elapsed_inside("\nruntime:",&start, &end);
-    cout<<"Total RMA Operations: "<<imc_state->get_total_RMA()<<endl;
     cout<<"****************************************";
     cout<<"****************************************"<<endl;
+    gettimeofday(&end, &tzp);
+    print_elapsed_inside("\nruntime:",&start, &end);
+    imc_state->print_simulation_footer(input->get_dd_mode());
   }
 
   MPI::COMM_WORLD.Barrier();

@@ -159,19 +159,19 @@ class Cell
 /* member variables and private functions                                    */
 /*****************************************************************************/
   private:
-  unsigned int g_ID; //!< Global ID, valid across all ranks
-  unsigned int e_next[6]; //!< Bordering cell, given as global ID
-  Constants::bc_type bc[6];   //!< Boundary conditions for each face 
-  double nodes[6]; //!< x_low, x_high, y_low, y_high, z_low, z_high
+  unsigned int g_ID; //! Global ID, valid across all ranks
+  unsigned int e_next[6]; //! Bordering cell, given as global ID
+  Constants::bc_type bc[6];   //! Boundary conditions for each face 
+  double nodes[6]; //! x_low, x_high, y_low, y_high, z_low, z_high
   
-  double cV;    //!< Heat capacity  GJ/g/KeV
-  double op_a;  //!< Absorption opacity  (1/cm)
-  double op_s;  //!< Physical scattering opacity (1/cm)
-  double f;     //!< Fleck factor
-  double rho;   //!< Density (g/cc)
-  double T_e;   //!< Material temperature
-  double T_r;   //!< Radiation temperature
-  double T_s;   //!< Source temperature
+  double cV;    //! Heat capacity  GJ/g/KeV
+  double op_a;  //! Absorption opacity  (1/cm)
+  double op_s;  //! Physical scattering opacity (1/cm)
+  double f;     //! Fleck factor
+  double rho;   //! Density (g/cc)
+  double T_e;   //! Material temperature
+  double T_r;   //! Radiation temperature
+  double T_s;   //! Source temperature
 
   // serialization routine
   friend class boost::serialization::access;
@@ -193,6 +193,5 @@ class Cell
   }
 
 };
-
 
 #endif // cell_h_

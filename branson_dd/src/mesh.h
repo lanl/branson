@@ -300,8 +300,7 @@ class Mesh {
       rho = e.get_rho();
       op_a = m_opA + m_opB*pow(T, m_opC);
       op_s = m_opS;
-      f =1.0/(1.0 + dt*op_a*c*(4.0*a*pow(T,3)/cV));
-
+      f =1.0/(1.0 + dt*op_a*c*(4.0*a*pow(T,3)/(cV*rho)));
       e.set_op_a(op_a);
       e.set_op_s(op_s);
       e.set_f(f);
@@ -444,7 +443,7 @@ class Mesh {
     }
     imc_s->set_absorbed_E(total_abs_E);
     imc_s->set_post_mat_E(total_post_mat_E);
-    imc_s->set_off_rank_read(off_rank_reads);
+    imc_s->set_step_cells_requested(off_rank_reads);
     off_rank_reads = 0;
   }
 
@@ -687,62 +686,61 @@ class Mesh {
 /*****************************************************************************/
   private:
 
-  unsigned int ngx; //!< Number of global x sizes
-  unsigned int ngy; //!< Number of global y sizes
-  unsigned int ngz; //!< Number of global z sizes
-  unsigned int rank; //!< MPI rank of this mesh
-  unsigned int n_rank; //!< Number of global ranks
+  unsigned int ngx; //! Number of global x sizes
+  unsigned int ngy; //! Number of global y sizes
+  unsigned int ngz; //! Number of global z sizes
+  unsigned int rank; //! MPI rank of this mesh
+  unsigned int n_rank; //! Number of global ranks
 
-  unsigned int n_cell; //!< Number of local cells
-  unsigned int n_global; //!< Nuber of global cells
+  unsigned int n_cell; //! Number of local cells
+  unsigned int n_global; //! Nuber of global cells
   
-  unsigned int on_rank_start; //!< Start of global index on rank
-  unsigned int on_rank_end; //!< End of global index on rank
+  unsigned int on_rank_start; //! Start of global index on rank
+  unsigned int on_rank_end; //! End of global index on rank
 
-  std::vector<double> m_census_E; //!< Census energy vector
-  std::vector<double> m_emission_E; //!< Emission energy vector
-  std::vector<double> m_source_E; //!< Source energy vector
+  std::vector<double> m_census_E; //! Census energy vector
+  std::vector<double> m_emission_E; //! Emission energy vector
+  std::vector<double> m_source_E; //! Source energy vector
 
-  Cell *cells; //!< Cell data allocated with MPI_Alloc
-  std::vector<Cell> cell_list; //!< On processor cells
-  std::vector<Cell> new_cell_list; //!< New received cells
-  std::vector<unsigned int> remove_cell_list; //!< Cells to be removed
-  std::vector<unsigned int> off_rank_bounds; //!< Ending value of global ID for each rank
-  std::vector<unsigned int> boundary_cells; //!< Index of adjacent ghost cells
+  Cell *cells; //! Cell data allocated with MPI_Alloc
+  std::vector<Cell> cell_list; //! On processor cells
+  std::vector<Cell> new_cell_list; //! New received cells
+  std::vector<unsigned int> remove_cell_list; //! Cells to be removed
+  std::vector<unsigned int> off_rank_bounds; //! Ending value of global ID for each rank
+  std::vector<unsigned int> boundary_cells; //! Index of adjacent ghost cells
 
-  double m_opA; //!< Opacity coefficient A in A + B^C
-  double m_opB; //!< Opacity coefficient B in A + B^C
-  double m_opC; //!< Opacity coefficient C in A + B^C
-  double m_opS; //!< Scattering opacity constant
+  double m_opA; //! Opacity coefficient A in A + B^C
+  double m_opB; //! Opacity coefficient B in A + B^C
+  double m_opC; //! Opacity coefficient C in A + B^C
+  double m_opS; //! Scattering opacity constant
 
-  double total_photon_E; //!< Total photon energy on the mesh
+  double total_photon_E; //! Total photon energy on the mesh
 
-  MPI::Datatype MPI_Cell; //!< MPI type, allows simpler parallel communication
+  MPI::Datatype MPI_Cell; //! MPI type, allows simpler parallel communication
 
-  unsigned int max_map_size; //!< Maximum size of map object
-  unsigned int off_rank_reads; //!< Number of off rank reads
+  unsigned int max_map_size; //! Maximum size of map object
+  unsigned int off_rank_reads; //! Number of off rank reads
 
   //send and receive buffers
-  std::vector<Buffer<Cell> > recv_cell_buffer; //!< Receive buffer for cells
-  std::vector<Buffer<Cell> > send_cell_buffer; //!< Send buffer for cells
-  std::vector<Buffer<unsigned int> > recv_id_buffer; //!< Receive buffer for cell IDs
-  std::vector<Buffer<unsigned int> > send_id_buffer; //!< Receive buffer for cell IDs
+  std::vector<Buffer<Cell> > recv_cell_buffer; //! Receive buffer for cells
+  std::vector<Buffer<Cell> > send_cell_buffer; //! Send buffer for cells
+  std::vector<Buffer<unsigned int> > recv_id_buffer; //! Receive buffer for cell IDs
+  std::vector<Buffer<unsigned int> > send_id_buffer; //! Receive buffer for cell IDs
 
   //Data bools needed from off rank 
-  std::vector<bool> need_data; //!< Vector of size nrank-1, flag for needed data from rank
+  std::vector<bool> need_data; //! Vector of size nrank-1, flag for needed data from rank
 
   // MPI requests for non-blocking cell communication
-  mpi::request* r_cell_reqs; //!< Received cell requests
-  mpi::request* s_cell_reqs; //!< Send cell requests
-  mpi::request* r_id_reqs; //!< Received cell ID requests
-  mpi::request* s_id_reqs; //!< Send cell ID requests
+  mpi::request* r_cell_reqs; //! Received cell requests
+  mpi::request* s_cell_reqs; //! Send cell requests
+  mpi::request* r_id_reqs; //! Received cell ID requests
+  mpi::request* s_id_reqs; //! Send cell ID requests
 
-  std::map<unsigned int, Cell> stored_cells; //!< Cells that have been accessed off rank
-  std::map<unsigned int, Cell> ghost_cells; //!< Static list of off-rank cells next to boundary
+  std::map<unsigned int, Cell> stored_cells; //! Cells that have been accessed off rank
+  std::map<unsigned int, Cell> ghost_cells; //! Static list of off-rank cells next to boundary
 
-  std::vector<std::vector<unsigned int> > ids_needed ; //!< Cell needed by this rank
-  std::set<unsigned int> ids_requested; //!< IDs that have been requested
-
+  std::vector<std::vector<unsigned int> > ids_needed ; //! Cell needed by this rank
+  std::set<unsigned int> ids_requested; //! IDs that have been requested
 
 };
 

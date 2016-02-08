@@ -50,7 +50,7 @@ Constants::event_type transport_photon_particle_pass(Photon& phtn,
   Cell cell;
 
   unsigned int surface_cross = 0;
-  double cutoff_fraction = 0.001; //note: get this from IMC_state
+  double cutoff_fraction = 0.01; //note: get this from IMC_state
 
   cell_id=phtn.get_cell();
   cell = mesh->get_on_rank_cell(cell_id);
@@ -642,12 +642,12 @@ std::vector<Photon> transport_particle_pass(Source& source,
   imc_state->set_post_census_E(census_E);
   imc_state->set_census_size(census_list.size());
   //set diagnostic
-  imc_state->set_n_photon_messages(n_photon_messages);
-  imc_state->set_n_photons_sent(n_photons_sent);
-  imc_state->set_n_sends_posted(n_sends_posted);
-  imc_state->set_n_sends_completed(n_sends_completed);
-  imc_state->set_n_receives_posted(n_receives_posted);
-  imc_state->set_n_receives_completed(n_receives_completed);
+  imc_state->set_step_particle_messages(n_photon_messages);
+  imc_state->set_step_particles_sent(n_photons_sent);
+  imc_state->set_step_sends_posted(n_sends_posted);
+  imc_state->set_step_sends_completed(n_sends_completed);
+  imc_state->set_step_receives_posted(n_receives_posted);
+  imc_state->set_step_receives_completed(n_receives_completed);
 
   return census_list;
 }

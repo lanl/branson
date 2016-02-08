@@ -48,7 +48,7 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
   Cell cell;
 
   unsigned int surface_cross = 0;
-  double cutoff_fraction = 0.001; //note: get this from IMC_state
+  const double cutoff_fraction = 0.01; //note: get this from IMC_state
 
   cell_id=phtn.get_cell();
   cell = mesh->get_on_rank_cell(cell_id);
@@ -232,7 +232,9 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   bool new_data = false;
   // Number of particles to run between MPI communication 
   const unsigned int batch_size = imc_parameters->get_batch_size();
+
   event_type event;
+  unsigned int wait_list_size;
 
   ////////////////////////////////////////////////////////////////////////
   // main loop over photons
@@ -274,7 +276,8 @@ std::vector<Photon> transport_mesh_pass(Source& source,
                                             n_receives_posted, n_receives_completed);
     // if data was received, try to transport photons on waiting list
     if (new_data) {
-      for (unsigned int wp =0; wp<wait_list.size(); wp++) {
+      wait_list_size = wait_list.size();
+      for (unsigned int wp =0; wp<wait_list_size; wp++) {
         phtn = wait_list.front();
         wait_list.pop();
         cell_id=phtn.get_cell();
@@ -302,23 +305,26 @@ std::vector<Photon> transport_mesh_pass(Source& source,
                                             n_sends_posted, n_sends_completed,
                                             n_receives_posted, n_receives_completed);
     // if new data received, transport waiting list 
-    for (unsigned int wp =0; wp<wait_list.size(); wp++) {
-      phtn = wait_list.front();
-      wait_list.pop();
-      cell_id=phtn.get_cell();
-      if (mesh->mesh_available(cell_id)) {
-        event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
-                                            census_E, rank_abs_E);
-        if (event==CENSUS) census_list.push_back(phtn);
-        else if (event==WAIT) {
-          cell_id=phtn.get_cell();
-          mesh->request_cell(cell_id);
-          wait_list.push(phtn);
+    if (new_data) {
+      wait_list_size = wait_list.size();
+      for (unsigned int wp =0; wp<wait_list_size; wp++) {
+        phtn = wait_list.front();
+        wait_list.pop();
+        cell_id=phtn.get_cell();
+        if (mesh->mesh_available(cell_id)) {
+          event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
+                                              census_E, rank_abs_E);
+          if (event==CENSUS) census_list.push_back(phtn);
+          else if (event==WAIT) {
+            cell_id=phtn.get_cell();
+            mesh->request_cell(cell_id);
+            wait_list.push(phtn);
+          }
         }
-      }
-      else {
-        wait_list.push(phtn);
-        mesh->request_cell(cell_id);
+        else {
+          wait_list.push(phtn);
+          mesh->request_cell(cell_id);
+        }
       }
     }
   } //end while wait_list not empty
@@ -404,12 +410,12 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   imc_state->set_exit_E(exit_E);
   imc_state->set_post_census_E(census_E);
   imc_state->set_census_size(census_list.size());
-  imc_state->set_n_cell_messages(n_cell_messages);
-  imc_state->set_n_cells_sent(n_cells_sent);
-  imc_state->set_n_sends_posted(n_sends_posted);
-  imc_state->set_n_sends_completed(n_sends_completed);
-  imc_state->set_n_receives_posted(n_receives_posted);
-  imc_state->set_n_receives_completed(n_receives_completed);
+  imc_state->set_step_cell_messages(n_cell_messages);
+  imc_state->set_step_cells_sent(n_cells_sent);
+  imc_state->set_step_sends_posted(n_sends_posted);
+  imc_state->set_step_sends_completed(n_sends_completed);
+  imc_state->set_step_receives_posted(n_receives_posted);
+  imc_state->set_step_receives_completed(n_receives_completed);
 
   return census_list;
 }

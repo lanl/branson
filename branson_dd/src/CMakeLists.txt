@@ -11,7 +11,7 @@ message ("Compiler: " ${CMAKE_CXX_COMPILER} )
 # add compiler flags
 set( DEBUG_FLAGS -gdwarf-3)
 set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
-#set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
+set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
 set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${DEBUG_FLAGS}" )
 message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
 
@@ -35,16 +35,16 @@ set(BRANSON_VERSION_MINOR 1)
 # Find Parmetis and link libraries 
 ###############################################################################
 # CCS MACHINES
-set(METIS_INCLUDE_DIR  /var/tmp/vendors/ParMetis-4.0.3/openmpi-1.10.0-gcc-5.2.0/include)
-set(PARMETIS_INCLUDE_DIR  /var/tmp/vendors/ParMetis-4.0.3/openmpi-1.10.0-gcc-5.2.0/include)
-set(PARMETIS_LIBRARY_DIR /var/tmp/vendors/ParMetis-4.0.3/openmpi-1.10.0-gcc-5.2.0/lib )
+#set(METIS_INCLUDE_DIR  /var/tmp/vendors/ParMetis-4.0.3/openmpi-1.10.0-gcc-5.2.0/include)
+#set(PARMETIS_INCLUDE_DIR  /var/tmp/vendors/ParMetis-4.0.3/openmpi-1.10.0-gcc-5.2.0/include)
+#set(PARMETIS_LIBRARY_DIR /var/tmp/vendors/ParMetis-4.0.3/openmpi-1.10.0-gcc-5.2.0/lib )
 
 # MOONLIGHT (DRACO) 
-#set(PARMETIS_INCLUDE_DIRS /usr/include/)
-#set(METIS_INCLUDE_DIR /usr/projects/draco/vendors/ParMetis-4.0.3/moonlight-openmpi-1.6.5-intel-15.0.3/include )
-#set(PARMETIS_LIBRARY_DIR /usr/projects/draco/vendors/ParMetis-4.0.3/moonlight-openmpi-1.6.5-intel-15.0.3/lib)
+set(PARMETIS_INCLUDE_DIRS /usr/include/)
+set(METIS_INCLUDE_DIR /usr/projects/draco/vendors/ParMetis-4.0.3/moonlight-openmpi-1.6.5-intel-15.0.3/include )
+set(PARMETIS_LIBRARY_DIR /usr/projects/draco/vendors/ParMetis-4.0.3/moonlight-openmpi-1.6.5-intel-15.0.3/lib)
 
-# MOONLIGHT (HOME DIRECTORY)
+# MOONLIGHT (HOME DIRECTORY PARMETIS BUILT WITH INTEL MPI)
 #set(METIS_INCLUDE_DIR /users/along/parmetis/install/include)
 #set(PARMETIS_LIBRARY_DIR /users/along/parmetis/install/lib)
 
@@ -61,12 +61,14 @@ link_directories(${PARMETIS_LIBRARY_DIR})
 # Add Boost library
 ###############################################################################
 #set(BOOST_ROOT /projects/opt/boost/1.58.0/draco/vendors/boost-1.58.0)
-#set(BOOST_ROOT /usr/projects/draco/vendors/boost-1.59.0/moonlight-openmpi-1.6.5-intel-15.0.3)
+# MOONLIGHT 
+set(BOOST_ROOT /usr/projects/draco/vendors/boost-1.59.0/moonlight-openmpi-1.6.5-intel-15.0.3)
 
-# MOONLIGHT (HOME)
+# MOONLIGHT (HOME DIRECTORY COMPILED WITH INTEL MPI)
 #set(BOOST_ROOT /users/along/boost/boost_install)
+
 # CCS
-set(BOOST_ROOT /ccs/codes/radtran/vendors/boost-1.58.0/openmpi-1.6.3-gcc-4.8.1/)
+#set(BOOST_ROOT /ccs/codes/radtran/vendors/boost-1.58.0/openmpi-1.6.3-gcc-4.8.1/)
 
 #set(BOOST_ROOT /usr/lib/i386-linux-gnu)
 #set(BOOST_ROOT $ENV{BOOST_ROOT})

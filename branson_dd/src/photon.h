@@ -121,20 +121,20 @@ class Photon
 /* member variables and private functions                                    */
 /*****************************************************************************/
   private:
-  double m_pos[3]; //!< photon position
-  double m_angle[3]; //!< photon angle array
+  double m_pos[3]; //! photon position
+  double m_angle[3]; //! photon angle array
 
-  double m_E; //!< current photon energy
-  double m_E0; //!< photon energy at creation
+  double m_E; //! current photon energy
+  double m_E0; //! photon energy at creation
 
-  unsigned int m_cell_ID; //!< Cell ID
-  bool m_census_flag; //!< Flag for census, true if photon reaches census
-  double m_life_dx; //!< Distance remaining this time step
+  unsigned int m_cell_ID; //! Cell ID
+  bool m_census_flag; //! Flag for census, true if photon reaches census
+  double m_life_dx; //! Distance remaining this time step
 
   //private member functions
   private:
 
-  // serialization routine
+  //! serialization routine
   friend class boost::serialization::access;
   template<class Archive>
   void serialize(Archive &ar, const unsigned int version)

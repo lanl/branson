@@ -37,7 +37,11 @@ class IMC_State
       post_mat_E = 0.0;
       exit_E = 0.0;
       absorbed_E = 0.0;
-      total_off_rank_reads=0;
+      total_cells_requested=0;
+      total_cells_sent=0;
+      total_cell_messages=0;
+      total_particles_sent=0;
+      total_particle_messages=0;
     }
 
   ~IMC_State() { delete m_RNG;}
@@ -49,7 +53,6 @@ class IMC_State
   unsigned int get_step(void) const {return m_step;}
   unsigned int get_total_step_photons(void) const {return m_total_photons;}
   unsigned int get_census_size(void) const {return census_size;}
-  unsigned int get_total_RMA(void) const {return total_off_rank_reads;}
   double get_pre_census_E(void) {return pre_census_E;}
   double get_emission_E(void) {return emission_E;}
   double get_next_dt(void) const {
@@ -96,16 +99,16 @@ class IMC_State
     double g_post_mat_E=0.0;
     double g_exit_E = 0.0;
     unsigned int g_census_size=0;
-    unsigned int g_off_rank_reads=0;
     unsigned int g_trans_photons=0;
-    unsigned int g_n_photon_messages=0;
-    unsigned int g_n_photons_sent=0;
-    unsigned int g_n_cell_messages=0;
-    unsigned int g_n_cells_sent=0;
-    unsigned int g_n_sends_posted=0;
-    unsigned int g_n_sends_completed=0;
-    unsigned int g_n_receives_posted=0;
-    unsigned int g_n_receives_completed=0;
+    unsigned int g_step_particle_messages=0;
+    unsigned int g_step_particles_sent=0;
+    unsigned int g_step_cells_requested=0;
+    unsigned int g_step_cell_messages=0;
+    unsigned int g_step_cells_sent=0;
+    unsigned int g_step_sends_posted=0;
+    unsigned int g_step_sends_completed=0;
+    unsigned int g_step_receives_posted=0;
+    unsigned int g_step_receives_completed=0;
 
     //reduce energy conservation values
     MPI::COMM_WORLD.Allreduce(&absorbed_E, &g_absorbed_E, 1, MPI_DOUBLE, MPI_SUM);
@@ -117,48 +120,101 @@ class IMC_State
     MPI::COMM_WORLD.Allreduce(&exit_E, &g_exit_E, 1, MPI_DOUBLE, MPI_SUM);
 
     // reduce diagnostic values
-    MPI::COMM_WORLD.Allreduce(&census_size, &g_census_size, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&m_trans_photons, &g_trans_photons, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&off_rank_reads, &g_off_rank_reads, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(
+      &census_size, &g_census_size, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(
+      &m_trans_photons, &g_trans_photons, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(
+      &step_cells_requested, 
+      &g_step_cells_requested, 
+      1, 
+      MPI_UNSIGNED, 
+      MPI_SUM);
 
-    MPI::COMM_WORLD.Allreduce(&n_photon_messages, &g_n_photon_messages, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&n_photons_sent, &g_n_photons_sent, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&n_cell_messages, &g_n_cell_messages, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&n_cells_sent, &g_n_cells_sent, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&n_sends_posted, &g_n_sends_posted, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&n_sends_completed, &g_n_sends_completed, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&n_receives_posted, &g_n_receives_posted, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&n_receives_completed, &g_n_receives_completed, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(
+      &step_particle_messages, 
+      &g_step_particle_messages, 
+      1, 
+      MPI_UNSIGNED, 
+      MPI_SUM);
+
+    MPI::COMM_WORLD.Allreduce(
+      &step_particles_sent, &g_step_particles_sent, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(
+      &step_cell_messages, &g_step_cell_messages, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(
+      &step_cells_sent, &g_step_cells_sent, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(
+      &step_sends_posted, &g_step_sends_posted, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(
+      &step_sends_completed, &g_step_sends_completed, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(
+      &step_receives_posted, &g_step_receives_posted, 1, MPI_UNSIGNED, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(
+      &step_receives_completed, 
+      &g_step_receives_completed, 
+      1, 
+      MPI_UNSIGNED, 
+      MPI_SUM);
     
     double rad_conservation = (g_absorbed_E + g_post_census_E + g_exit_E) - 
-                            (g_pre_census_E + g_emission_E + source_E);
+      (g_pre_census_E + g_emission_E + source_E);
 
-    double mat_conservation = g_post_mat_E - (g_pre_mat_E + g_absorbed_E - g_emission_E);
+    double mat_conservation = g_post_mat_E - (g_pre_mat_E + g_absorbed_E -
+      g_emission_E);
+
+    // update total simulation counters
+    total_cells_requested+=g_step_cells_requested;
+    total_cells_sent+=g_step_cells_sent;
+    total_cell_messages+=g_step_cell_messages;
+    total_particles_sent+=g_step_particles_sent;
+    total_particle_messages+=g_step_particle_messages;
+    
 
     if (MPI::COMM_WORLD.Get_rank() == 0) {
       cout<<"Total Photons transported: "<<g_trans_photons<<endl;
       cout<<"Emission E: "<<g_emission_E<<", Absorption E: "<<g_absorbed_E;
       cout<<", Exit E: "<<g_exit_E<<endl;
-      cout<<"Pre Census E: "<<g_pre_census_E<<" Post census E: "<<g_post_census_E<<" Post Census Size: "<< g_census_size<<endl;
+      cout<<"Pre census E: "<<g_pre_census_E<<" Post census E: ";
+      cout<<g_post_census_E<<" Post census Size: "<< g_census_size<<endl;
       cout<<"Pre mat E: "<<g_pre_mat_E<<" Post mat E: "<<g_post_mat_E<<endl;
-      cout<<"Radiation Conservation: "<<rad_conservation<<endl;
-      cout<<"Material Conservation: "<<mat_conservation<<endl;
-      cout<<"Sends posted: "<<g_n_sends_posted;
-      cout<<", sends completed: "<<g_n_sends_completed<<endl;
-      cout<<"Receives posted: "<<g_n_receives_posted;
-      cout<<", receives completed: "<<g_n_receives_completed<<endl;
+      cout<<"Radiation conservation: "<<rad_conservation<<endl;
+      cout<<"Material conservation: "<<mat_conservation<<endl;
+      cout<<"Sends posted: "<<g_step_sends_posted;
+      cout<<", sends completed: "<<g_step_sends_completed<<endl;
+      cout<<"Receives posted: "<<g_step_receives_posted;
+      cout<<", receives completed: "<<g_step_receives_completed<<endl;
       if (dd_type == PARTICLE_PASS) {
-        cout<<"Photons messages sent: "<<g_n_photon_messages;
-        cout<<", Total photons sent: "<<g_n_photons_sent<<endl;
+        cout<<"Step particles messages sent: "<<g_step_particle_messages;
+        cout<<", Step particles sent: "<<g_step_particles_sent<<endl;
       }
       else {
-        cout<<"Cell messages sent: "<<g_n_cell_messages;
-        cout<<", Total cells sent: "<<g_n_cells_sent<<endl;
-        cout<<"Total RMA requests: "<<g_off_rank_reads<<endl;
+        cout<<"Step cell messages sent: "<<g_step_cell_messages;
+        cout<<", Step cells sent: "<<g_step_cells_sent<<endl;
+        cout<<"Step cells requested: "<<g_step_cells_requested<<endl;
       }
-      total_off_rank_reads+=g_off_rank_reads;
     } // if rank==0
   }
+
+  void print_simulation_footer(unsigned int dd_type ) {
+    using std::cout;
+    using std::endl;
+    using Constants::PARTICLE_PASS;
+    using Constants::CELL_PASS;
+    if (dd_type == PARTICLE_PASS) {
+      cout<<"Total particles sent: "<<total_particles_sent<<endl;
+      cout<<"Total particle messages: "<<total_particle_messages<<endl;
+    }
+    else {
+      cout<<"Total cells requested: "<<total_cells_requested<<endl;
+      cout<<"Total cells sent: "<<total_cells_sent<<endl;
+      cout<<"Total cell messages: "<<total_cell_messages<<endl;
+    }
+    cout<<"****************************************";
+    cout<<"****************************************"<<endl;
+  }
+
+
 
   RNG* get_rng(void) const { return m_RNG;}
 
@@ -170,9 +226,13 @@ class IMC_State
     m_step++;
   }
 
-  void set_transported_photons(unsigned int _trans_photons) {m_trans_photons = _trans_photons;}
+  void set_transported_photons(unsigned int _trans_photons) {
+    m_trans_photons = _trans_photons;
+  }
   void set_pre_census_E(double _pre_census_E) {pre_census_E = _pre_census_E;}
-  void set_post_census_E(double _post_census_E) {post_census_E = _post_census_E;}
+  void set_post_census_E(double _post_census_E) {
+    post_census_E = _post_census_E;
+  }
   void set_pre_mat_E(double _pre_mat_E) {pre_mat_E = _pre_mat_E;}
   void set_post_mat_E(double _post_mat_E) {post_mat_E = _post_mat_E;}
   void set_emission_E(double _emission_E) {emission_E = _emission_E;}
@@ -181,31 +241,33 @@ class IMC_State
   void set_exit_E(double _exit_E) {exit_E = _exit_E;}
   //set diagnostic values
   void set_census_size(unsigned int _census_size) {census_size = _census_size;}
-  void set_off_rank_read(unsigned int _off_rank_reads) {off_rank_reads = _off_rank_reads;}
+  void set_step_cells_requested(unsigned int _step_cells_requested) {
+    step_cells_requested = _step_cells_requested;
+  }
 
-  void set_n_photon_messages(unsigned int _n_photon_messages) {
-    n_photon_messages=_n_photon_messages;
+  void set_step_particle_messages(unsigned int _step_particle_messages) {
+    step_particle_messages=_step_particle_messages;
   }
-  void set_n_photons_sent(unsigned int _n_photons_sent) {
-    n_photons_sent=_n_photons_sent;
+  void set_step_particles_sent(unsigned int _step_particles_sent) {
+    step_particles_sent=_step_particles_sent;
   }
-  void set_n_cell_messages(unsigned int _n_cell_messages) {
-    n_cell_messages=_n_cell_messages;
+  void set_step_cell_messages(unsigned int _step_cell_messages) {
+    step_cell_messages=_step_cell_messages;
   }
-  void set_n_cells_sent(unsigned int _n_cells_sent) {
-    n_cells_sent=_n_cells_sent;
+  void set_step_cells_sent(unsigned int _step_cells_sent) {
+    step_cells_sent=_step_cells_sent;
   }
-  void set_n_sends_posted(unsigned int _n_sends_posted) {
-    n_sends_posted=_n_sends_posted;
+  void set_step_sends_posted(unsigned int _step_sends_posted) {
+    step_sends_posted=_step_sends_posted;
   }
-  void set_n_sends_completed(unsigned int _n_sends_completed) {
-    n_sends_completed=_n_sends_completed;
+  void set_step_sends_completed(unsigned int _step_sends_completed) {
+    step_sends_completed=_step_sends_completed;
   }
-  void set_n_receives_posted(unsigned int _n_receives_posted) {
-    n_receives_posted=_n_receives_posted;
+  void set_step_receives_posted(unsigned int _step_receives_posted) {
+    step_receives_posted=_step_receives_posted;
   }
-  void set_n_receives_completed(unsigned int _n_receives_completed) { 
-    n_receives_completed=_n_receives_completed;
+  void set_step_receives_completed(unsigned int _step_receives_completed) { 
+    step_receives_completed=_step_receives_completed;
   }
 
 /*****************************************************************************/
@@ -235,16 +297,34 @@ class IMC_State
 
   //diagnostic
   unsigned int census_size; //! Number of particles in census
-  unsigned int off_rank_reads; //! Number of off rank reads by this rank
-  unsigned int total_off_rank_reads; //! Number of RMA reads total for simulation
-  unsigned int n_photon_messages; //! Number of photon messages
-  unsigned int n_photons_sent; //! Number of photons passed
-  unsigned int n_cell_messages; //! Number of cell messages
-  unsigned int n_cells_sent; //! Number of cells passed
-  unsigned int n_sends_posted; //! Number of sent messages posted
-  unsigned int n_sends_completed; //! Number of sent messages completed
-  unsigned int n_receives_posted; //! Number of received messages completed
-  unsigned int n_receives_completed; //! Number of received messages completed
+
+
+  //! Total number of cells requested for simulation
+  unsigned int total_cells_requested; 
+
+  //! Total number of cells sent for simulation
+  unsigned int total_cells_sent;
+
+  //! Total number of cell message for simulation
+  unsigned int total_cell_messages;
+
+  //! Total number of particles sent for simulation
+  unsigned int total_particles_sent; 
+
+  //! Total number of particle messages sent for simulation
+  unsigned int total_particle_messages;
+ 
+  unsigned int step_particle_messages; //! Number of particle messages
+  unsigned int step_particles_sent; //! Number of particles passed
+  unsigned int step_cells_requested; //! Number of cells requested by this rank
+  unsigned int step_cell_messages; //! Number of cell messages
+  unsigned int step_cells_sent; //! Number of cells passed
+  unsigned int step_sends_posted; //! Number of sent messages posted
+  unsigned int step_sends_completed; //! Number of sent messages completed
+  unsigned int step_receives_posted; //! Number of received messages completed
+
+  //! Number of received messages completed
+  unsigned int step_receives_completed; 
 
   //RNG
   RNG* m_RNG;
