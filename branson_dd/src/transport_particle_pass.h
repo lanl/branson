@@ -484,6 +484,8 @@ std::vector<Photon> transport_particle_pass(Source& source,
     n_sends_completed++;
   }
 
+  
+
   // wait for parent send to complete, if sent
   if (p_send_buffer.sent()) { 
     p_send_request.wait();
@@ -495,6 +497,24 @@ std::vector<Photon> transport_particle_pass(Source& source,
   // while it's still in the transport loop. In that case, it will post a 
   // receive again, which will never have a matching send
   MPI::COMM_WORLD.Barrier();
+
+  //finish off parent's receive call with empty send
+  if (parent!=proc_null) {
+    p_send_buffer.fill(vector<unsigned int> (1,1));
+    p_send_request = world.isend(parent, count_tag, p_send_buffer.get_buffer());
+    n_sends_posted++;
+    p_send_request.wait();
+    n_sends_completed++;
+  }
+  if (child1 != proc_null) {
+    c1_recv_request.wait();
+    n_receives_completed++; 
+  }
+  if (child2 != proc_null) {
+    c2_recv_request.wait();
+    n_receives_completed++; 
+  }
+  
 
   //finish off posted photon receives
   vector<Photon> empty_buffer;

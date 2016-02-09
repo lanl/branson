@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
     cout<<"****************************************";
     cout<<"****************************************"<<endl;
     gettimeofday(&end, &tzp);
-    print_elapsed_inside("\nruntime:",&start, &end);
+    print_elapsed_inside("runtime:",&start, &end);
     imc_state->print_simulation_footer(input->get_dd_mode());
   }
 
