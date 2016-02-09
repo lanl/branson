@@ -226,9 +226,21 @@ std::vector<Photon> transport_particle_pass(Source& source,
   vector<Buffer<Photon> > phtn_recv_buffer(n_rank-1);
   vector<Buffer<Photon> > phtn_send_buffer(n_rank-1);
 
-  // Message propogates from parent to children, back to parents
-  // Post receives for photon counts from parent now, post receives
-  // from children after parents message is received
+  // Messages are sent up the tree whenever a rank has completed its local work
+  // or received an updated particle complete count from its child
+  // Messages are sent down the tree only after completion and starting at the 
+  // root node. 
+  // Post receives for photon counts from children and parent now
+  if (child1!=proc_null) {
+    c1_recv_request = world.irecv(child1, count_tag, c1_recv_buffer.get_buffer());
+    n_receives_posted++;
+    c1_recv_buffer.set_awaiting();
+  }
+  if (child2!=proc_null) {
+    c2_recv_request = world.irecv(child2, count_tag, c2_recv_buffer.get_buffer());
+    n_receives_posted++;
+    c2_recv_buffer.set_awaiting();
+  }
   if (parent != proc_null) {
     p_recv_request = world.irecv(parent, count_tag, p_recv_buffer.get_buffer() );
     n_receives_posted++;
@@ -251,15 +263,12 @@ std::vector<Photon> transport_particle_pass(Source& source,
     }
   }
 
-  // Communication sequence flag, if false root node begins send propogation
-  bool comm_sequence_init = false; 
-
   ////////////////////////////////////////////////////////////////////////
   // main transport loop
   ////////////////////////////////////////////////////////////////////////
 
-  vector<Photon> census_list; //end of timestep census list
-  stack<Photon> phtn_recv_stack; //stack of received photons
+  vector<Photon> census_list; //!< End of timestep census list
+  stack<Photon> phtn_recv_stack; //!< Stack of received photons
 
   int send_rank;
   unsigned int n_complete = 0; //!< Completed histories, regardless of origin
@@ -378,42 +387,24 @@ std::vector<Photon> transport_particle_pass(Source& source,
     ////////////////////////////////////////////////////////////////////////////
     // binary tree completion communication
     ////////////////////////////////////////////////////////////////////////////
+    // The number of completed particles is sent up the chain and then reset.
+    // This allows us to send the completed count up the tree without
+    // trying to synchronize completion from both children. The root
+    // never resets the tree count
 
-    //initiate sends from root node to children and post receives from children
-    if (parent == proc_null && !comm_sequence_init) {
-      //begin send chain down tree
-      tree_count = n_complete;
-      if ( child1 != proc_null) {
-        c1_send_buffer.fill(vector<unsigned int> (1,tree_count));
-        c1_send_request = world.isend(child1, count_tag, c1_send_buffer.get_buffer());
-        n_sends_posted++;
-        c1_send_buffer.set_sent();
-        //receive
-        c1_recv_buffer.reset();
-        c1_recv_request = world.irecv(child1, count_tag, c1_recv_buffer.get_buffer());
-        n_receives_posted++;
-        c1_recv_buffer.set_awaiting();
-      }
-      if ( child2 != proc_null) {
-        c2_send_buffer.fill(vector<unsigned int> (1,tree_count));
-        c2_send_request = world.isend(child2, count_tag, c2_send_buffer.get_buffer());
-        n_sends_posted++;
-        c2_send_buffer.set_sent();
-        //receive
-        c2_recv_buffer.reset();
-        c2_recv_request = world.irecv(child2, count_tag, c2_recv_buffer.get_buffer());
-        n_receives_posted++;
-        c2_recv_buffer.set_awaiting();
-      }
-      comm_sequence_init = true;
-    }
-
-    //test receives from children and parent
+    //test receives from children and add work to tree count
     if (c1_recv_buffer.awaiting()) {
       if (c1_recv_request.test()) {
         n_receives_completed++;
         c1_recv_buffer.set_received();
         c1_count = c1_recv_buffer.get_buffer()[0];
+        //update tree count 
+        tree_count+=c1_count;
+        //post receive again
+        c1_recv_buffer.reset();
+        c1_recv_request = world.irecv(child1, count_tag, c1_recv_buffer.get_buffer());
+        n_receives_posted++;
+        c1_recv_buffer.set_awaiting();
       }
     }
     if (c2_recv_buffer.awaiting()) {
@@ -421,8 +412,17 @@ std::vector<Photon> transport_particle_pass(Source& source,
         n_receives_completed++;
         c2_recv_buffer.set_received();
         c2_count = c2_recv_buffer.get_buffer()[0];
+        //update tree count 
+        tree_count+=c2_count;
+        //post receive again
+        c2_recv_buffer.reset();
+        c2_recv_request = world.irecv(child2, count_tag, c2_recv_buffer.get_buffer());
+        n_receives_posted++;
+        c2_recv_buffer.set_awaiting();
       }
     }
+
+    // test receive from parent and add work to tree count
     if (p_recv_buffer.awaiting()) {
       if (p_recv_request.test()) {
         n_receives_completed++;
@@ -431,19 +431,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
       }
     }
 
-    // test sends from child and parent
-    if (c1_send_buffer.sent() ) {
-      if (c1_send_request.test()) {
-        n_sends_completed++;
-        c1_send_buffer.reset();
-      }
-    }
-    if (c2_send_buffer.sent() ) {
-      if (c2_send_request.test()) { 
-        n_sends_completed++;
-        c2_send_buffer.reset();
-      }
-    }
+    // test sends to parent
     if (p_send_buffer.sent() ) {
       if (p_send_request.test()) {
         n_sends_completed++;
@@ -451,123 +439,25 @@ std::vector<Photon> transport_particle_pass(Source& source,
       }
     }
 
-    //if recieved from children, compute tree count
-    if ( ( c1_recv_buffer.received() || child1==proc_null) 
-      && ( c2_recv_buffer.received() || child2==proc_null) )
-    {
-      if (child1 == proc_null) c1_count = 0;
-      if (child2 == proc_null) c2_count = 0;
-      tree_count = n_complete + c1_count + c2_count; 
+    // add completed particles from this rank to tree count and reset 
+    tree_count+=n_complete;
+    n_complete =0;
+
+    // If tree count is non-zero, buffers are empty, and local work is done 
+    // send message to parent. You may still get more work done and send again.
+    // That's OK. To finish transport all particles histories must be completed,
+    // meaning that all of the sends will be processed (received)
+    if ((parent!=proc_null && tree_count) && (n_local==n_local_sourced && phtn_recv_stack.empty()) ) {
+      p_send_buffer.fill(vector<unsigned int> (1,tree_count));
+      p_send_request = world.isend(parent, count_tag, p_send_buffer.get_buffer());
+      n_sends_posted++;
+      p_send_buffer.set_sent();
+      //reset tree count so work is not double counted
+      tree_count =0;
     }
-    else tree_count = n_complete;
 
     // If finished, set flag. Otherwise, continue tree messaging
     if (tree_count == n_global || parent_count == n_global) finished = true;
-    else {
-      // If parent received, send to children. If terminating branch, send up
-      if (p_recv_buffer.received() && 
-        (c1_send_buffer.empty() && c2_send_buffer.empty()) ) { 
-
-        // reset received buffer so this does not trigger again until
-        // a new parent receive is posted
-        p_recv_buffer.reset();
-        
-        // send to child 1 and post receive from child1
-        if (child1 != proc_null) {
-          //send
-          c1_send_buffer.fill(vector<unsigned int> (1,tree_count));
-          c1_send_request = world.isend(child1, count_tag, c1_send_buffer.get_buffer());
-          n_sends_posted++;
-          c1_send_buffer.set_sent();
-          //receive
-          c1_recv_buffer.reset();
-          c1_recv_request = world.irecv(child1, count_tag, c1_recv_buffer.get_buffer());
-          n_receives_posted++;
-          c1_recv_buffer.set_awaiting();
-        }
-        // send to child2 and post receive from child2
-        if (child2 != proc_null) {
-          //send
-          c2_send_buffer.fill(vector<unsigned int> (1,tree_count));
-          c2_send_request = world.isend(child2, count_tag, c2_send_buffer.get_buffer());
-          n_sends_posted++;
-          c2_send_buffer.set_sent();
-          //receive
-          c2_recv_buffer.reset();
-          c2_recv_request = world.irecv(child2, count_tag, c2_recv_buffer.get_buffer());
-          n_receives_posted++;
-          c2_recv_buffer.set_awaiting();
-        }
-
-        // terminal branch sends up and post parent receive
-        if ((child1 == proc_null && child2 == proc_null) && p_send_buffer.empty() ) {
-          // send up 
-          p_send_buffer.fill(vector<unsigned int> (1,tree_count));
-          p_send_request = world.isend(parent, count_tag, p_send_buffer.get_buffer());
-          n_sends_posted++;
-          p_send_buffer.set_sent();
-          // post receive from parent
-          p_recv_buffer.reset();
-          p_recv_request = world.irecv(parent, count_tag, p_recv_buffer.get_buffer());
-          n_receives_posted++;
-          p_recv_buffer.set_awaiting();
-        }
-      } //end if parent received
-
-      // If children received, send to parent (if not terminating branch)
-      // or send to children if you're root
-      if ( (c1_recv_buffer.received() || child1==proc_null) 
-        && (c2_recv_buffer.received() || child2==proc_null)
-        &&  p_send_buffer.empty() )
-      {
-        //reset buffers to avoid triggering loop again
-        c1_recv_buffer.reset();
-        c2_recv_buffer.reset();
-        //all ranks can update tree count (child messages were just received)
-        if (child1 == proc_null) c1_count = 0;
-        if (child2 == proc_null) c2_count = 0;
-        tree_count = n_complete + c1_count + c2_count; 
-        // non-root sends to parent and post parent receives
-        if (parent != proc_null && (child1!=proc_null || child2!=proc_null) ) {
-          //send to parent
-          p_send_buffer.fill(vector<unsigned int> (1,tree_count));
-          p_send_request = world.isend(parent, count_tag, p_send_buffer.get_buffer());
-          n_sends_posted++;
-          p_send_buffer.set_sent();
-          // post receive from parent
-          p_recv_buffer.reset();
-          p_recv_request = world.irecv(parent, count_tag, p_recv_buffer.get_buffer());
-          n_receives_posted++;
-          p_recv_buffer.set_awaiting();
-        }
-        // root sends to children and posts child receives
-        // note--terminals enter this else but don't do anything
-        else {
-          // send down to child 1 and post receive
-          if (child1 != proc_null) {
-            c1_send_buffer.fill(vector<unsigned int> (1,tree_count));
-            c1_send_request = world.isend(child1, count_tag, c1_send_buffer.get_buffer());
-            n_sends_posted++;
-            c1_send_buffer.set_sent();
-            c1_recv_buffer.reset();
-            c1_recv_request = world.irecv(child1, count_tag, c1_recv_buffer.get_buffer());
-            n_receives_posted++;
-            c1_recv_buffer.set_awaiting();
-          }
-          // send down to child 2 and post receive
-          if (child2 != proc_null) {
-            c2_send_buffer.fill(vector<unsigned int> (1,tree_count));
-            c2_send_request = world.isend(child2, count_tag, c2_send_buffer.get_buffer());
-            n_sends_posted++;
-            c2_send_buffer.set_sent();
-            c2_recv_buffer.reset();
-            c2_recv_request = world.irecv(child2, count_tag, c2_recv_buffer.get_buffer());
-            n_receives_posted++;
-            c2_recv_buffer.set_awaiting();
-          }
-        }  
-      } //end if received
-    } //end if finished
   } // end while
 
   //send finished count down tree to children and wait for completion
@@ -594,13 +484,11 @@ std::vector<Photon> transport_particle_pass(Source& source,
     n_sends_completed++;
   }
 
-  // wait for parent send to complete
-  /*
+  // wait for parent send to complete, if sent
   if (p_send_buffer.sent()) { 
     p_send_request.wait();
     n_sends_completed++;
   }
-  */
 
   // wait for all ranks to finish then send empty photon messages.
   // Do this because it's possible for a rank to receive the empty message
