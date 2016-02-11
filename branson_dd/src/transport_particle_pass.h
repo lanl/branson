@@ -41,7 +41,7 @@ Constants::event_type transport_photon_particle_pass(Photon& phtn,
   using Constants::c;
   using std::min;
 
-  unsigned int cell_id, next_cell;
+  uint32_t cell_id, next_cell;
   bc_type boundary_event;
   event_type event;
   double dist_to_scatter, dist_to_boundary, dist_to_census, dist_to_event;
@@ -49,7 +49,7 @@ Constants::event_type transport_photon_particle_pass(Photon& phtn,
   double angle[3];
   Cell cell;
 
-  unsigned int surface_cross = 0;
+  uint32_t surface_cross = 0;
   double cutoff_fraction = 0.01; //note: get this from IMC_state
 
   cell_id=phtn.get_cell();
@@ -165,16 +165,16 @@ std::vector<Photon> transport_particle_pass(Source& source,
   int rank   = world.rank();
 
   // parallel event counters
-  unsigned int n_photon_messages=0; //! Number of photon messages
-  unsigned int n_photons_sent=0; //! Number of photons passed
-  unsigned int n_sends_posted=0; //! Number of sent messages posted
-  unsigned int n_sends_completed=0; //! Number of sent messages completed
-  unsigned int n_receives_posted=0; //! Number of received messages completed
-  unsigned int n_receives_completed=0; //! Number of received messages completed
+  uint32_t n_photon_messages=0; //! Number of photon messages
+  uint32_t n_photons_sent=0; //! Number of photons passed
+  uint32_t n_sends_posted=0; //! Number of sent messages posted
+  uint32_t n_sends_completed=0; //! Number of sent messages completed
+  uint32_t n_receives_posted=0; //! Number of received messages completed
+  uint32_t n_receives_completed=0; //! Number of received messages completed
 
   //get global photon count
-  unsigned int n_local = source.get_n_photon();
-  unsigned int n_global;
+  uint64_t n_local = source.get_n_photon();
+  uint64_t n_global;
   MPI::COMM_WORLD.Allreduce(&n_local, 
                             &n_global, 
                            1, 
@@ -217,12 +217,12 @@ std::vector<Photon> transport_particle_pass(Source& source,
   mpi::request *phtn_send_request   = new mpi::request[n_rank-1];
 
   //Buffers
-  Buffer<unsigned int> c1_recv_buffer;
-  Buffer<unsigned int> c2_recv_buffer;
-  Buffer<unsigned int> p_recv_buffer;
-  Buffer<unsigned int> c1_send_buffer;
-  Buffer<unsigned int> c2_send_buffer;
-  Buffer<unsigned int> p_send_buffer;
+  Buffer<uint64_t> c1_recv_buffer;
+  Buffer<uint64_t> c2_recv_buffer;
+  Buffer<uint64_t> p_recv_buffer;
+  Buffer<uint64_t> c1_send_buffer;
+  Buffer<uint64_t> c2_send_buffer;
+  Buffer<uint64_t> p_send_buffer;
   vector<Buffer<Photon> > phtn_recv_buffer(n_rank-1);
   vector<Buffer<Photon> > phtn_send_buffer(n_rank-1);
 
@@ -271,26 +271,26 @@ std::vector<Photon> transport_particle_pass(Source& source,
   stack<Photon> phtn_recv_stack; //!< Stack of received photons
 
   int send_rank;
-  unsigned int n_complete = 0; //!< Completed histories, regardless of origin
-  unsigned int n_local_sourced = 0; //!< Photons pulled from source object
-  unsigned int tree_count = 0; //!< Total for this node and all children
-  unsigned int parent_count = 0;//!< Total complete from the parent node
-  unsigned int c1_count = 0; //!< Total complete from child1 subtree
-  unsigned int c2_count = 0; //!< Total complete from child2 subtree
+  uint64_t tree_count = 0; //!< Total for this node and all children
+  uint64_t parent_count = 0;//!< Total complete from the parent node
+  uint64_t c1_count = 0; //!< Total complete from child1 subtree
+  uint64_t c2_count = 0; //!< Total complete from child2 subtree
+  uint64_t n_complete = 0; //!< Completed histories, regardless of origin
+  uint64_t n_local_sourced = 0; //!< Photons pulled from source object
   bool finished = false;
   bool from_receive_stack = false;
   Photon phtn;
   event_type event;
 
   // Number of particles to run between MPI communication 
-  const unsigned int batch_size = imc_parameters->get_batch_size();
+  const uint32_t batch_size = imc_parameters->get_batch_size();
   // Preferred size of MPI message
-  const unsigned int max_buffer_size 
+  const uint32_t max_buffer_size 
     = imc_parameters->get_particle_message_size();
 
   while (!finished) {
 
-    unsigned int n = batch_size;
+    uint32_t n = batch_size;
     
     ////////////////////////////////////////////////////////////////////////////
     // Transport photons from source and received list
@@ -351,7 +351,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
         if ( (phtn_send_buffer[r_index].empty() && !send_list[r_index].empty()) &&
           (send_list[r_index].size() >= max_buffer_size || n_local_sourced == n_local) ) {
-          unsigned int n_photons_to_send = max_buffer_size;
+          uint32_t n_photons_to_send = max_buffer_size;
           if ( send_list[r_index].size() < max_buffer_size) 
             n_photons_to_send = send_list[r_index].size();
           vector<Photon>::iterator copy_start = send_list[r_index].begin();
@@ -372,7 +372,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
           if (phtn_recv_request[r_index].test()) {
             n_receives_completed++;
             vector<Photon> receive_list = phtn_recv_buffer[r_index].get_buffer();
-            for (unsigned int i=0; i<receive_list.size(); i++) 
+            for (uint32_t i=0; i<receive_list.size(); i++) 
               phtn_recv_stack.push(receive_list[i]);
             phtn_recv_buffer[r_index].reset();
             //post receive again
@@ -441,14 +441,14 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
     // add completed particles from this rank to tree count and reset 
     tree_count+=n_complete;
-    n_complete =0;
+    n_complete = 0;
 
     // If tree count is non-zero, buffers are empty, and local work is done 
     // send message to parent. You may still get more work done and send again.
     // That's OK. To finish transport all particles histories must be completed,
     // meaning that all of the sends will be processed (received)
     if ((parent!=proc_null && tree_count) && (n_local==n_local_sourced && phtn_recv_stack.empty()) ) {
-      p_send_buffer.fill(vector<unsigned int> (1,tree_count));
+      p_send_buffer.fill(vector<uint64_t> (1,tree_count));
       p_send_request = world.isend(parent, count_tag, p_send_buffer.get_buffer());
       n_sends_posted++;
       p_send_buffer.set_sent();
@@ -466,7 +466,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
       c1_send_request.wait();
       n_sends_completed++;
     }
-    c1_send_buffer.fill(vector<unsigned int> (1,n_global));
+    c1_send_buffer.fill(vector<uint64_t> (1,n_global));
     c1_send_request = world.isend(child1, count_tag, c1_send_buffer.get_buffer());
     n_sends_posted++;
     c1_send_request.wait();
@@ -477,14 +477,12 @@ std::vector<Photon> transport_particle_pass(Source& source,
       c2_send_request.wait();
       n_sends_completed++;
     }
-    c2_send_buffer.fill(vector<unsigned int> (1,n_global));
+    c2_send_buffer.fill(vector<uint64_t> (1,n_global));
     c2_send_request = world.isend(child2, count_tag, c2_send_buffer.get_buffer());
     n_sends_posted++;
     c2_send_request.wait();
     n_sends_completed++;
   }
-
-  
 
   // wait for parent send to complete, if sent
   if (p_send_buffer.sent()) { 
@@ -500,7 +498,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
   //finish off parent's receive call with empty send
   if (parent!=proc_null) {
-    p_send_buffer.fill(vector<unsigned int> (1,1));
+    p_send_buffer.fill(vector<uint64_t> (1,1));
     p_send_request = world.isend(parent, count_tag, p_send_buffer.get_buffer());
     n_sends_posted++;
     p_send_request.wait();

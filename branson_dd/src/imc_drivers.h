@@ -7,7 +7,6 @@
 #include <boost/mpi.hpp>
 #include <vector>
 
-#include "decompose_photons.h"
 #include "imc_state.h"
 #include "imc_parameters.h"
 #include "mesh.h"
@@ -74,8 +73,6 @@ void imc_cell_pass_driver(const int& rank,
                                           abs_E, 
                                           world);
 
-    //rebalance census
-    census_photons = rebalance_census(census_photons, mesh, world);
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
     MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, 
                               &abs_E[0], 

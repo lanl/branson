@@ -44,22 +44,22 @@ class Cell
 /*****************************************************************************/
 /* const functions                                                           */
 /*****************************************************************************/
-  Constants::bc_type get_bc(const unsigned int& dir) const {return bc[dir];}
+  Constants::bc_type get_bc(const uint32_t& dir) const {return bc[dir];}
 
-  unsigned int get_next_cell(const unsigned int& dir) const 
+  uint32_t get_next_cell(const uint32_t& dir) const 
   {
     return e_next[dir];
   } 
 
   double get_distance_to_boundary(const double *pos, 
                                   const double *angle, 
-                                  unsigned int& surface_cross) const 
+                                  uint32_t& surface_cross) const 
   {
     double min_dist = 1.0e16;
     double dist = 0.0;
-    unsigned int index;
+    uint32_t index;
     //only check the positive or negative surface
-    for (unsigned int i = 0; i<3; i++) {
+    for (uint32_t i = 0; i<3; i++) {
       index = 2*i + sgn(angle[i]);
       dist = (nodes[index] - pos[i])/angle[i];
       if (dist < min_dist) {
@@ -96,7 +96,7 @@ class Cell
   double get_T_e(void) const {return T_e;}
   double get_T_r(void) const {return T_r;}
   double get_T_s(void) const {return T_s;}
-  unsigned int get_ID(void) const {return g_ID;}
+  uint32_t get_ID(void) const {return g_ID;}
 
   //override great than operator to sort
   bool operator <(const Cell& compare) const {
@@ -107,9 +107,9 @@ class Cell
     using Constants::PROCESSOR;
     using std::cout;
     using std::endl;
-    unsigned int my_rank = MPI::COMM_WORLD.Get_rank();
+    uint32_t my_rank = MPI::COMM_WORLD.Get_rank();
     bool boundary = false;
-    for (unsigned int i=0;i<6;i++) {
+    for (uint32_t i=0;i<6;i++) {
       if (bc[i] == PROCESSOR) boundary = true;
     }
     
@@ -126,7 +126,7 @@ class Cell
 /*****************************************************************************/
 /* non-const functions (set)                                                 */
 /*****************************************************************************/
-  void set_neighbor(Constants::dir_type neighbor_dir, unsigned int index) {
+  void set_neighbor(Constants::dir_type neighbor_dir, uint32_t index) {
     e_next[neighbor_dir] = index;
   }
 
@@ -159,8 +159,8 @@ class Cell
 /* member variables and private functions                                    */
 /*****************************************************************************/
   private:
-  unsigned int g_ID; //! Global ID, valid across all ranks
-  unsigned int e_next[6]; //! Bordering cell, given as global ID
+  uint32_t g_ID; //! Global ID, valid across all ranks
+  uint32_t e_next[6]; //! Bordering cell, given as global ID
   Constants::bc_type bc[6];   //! Boundary conditions for each face 
   double nodes[6]; //! x_low, x_high, y_low, y_high, z_low, z_high
   
@@ -176,7 +176,7 @@ class Cell
   // serialization routine
   friend class boost::serialization::access;
   template<class Archive>
-  void serialize(Archive &ar, const unsigned int version)
+  void serialize(Archive &ar, const uint32_t version)
   {
     ar & g_ID;
     ar & e_next;

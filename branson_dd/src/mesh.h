@@ -51,17 +51,17 @@ class Mesh {
     //initialize number of DMA requests as zero
     off_rank_reads=0;
 
-    unsigned int g_count =0; //global count
+    uint32_t g_count =0; //global count
 
     //this rank's cells
     n_global = ngx*ngy*ngz;
-    unsigned int cell_id_begin = floor(rank*n_global/double(n_rank));
-    unsigned int cell_id_end = floor((rank+1)*n_global/double(n_rank));
+    uint32_t cell_id_begin = floor(rank*n_global/double(n_rank));
+    uint32_t cell_id_end = floor((rank+1)*n_global/double(n_rank));
 
-    unsigned int l_count =0;
-    for (unsigned int k=0; k<ngz; k++) {
-      for (unsigned int j=0; j<ngy; j++) {
-        for (unsigned int i=0; i<ngx; i++) {
+    uint32_t l_count =0;
+    for (uint32_t k=0; k<ngz; k++) {
+      for (uint32_t j=0; j<ngy; j++) {
+        for (uint32_t i=0; i<ngx; i++) {
           if (g_count >= cell_id_begin && g_count < cell_id_end) {
             //global_ID.push_back(count*10 + MPI::COMM_WORLD.Get_rank()  );
             Cell e;
@@ -129,11 +129,11 @@ class Mesh {
     //make the MPI datatype for my cell class
     // Three type entries in the class
     const int entry_count = 3 ; 
-    // 7 unsigned int, 6 int, 13 double
+    // 7 uint32_t, 6 int, 13 double
     const int array_of_block_length[4] = {8, 6, 14};
     // Displacements of each type in the cell
     const MPI::Aint array_of_block_displace[3] = 
-      {0, 8*sizeof(unsigned int),  8*sizeof(unsigned int)+6*sizeof(int)};
+      {0, 8*sizeof(uint32_t),  8*sizeof(uint32_t)+6*sizeof(int)};
     //Type of each memory block
     MPI::Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
 
@@ -152,13 +152,13 @@ class Mesh {
    
     recv_cell_buffer = vector<Buffer<Cell> >(n_rank-1);
     send_cell_buffer = vector<Buffer<Cell> >(n_rank-1);
-    recv_id_buffer =  vector<Buffer<unsigned int> >(n_rank-1);
-    send_id_buffer =  vector<Buffer<unsigned int> >(n_rank-1);
+    recv_id_buffer =  vector<Buffer<uint32_t> >(n_rank-1);
+    send_id_buffer =  vector<Buffer<uint32_t> >(n_rank-1);
 
     // size the send and receive buffers
     // they are size n_rank -1
-    for (unsigned int ir=0; ir<n_rank-1; ir++) {
-      vector<unsigned int> empty_vec_ids;
+    for (uint32_t ir=0; ir<n_rank-1; ir++) {
+      vector<uint32_t> empty_vec_ids;
       //ids needed from other ranks
       ids_needed.push_back(empty_vec_ids); 
     }
@@ -175,45 +175,45 @@ class Mesh {
 /*****************************************************************************/
   //const functions
 /*****************************************************************************/
-  unsigned int get_number_of_objects(void) const {return n_cell;}
-  unsigned int get_global_ID(unsigned int index) const 
+  uint32_t get_number_of_objects(void) const {return n_cell;}
+  uint32_t get_global_ID(uint32_t index) const 
   {
     return  cell_list[index].get_ID();
   }
-  unsigned int get_rank(void) const {return  rank;}
-  unsigned int get_offset(void) const {return on_rank_start;}
-  unsigned int get_global_num_cells(void) const {return n_global;}
+  uint32_t get_rank(void) const {return  rank;}
+  uint32_t get_offset(void) const {return on_rank_start;}
+  uint32_t get_global_num_cells(void) const {return n_global;}
   double get_total_photon_E(void) const {return total_photon_E;}
 
   void print(void) {
-    for (unsigned int i= 0; i<n_cell; i++)
+    for (uint32_t i= 0; i<n_cell; i++)
       cell_list[i].print();
   }
 
-  std::map<unsigned int, unsigned int> get_map(void) const {
-    std::map<unsigned int, unsigned int> local_map;
-    unsigned int g_ID;
-    for (unsigned int i=0; i<n_cell; i++) {
+  std::map<uint32_t, uint32_t> get_map(void) const {
+    std::map<uint32_t, uint32_t> local_map;
+    uint32_t g_ID;
+    for (uint32_t i=0; i<n_cell; i++) {
       g_ID = cell_list[i].get_ID();
       local_map[g_ID] = i+on_rank_start;
     }
     return local_map;
   }
 
-  Cell get_pre_cell(const unsigned int& local_ID) const 
+  Cell get_pre_cell(const uint32_t& local_ID) const 
   {
     return cell_list[local_ID];
   } 
-  Cell get_cell(const unsigned int& local_ID) const {
+  Cell get_cell(const uint32_t& local_ID) const {
     return cells[local_ID];
   } 
 
-  unsigned int get_off_rank_id(const unsigned int& index) const {
+  uint32_t get_off_rank_id(const uint32_t& index) const {
     //find rank of index
     bool found = false;
-    unsigned int min_i = 0;
-    unsigned int max_i = off_rank_bounds.size()-1;
-    unsigned int s_i; //search index
+    uint32_t min_i = 0;
+    uint32_t max_i = off_rank_bounds.size()-1;
+    uint32_t s_i; //search index
     while(!found) {
       s_i =(max_i + min_i)/2;
       if (s_i == max_i || s_i == min_i) found = true;
@@ -223,18 +223,18 @@ class Mesh {
     return s_i;
   }
 
-  unsigned int get_rank(const unsigned int& index) const {
-    unsigned int r_rank;
+  uint32_t get_rank(const uint32_t& index) const {
+    uint32_t r_rank;
     if (on_processor(index)) r_rank = rank;
     else  r_rank = get_off_rank_id(index);
     return r_rank;
   }
 
-  unsigned int get_local_ID(const unsigned int& index) const {
+  uint32_t get_local_ID(const uint32_t& index) const {
     return index-on_rank_start;
   }
 
-  Cell get_on_rank_cell(const unsigned int& index) {
+  Cell get_on_rank_cell(const uint32_t& index) {
     //this can only be called with valid on rank indexes
     if (on_processor(index)) 
       return cells[index-on_rank_start];
@@ -242,18 +242,18 @@ class Mesh {
       return stored_cells[index];
   }
 
-  bool on_processor(const unsigned int& index) const { 
+  bool on_processor(const uint32_t& index) const { 
     return  (index>=on_rank_start) && (index<=on_rank_end) ; 
   }
 
   void print_map(void)  {
-    for ( std::map<unsigned int,Cell>::iterator map_i =
+    for ( std::map<uint32_t,Cell>::iterator map_i =
       stored_cells.begin();
       map_i!=stored_cells.end(); map_i++)
       (map_i->second).print();
   }
 
-  bool mesh_available(const unsigned int& index) const {
+  bool mesh_available(const uint32_t& index) const {
     if (on_processor(index)) return true;
     else if (stored_cells.find(index) != stored_cells.end())
       return true;
@@ -266,14 +266,14 @@ class Mesh {
 /*****************************************************************************/
   //non-const functions
 /*****************************************************************************/
-  void set_global_bound(unsigned int _on_rank_start, 
-                        unsigned int _on_rank_end) 
+  void set_global_bound(uint32_t _on_rank_start, 
+                        uint32_t _on_rank_end) 
   {
     on_rank_start = _on_rank_start;
     on_rank_end = _on_rank_end;
   }
 
-  void set_off_rank_bounds(std::vector<unsigned int> _off_rank_bounds) {
+  void set_off_rank_bounds(std::vector<uint32_t> _off_rank_bounds) {
     off_rank_bounds=_off_rank_bounds;
   }
 
@@ -285,12 +285,12 @@ class Mesh {
     double op_a, op_s, f, cV, rho;
     double vol;
     double T, Tr, Ts;
-    unsigned int step = imc_s->get_step();
+    uint32_t step = imc_s->get_step();
     double tot_census_E = 0.0;
     double tot_emission_E = 0.0;
     double tot_source_E = 0.0;
     double pre_mat_E = 0.0;
-    for (unsigned int i=0; i<n_cell;++i) {
+    for (uint32_t i=0; i<n_cell;++i) {
       Cell& e = cells[i];
       vol = e.get_volume();
       cV = e.get_cV();
@@ -325,22 +325,22 @@ class Mesh {
   }
 
 
-  void set_indices( std::map<unsigned int, unsigned int> off_map, 
+  void set_indices( std::map<uint32_t, uint32_t> off_map, 
                     std::vector< std::vector<bool> >& remap_flag) {
 
     using Constants::PROCESSOR;
     using Constants::dir_type;
     using std::map;
 
-    unsigned int next_index;
-    map<unsigned int, unsigned int>::iterator end = off_map.end();
-    unsigned int new_index;
+    uint32_t next_index;
+    map<uint32_t, uint32_t>::iterator end = off_map.end();
+    uint32_t new_index;
     //check to see if neighbors are on or off processor
-    for (unsigned int i=0; i<n_cell; i++) {
+    for (uint32_t i=0; i<n_cell; i++) {
       Cell& cell = cell_list[i];
-      for (unsigned int d=0; d<6; d++) {
+      for (uint32_t d=0; d<6; d++) {
         next_index = cell.get_next_cell(d);
-        map<unsigned int, unsigned int>::iterator map_i = 
+        map<uint32_t, uint32_t>::iterator map_i = 
           off_map.find(next_index);
         if (off_map.find(next_index) != end && remap_flag[i][d] ==false ) {
           //update index and bc type, this will always be an off processor so
@@ -355,25 +355,25 @@ class Mesh {
     }
   }
 
-  void set_local_indices(std::map<unsigned int, unsigned int> local_map) {
+  void set_local_indices(std::map<uint32_t, uint32_t> local_map) {
 
     using Constants::PROCESSOR;
     using Constants::bc_type;
     using Constants::dir_type;
     using std::map;
 
-    unsigned int next_index;
-    map<unsigned int, unsigned int>::iterator end = local_map.end();
-    unsigned int new_index;
+    uint32_t next_index;
+    map<uint32_t, uint32_t>::iterator end = local_map.end();
+    uint32_t new_index;
     bc_type current_bc;
     //check to see if neighbors are on or off processor
-    for (unsigned int i=0; i<n_cell; i++) {
+    for (uint32_t i=0; i<n_cell; i++) {
       Cell& cell = cell_list[i];
       cell.set_ID(i+on_rank_start);
-      for (unsigned int d=0; d<6; d++) {
+      for (uint32_t d=0; d<6; d++) {
         current_bc = cell.get_bc(bc_type(d));
         next_index = cell.get_next_cell(d);
-        map<unsigned int, unsigned int>::iterator map_i = 
+        map<uint32_t, uint32_t>::iterator map_i = 
           local_map.find(next_index);
         //if this index is not a processor boundary, update it
         if (local_map.find(next_index) != end && current_bc != PROCESSOR) {
@@ -387,9 +387,9 @@ class Mesh {
   void update_mesh(void) {
     using std::vector;
     vector<Cell> new_mesh;
-    for (unsigned int i =0; i< cell_list.size(); i++) {
+    for (uint32_t i =0; i< cell_list.size(); i++) {
       bool delete_flag = false;
-      for (vector<unsigned int>::iterator rmv_itr= remove_cell_list.begin();
+      for (vector<uint32_t>::iterator rmv_itr= remove_cell_list.begin();
         rmv_itr != remove_cell_list.end(); 
         rmv_itr++) 
       {
@@ -398,7 +398,7 @@ class Mesh {
       if (delete_flag == false) new_mesh.push_back(cell_list[i]);
     }
 
-    for (unsigned int i =0; i< new_cell_list.size(); i++) 
+    for (uint32_t i =0; i< new_cell_list.size(); i++) 
       new_mesh.push_back(new_cell_list[i]);
     cell_list = new_mesh;
     n_cell = cell_list.size();
@@ -414,7 +414,7 @@ class Mesh {
 
   void make_MPI_window(void) {
     //make the MPI window with the sorted cell list
-    unsigned int num_bytes =n_cell*MPI_Cell.Get_size();
+    uint32_t num_bytes =n_cell*MPI_Cell.Get_size();
     cells = (Cell*) MPI::Alloc_mem(num_bytes, MPI_INFO_NULL);
     memcpy(cells,&cell_list[0], num_bytes);
     
@@ -426,7 +426,7 @@ class Mesh {
     double total_abs_E = 0.0;
     double total_post_mat_E = 0.0;
     double vol,cV,rho,T, T_new;
-    for (unsigned int i=0; i<n_cell;++i) {
+    for (uint32_t i=0; i<n_cell;++i) {
       Cell& e = cells[i];
       vol = e.get_volume();
       cV = e.get_cV();
@@ -438,7 +438,7 @@ class Mesh {
       total_post_mat_E+= T_new*cV*vol*rho;
     }
     //zero out absorption tallies for all cells (global) 
-    for (unsigned int i=0; i<abs_E.size();++i) {
+    for (uint32_t i=0; i<abs_E.size();++i) {
       abs_E[i] = 0.0;
     }
     imc_s->set_absorbed_E(total_abs_E);
@@ -447,12 +447,12 @@ class Mesh {
     off_rank_reads = 0;
   }
 
-  void request_cell(const unsigned int& index) {
+  void request_cell(const uint32_t& index) {
     //get local index of global index
-    unsigned int off_rank_id = get_off_rank_id(index);
-    unsigned int off_rank_local = index - off_rank_bounds[off_rank_id];
+    uint32_t off_rank_id = get_off_rank_id(index);
+    uint32_t off_rank_local = index - off_rank_bounds[off_rank_id];
     //get correct index into received photon vector
-    unsigned int r_index = off_rank_id - (off_rank_id>rank);
+    uint32_t r_index = off_rank_id - (off_rank_id>rank);
     //add to the request list if not already requested (use global index)
     if (ids_requested.find(index) == ids_requested.end()) {
       ids_requested.insert(index);
@@ -467,21 +467,21 @@ class Mesh {
 
 
   bool process_mesh_requests(mpi::communicator world,
-                              unsigned int& n_cell_messages,
-                              unsigned int& n_cells_sent,
-                              unsigned int& n_sends_posted,
-                              unsigned int& n_sends_completed,
-                              unsigned int& n_receives_posted,
-                              unsigned int& n_receives_completed) {
+                              uint32_t& n_cell_messages,
+                              uint32_t& n_cells_sent,
+                              uint32_t& n_sends_posted,
+                              uint32_t& n_sends_completed,
+                              uint32_t& n_receives_posted,
+                              uint32_t& n_receives_completed) {
     using Constants::cell_tag;
     using Constants::cell_id_tag;
     using std::vector;
 
     bool new_data = false;
-    for (unsigned int ir=0; ir<n_rank; ir++) {
+    for (uint32_t ir=0; ir<n_rank; ir++) {
       if (ir != rank) {
         //get correct index into requests and vectors 
-        unsigned int r_index = ir - (ir>rank);
+        uint32_t r_index = ir - (ir>rank);
         
         ////////////////////////////////////////////////////////////////////////
         // if you need data from this rank, process request
@@ -531,15 +531,15 @@ class Mesh {
 
             //add received cells to working mesh
             vector<Cell> r_cells = recv_cell_buffer[r_index].get_buffer();
-            for (unsigned int i=0; i<r_cells.size();i++) {
-              unsigned int index = r_cells[i].get_ID();
+            for (uint32_t i=0; i<r_cells.size();i++) {
+              uint32_t index = r_cells[i].get_ID();
               //add this cell to the map, if possible, otherwise manage map
               if (stored_cells.size() < max_map_size) 
                 stored_cells[index] = r_cells[i];
               else {
                 //remove from map and from requests so it can be 
                 // reqeusted again if needed
-                unsigned int removed_id = (stored_cells.begin())->first ;
+                uint32_t removed_id = (stored_cells.begin())->first ;
                 ids_requested.erase(removed_id);
                 stored_cells.erase(stored_cells.begin());
                 stored_cells[index] = r_cells[i];
@@ -565,9 +565,9 @@ class Mesh {
         // add cell ids to requested for a rank
         if (recv_id_buffer[r_index].received()) {
           //make cell send list for this rank
-          vector<unsigned int> r_ids = recv_id_buffer[r_index].get_buffer();
+          vector<uint32_t> r_ids = recv_id_buffer[r_index].get_buffer();
           vector<Cell> s_cell;
-          for (unsigned int i=0; i<r_ids.size();i++)
+          for (uint32_t i=0; i<r_ids.size();i++)
             s_cell.push_back(cells[r_ids[i]]);
           send_cell_buffer[r_index].fill(s_cell);
           s_cell_reqs[r_index] = 
@@ -606,17 +606,17 @@ class Mesh {
   }
 
   void finish_mesh_pass_messages(mpi::communicator world,
-                                unsigned int& n_sends_posted,
-                                unsigned int& n_sends_completed,
-                                unsigned int& n_receives_posted,
-                                unsigned int& n_receives_completed) {
+                                uint32_t& n_sends_posted,
+                                uint32_t& n_sends_completed,
+                                uint32_t& n_receives_posted,
+                                uint32_t& n_receives_completed) {
     using Constants::cell_id_tag;
     using std::vector;
     //post receives for ids to all ranks
-    for (unsigned int ir=0; ir<n_rank; ir++) {
+    for (uint32_t ir=0; ir<n_rank; ir++) {
       if (ir != rank) {
         //get correct index into requests and vectors 
-        unsigned int r_index = ir - (ir>rank);
+        uint32_t r_index = ir - (ir>rank);
         //if receive buffer is not awaiting, post receive
         if (!recv_id_buffer[r_index].awaiting()) {
           recv_id_buffer[r_index].reset();
@@ -629,10 +629,10 @@ class Mesh {
     }
     
     //send empty cell id vector to all ranks 
-    for (unsigned int ir=0; ir<n_rank; ir++) {
+    for (uint32_t ir=0; ir<n_rank; ir++) {
       if (ir != rank) {
         //get correct index into requests and vectors 
-        unsigned int r_index = ir - (ir>rank);
+        uint32_t r_index = ir - (ir>rank);
         //make sure sent cell id messages have completed
         if (send_cell_buffer[r_index].sent()) {
           s_cell_reqs[r_index].wait();
@@ -645,7 +645,7 @@ class Mesh {
           n_sends_completed++;
         }
         //send empty id message to finish awaiting receives
-        vector<unsigned int> empty_id_vector;
+        vector<uint32_t> empty_id_vector;
         send_id_buffer[r_index].fill(empty_id_vector);
         s_id_reqs[r_index] = 
           world.isend(ir, cell_id_tag, send_id_buffer[r_index].get_buffer());
@@ -659,10 +659,10 @@ class Mesh {
     }
 
     //wait for id receives to complete 
-    for (unsigned int ir=0; ir<n_rank; ir++) {
+    for (uint32_t ir=0; ir<n_rank; ir++) {
       if (ir != rank) {
         //get correct index into requests and vectors 
-        unsigned int r_index = ir - (ir>rank);
+        uint32_t r_index = ir - (ir>rank);
         //wait for receives to complete
         r_id_reqs[r_index].wait();
         n_receives_completed++;
@@ -672,7 +672,7 @@ class Mesh {
   }
 
   void add_mesh_cell(Cell new_cell) {new_cell_list.push_back(new_cell);}
-  void remove_cell(unsigned int index) {remove_cell_list.push_back(index);}
+  void remove_cell(uint32_t index) {remove_cell_list.push_back(index);}
 
   std::vector<double>& get_census_E_ref(void) {return m_census_E;}
   std::vector<double>& get_emission_E_ref(void) {return m_emission_E;}
@@ -686,17 +686,17 @@ class Mesh {
 /*****************************************************************************/
   private:
 
-  unsigned int ngx; //! Number of global x sizes
-  unsigned int ngy; //! Number of global y sizes
-  unsigned int ngz; //! Number of global z sizes
-  unsigned int rank; //! MPI rank of this mesh
-  unsigned int n_rank; //! Number of global ranks
+  uint32_t ngx; //! Number of global x sizes
+  uint32_t ngy; //! Number of global y sizes
+  uint32_t ngz; //! Number of global z sizes
+  uint32_t rank; //! MPI rank of this mesh
+  uint32_t n_rank; //! Number of global ranks
 
-  unsigned int n_cell; //! Number of local cells
-  unsigned int n_global; //! Nuber of global cells
+  uint32_t n_cell; //! Number of local cells
+  uint32_t n_global; //! Nuber of global cells
   
-  unsigned int on_rank_start; //! Start of global index on rank
-  unsigned int on_rank_end; //! End of global index on rank
+  uint32_t on_rank_start; //! Start of global index on rank
+  uint32_t on_rank_end; //! End of global index on rank
 
   std::vector<double> m_census_E; //! Census energy vector
   std::vector<double> m_emission_E; //! Emission energy vector
@@ -705,9 +705,9 @@ class Mesh {
   Cell *cells; //! Cell data allocated with MPI_Alloc
   std::vector<Cell> cell_list; //! On processor cells
   std::vector<Cell> new_cell_list; //! New received cells
-  std::vector<unsigned int> remove_cell_list; //! Cells to be removed
-  std::vector<unsigned int> off_rank_bounds; //! Ending value of global ID for each rank
-  std::vector<unsigned int> boundary_cells; //! Index of adjacent ghost cells
+  std::vector<uint32_t> remove_cell_list; //! Cells to be removed
+  std::vector<uint32_t> off_rank_bounds; //! Ending value of global ID for each rank
+  std::vector<uint32_t> boundary_cells; //! Index of adjacent ghost cells
 
   double m_opA; //! Opacity coefficient A in A + B^C
   double m_opB; //! Opacity coefficient B in A + B^C
@@ -718,14 +718,14 @@ class Mesh {
 
   MPI::Datatype MPI_Cell; //! MPI type, allows simpler parallel communication
 
-  unsigned int max_map_size; //! Maximum size of map object
-  unsigned int off_rank_reads; //! Number of off rank reads
+  uint32_t max_map_size; //! Maximum size of map object
+  uint32_t off_rank_reads; //! Number of off rank reads
 
   //send and receive buffers
   std::vector<Buffer<Cell> > recv_cell_buffer; //! Receive buffer for cells
   std::vector<Buffer<Cell> > send_cell_buffer; //! Send buffer for cells
-  std::vector<Buffer<unsigned int> > recv_id_buffer; //! Receive buffer for cell IDs
-  std::vector<Buffer<unsigned int> > send_id_buffer; //! Receive buffer for cell IDs
+  std::vector<Buffer<uint32_t> > recv_id_buffer; //! Receive buffer for cell IDs
+  std::vector<Buffer<uint32_t> > send_id_buffer; //! Receive buffer for cell IDs
 
   //Data bools needed from off rank 
   std::vector<bool> need_data; //! Vector of size nrank-1, flag for needed data from rank
@@ -736,11 +736,11 @@ class Mesh {
   mpi::request* r_id_reqs; //! Received cell ID requests
   mpi::request* s_id_reqs; //! Send cell ID requests
 
-  std::map<unsigned int, Cell> stored_cells; //! Cells that have been accessed off rank
-  std::map<unsigned int, Cell> ghost_cells; //! Static list of off-rank cells next to boundary
+  std::map<uint32_t, Cell> stored_cells; //! Cells that have been accessed off rank
+  std::map<uint32_t, Cell> ghost_cells; //! Static list of off-rank cells next to boundary
 
-  std::vector<std::vector<unsigned int> > ids_needed ; //! Cell needed by this rank
-  std::set<unsigned int> ids_requested; //! IDs that have been requested
+  std::vector<std::vector<uint32_t> > ids_needed ; //! Cell needed by this rank
+  std::set<uint32_t> ids_requested; //! IDs that have been requested
 
 };
 

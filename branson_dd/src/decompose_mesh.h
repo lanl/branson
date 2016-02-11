@@ -21,12 +21,12 @@
 
 namespace mpi = boost::mpi;
 
-void print_MPI_out(Mesh *mesh, unsigned int rank, unsigned int size) {
+void print_MPI_out(Mesh *mesh, uint32_t rank, uint32_t size) {
   using std::cout;
   cout.flush();
   MPI_Barrier(MPI_COMM_WORLD);
 
-  for (unsigned int p_rank = 0; p_rank<size; p_rank++) {
+  for (uint32_t p_rank = 0; p_rank<size; p_rank++) {
     if (rank == p_rank) {
       mesh->print();
       cout.flush();
@@ -38,12 +38,12 @@ void print_MPI_out(Mesh *mesh, unsigned int rank, unsigned int size) {
 }
 
 
-void print_MPI_maps(Mesh *mesh, unsigned int rank, unsigned int size) {
+void print_MPI_maps(Mesh *mesh, uint32_t rank, uint32_t size) {
   using std::cout;
   cout.flush();
   MPI_Barrier(MPI_COMM_WORLD);
 
-  for (unsigned int p_rank = 0; p_rank<size; p_rank++) {
+  for (uint32_t p_rank = 0; p_rank<size; p_rank++) {
     if (rank == p_rank) {
       mesh->print_map();
       cout.flush();
@@ -84,16 +84,16 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   vector<int> adjncy;
   int adjncy_ctr = 0;
   Cell cell;
-  unsigned int g_ID; //! Global ID
-  for (unsigned int i=0; i<mesh->get_number_of_objects();i++) {
+  uint32_t g_ID; //! Global ID
+  for (uint32_t i=0; i<mesh->get_number_of_objects();i++) {
     cell = mesh->get_pre_cell(i);
     g_ID = cell.get_ID();
-    unsigned int xm_neighbor =cell.get_next_cell(X_NEG);
-    unsigned int xp_neighbor =cell.get_next_cell(X_POS);
-    unsigned int ym_neighbor =cell.get_next_cell(Y_NEG);
-    unsigned int yp_neighbor =cell.get_next_cell(Y_POS);
-    unsigned int zm_neighbor =cell.get_next_cell(Z_NEG);
-    unsigned int zp_neighbor =cell.get_next_cell(Z_POS);
+    uint32_t xm_neighbor =cell.get_next_cell(X_NEG);
+    uint32_t xp_neighbor =cell.get_next_cell(X_POS);
+    uint32_t ym_neighbor =cell.get_next_cell(Y_NEG);
+    uint32_t yp_neighbor =cell.get_next_cell(Y_POS);
+    uint32_t zm_neighbor =cell.get_next_cell(Z_NEG);
+    uint32_t zp_neighbor =cell.get_next_cell(Z_POS);
     
     xadj.push_back(adjncy_ctr); //starting index in xadj for this cell's nodes
     if (xm_neighbor != g_ID) {adjncy.push_back(xm_neighbor); adjncy_ctr++;}
@@ -149,13 +149,13 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
         if (  (send_rank != recv_rank)  && (rank == send_rank || rank == recv_rank) ) {
           if(rank == send_rank) {
             vector<Cell> send_list;
-            for (unsigned int i=0; i<ncell_on_rank; i++) {
+            for (uint32_t i=0; i<ncell_on_rank; i++) {
               if(part[i] == recv_rank)
                 send_list.push_back(mesh->get_pre_cell(i));
             }
             world.send(recv_rank, 0, send_list);
             //Erase these cells from the mesh
-            for (unsigned int i=0; i<ncell_on_rank; i++) {
+            for (uint32_t i=0; i<ncell_on_rank; i++) {
               if(part[i] == recv_rank) mesh->remove_cell(i);
             }
           }
@@ -164,7 +164,7 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
             vector<Cell> recv_list;
             world.recv(send_rank, 0, recv_list);
             // add these cells to the mesh
-            for (unsigned int i = 0; i< recv_list.size(); i++) 
+            for (uint32_t i = 0; i< recv_list.size(); i++) 
               mesh->add_mesh_cell(recv_list[i]);
           }
         } //send_rank != recv_rank
@@ -175,14 +175,14 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   mesh->update_mesh();
 
   //get the number of cells on each processor
-  vector<unsigned int> out_cells_proc(nrank, 0);
-  vector<unsigned int> prefix_cells_proc(nrank, 0);
-  unsigned int n_cell = mesh->get_number_of_objects();
+  vector<uint32_t> out_cells_proc(nrank, 0);
+  vector<uint32_t> prefix_cells_proc(nrank, 0);
+  uint32_t n_cell = mesh->get_number_of_objects();
   mpi::all_gather(world, n_cell, out_cells_proc);
   partial_sum(out_cells_proc.begin(), out_cells_proc.end(), prefix_cells_proc.begin());
 
-  unsigned int g_start = prefix_cells_proc[rank]-n_cell;
-  unsigned int g_end = prefix_cells_proc[rank]-1;
+  uint32_t g_start = prefix_cells_proc[rank]-n_cell;
+  uint32_t g_end = prefix_cells_proc[rank]-1;
   mesh->set_global_bound(g_start, g_end);
   //append zero to the prefix array to make it a standard bounds array
   prefix_cells_proc.insert( prefix_cells_proc.begin(), 0);
@@ -190,11 +190,11 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
 
   //make sure each index is remapped ONLY ONCE!
   vector< vector<bool> > remap_flag;
-  for (unsigned int i=0; i<n_cell; i++) remap_flag.push_back(vector<bool> (6,false));
+  for (uint32_t i=0; i<n_cell; i++) remap_flag.push_back(vector<bool> (6,false));
 
   //change global indices to match a simple number system for easy sorting,
   //this involves sending maps to each processor to get new indicies
-  map<unsigned int, unsigned int> local_map = mesh->get_map();
+  map<uint32_t, uint32_t> local_map = mesh->get_map();
   // Send maps
   for (int send_rank =0; send_rank<nrank; send_rank++) {
     for (int recv_rank =0; recv_rank<nrank; recv_rank++) {
@@ -204,7 +204,7 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
         }
         // rank == recv_rank
         else {
-          map<unsigned int, unsigned int> off_map;
+          map<uint32_t, uint32_t> off_map;
           world.recv(send_rank, 0, off_map);
           //remap off processor indices
           mesh->set_indices(off_map, remap_flag);
