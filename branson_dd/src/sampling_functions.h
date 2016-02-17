@@ -34,7 +34,7 @@ void get_uniform_angle(double* angle, RNG* rng) {
   angle[2] = mu;
 }
 
-void get_stratified_angle(double* angle, RNG* rng, unsigned int isample, unsigned int nsample) {
+void get_stratified_angle(double* angle, RNG* rng, uint32_t isample, uint32_t nsample) {
   using std::sqrt;
   using std::sin;
   using std::cos;

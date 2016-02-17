@@ -24,3 +24,15 @@ add_test(NAME test_photon COMMAND test_photon_exe)
 # Buffer class test
 add_executable(test_buffer_exe test_buffer.cc)
 add_test(NAME test_buffer COMMAND test_buffer_exe)
+
+# copy these input files for Input and IMC_State class tests
+configure_file(simple_input.xml ${CMAKE_CURRENT_BINARY_DIR}/simple_input.xml COPY_ONLY)
+configure_file(large_particle_input.xml ${CMAKE_CURRENT_BINARY_DIR}/large_particle_input.xml COPY_ONLY)
+
+# Input class test
+add_executable(test_input_exe test_input.cc)
+add_test(NAME test_input COMMAND test_input_exe)
+
+# IMC_State class test
+add_executable(test_imc_state_exe test_imc_state.cc)
+add_test(NAME test_imc_state COMMAND mpirun -np 2 test_imc_state_exe)

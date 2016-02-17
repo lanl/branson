@@ -42,7 +42,7 @@ class Photon
     return (m_E / m_E0 < cutoff_fraction); 
   }
 
-  unsigned int get_cell(void) const { return m_cell_ID; }
+  uint32_t get_cell(void) const { return m_cell_ID; }
   const double* get_position(void) const { return m_pos; }
   const double* get_angle(void) const { return m_angle; }
   double get_E(void) const { return m_E;}
@@ -50,7 +50,7 @@ class Photon
   bool get_census_flag(void) const {return m_census_flag;}
   double get_distance_remaining(void) const {return m_life_dx;}
 
-  void print_info(const unsigned int& rank) const {
+  void print_info(const uint32_t& rank) const {
     using std::cout;
     using std::endl;
     cout<<"----Photon Info----\n";
@@ -79,7 +79,7 @@ class Photon
     m_life_dx -=distance;
   }
 
-  void set_cell(const unsigned int& new_cell) { m_cell_ID = new_cell;}
+  void set_cell(const uint32_t& new_cell) { m_cell_ID = new_cell;}
 
   void set_E0(const double& E) { 
     m_E0 = E;
@@ -106,7 +106,7 @@ class Photon
   }
   void set_dead(void) { m_census_flag = false;}
 
-  void reflect(const unsigned int& surface_cross) {
+  void reflect(const uint32_t& surface_cross) {
     using Constants::X_POS; using Constants::X_NEG; 
     using Constants::Y_POS; using Constants::Y_NEG; 
     //reflect the photon over the surface it was crossing
@@ -127,7 +127,7 @@ class Photon
   double m_E; //! current photon energy
   double m_E0; //! photon energy at creation
 
-  unsigned int m_cell_ID; //! Cell ID
+  uint32_t m_cell_ID; //! Cell ID
   bool m_census_flag; //! Flag for census, true if photon reaches census
   double m_life_dx; //! Distance remaining this time step
 
@@ -137,7 +137,7 @@ class Photon
   //! serialization routine
   friend class boost::serialization::access;
   template<class Archive>
-  void serialize(Archive &ar, const unsigned int version)
+  void serialize(Archive &ar, const uint32_t version)
   {
     ar & m_pos;
     ar & m_angle;

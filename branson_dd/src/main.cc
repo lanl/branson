@@ -30,8 +30,8 @@ int main(int argc, char *argv[])
 
   mpi::environment env(argc, argv);
   mpi::communicator world;
-  unsigned int rank = world.rank();
-  unsigned int size = world.size();
+  uint32_t rank = world.rank();
+  uint32_t size = world.size();
 
   //check to see if number of arguments is correct
   if (argc != 2) {

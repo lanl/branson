@@ -24,12 +24,12 @@ class IMC_Parameters
 /*****************************************************************************/
 /* const functions                                                           */
 /*****************************************************************************/
-  unsigned int get_n_user_photon(void) const {return n_user_photon;}
-  unsigned int get_map_size(void) const {return map_size;}
-  unsigned int get_dd_mode(void) const {return dd_mode;}
+  uint64_t get_n_user_photon(void) const {return n_user_photon;}
+  uint32_t get_map_size(void) const {return map_size;}
+  uint32_t get_dd_mode(void) const {return dd_mode;}
   bool get_ghost_cell_bool(void) const {return use_ghost_cells;}
-  unsigned int  get_batch_size(void) const {return batch_size;}
-  unsigned int  get_particle_message_size(void) const {return particle_message_size;}
+  uint32_t  get_batch_size(void) const {return batch_size;}
+  uint32_t  get_particle_message_size(void) const {return particle_message_size;}
 
 /*****************************************************************************/
 /* member variables and private functions                                    */
@@ -37,12 +37,12 @@ class IMC_Parameters
   private:
 
   //parallel performance parameters
-  unsigned int n_user_photon; //!< User requested number of photons per timestep
-  unsigned int map_size; //!< Size of stored off-rank mesh cells
-  unsigned int dd_mode; //!< Mode of domain decomposed transport algorithm
+  uint64_t n_user_photon; //!< User requested number of photons per timestep
+  uint32_t map_size; //!< Size of stored off-rank mesh cells
+  uint32_t dd_mode; //!< Mode of domain decomposed transport algorithm
   bool use_ghost_cells; //!< Always keep first ghost cells
-  unsigned int batch_size; //!< How often to check for MPI passed data
-  unsigned int particle_message_size; //!< Preferred number of particles in MPI sends
+  uint32_t batch_size; //!< How often to check for MPI passed data
+  uint32_t particle_message_size; //!< Preferred number of particles in MPI sends
 };
 
 #endif // #ifdef imc_parameters_h_

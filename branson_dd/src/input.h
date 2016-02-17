@@ -56,7 +56,7 @@ class Input
         dtMax = v.second.get<double>("dt_max" , dt);
         Tm_initial = v.second.get<double>("Tm_initial");
         Tr_initial = v.second.get<double>("Tr_initial");
-        n_photons =v.second.get<int>("photons"); 
+        n_photons =v.second.get<uint64_t>("photons"); 
         seed = v.second.get<int>("seed");
         map_size = v.second.get<int>("map_size");
         output_freq = v.second.get<int>("output_frequency",1);
@@ -81,10 +81,10 @@ class Input
         else use_ghost_cells = false;
 
         //number of particles to run between MPI message checks
-        batch_size = v.second.get<unsigned int>("batch_size", 100);
+        batch_size = v.second.get<uint32_t>("batch_size", 100);
 
         //preferred number of particles per MPI send
-        particle_message_size = v.second.get<unsigned int>("particle_message_size", 100);
+        particle_message_size = v.second.get<uint32_t>("particle_message_size", 100);
 
         // domain decomposed transport aglorithm
         tempString = v.second.get<std::string>("dd_transport_type", 
@@ -112,13 +112,13 @@ class Input
       //read in spatial data
       if(v.first =="spatial")
       {
-        n_x_cells = v.second.get<unsigned int>("n_x_cells");
+        n_x_cells = v.second.get<uint32_t>("n_x_cells");
         dx = v.second.get<double>("dx");
 
-        n_y_cells = v.second.get<unsigned int>("n_y_cells");
+        n_y_cells = v.second.get<uint32_t>("n_y_cells");
         dy = v.second.get<double>("dy");
 
-        n_z_cells = v.second.get<unsigned int>("n_z_cells");
+        n_z_cells = v.second.get<uint32_t>("n_z_cells");
         dz = v.second.get<double>("dz");
 
         //read in boundary conditions
@@ -253,24 +253,27 @@ class Input
 
   double get_initial_Tm(void) const {return Tm_initial;}
   double get_initial_Tr(void) const {return Tr_initial;}
-  int get_output_freq(void) const {return output_freq;}
 
   bool get_tilt_bool(void) const {return use_tilt;}
   bool get_comb_bool(void) const {return use_comb;}
   bool get_stratified_bool(void) const {return use_strat;}
   bool get_ghost_cell_bool(void) const {return use_ghost_cells;}
+
   bool get_verbose_print_bool(void) const {return print_verbose;}
   bool get_print_mesh_info_bool(void) const {return print_mesh_info;}
+  int get_output_freq(void) const {return output_freq;}
 
   double get_dt(void) const {return dt;}
   double get_time_start(void) const {return tStart;}
   double get_time_finish(void) const {return tFinish;}
   double get_time_mult(void) const {return tMult;}
   double get_dt_max(void) const {return dtMax;}
-  int get_number_photons(void) const {return n_photons;}
   int get_rng_seed(void) const {return seed;}
-  unsigned int get_batch_size(void) const {return batch_size;}
-  unsigned int get_particle_message_size(void) const {return particle_message_size;}
+  uint64_t get_number_photons(void) const {return n_photons;}
+  uint32_t get_batch_size(void) const {return batch_size;}
+  uint32_t get_particle_message_size(void) const {return particle_message_size;}
+  uint32_t get_map_size(void) const {return map_size;}
+  uint32_t get_dd_mode(void) const {return dd_mode;}
 
   //source functions
   double get_source_T(void) const {return T_source;}
@@ -287,16 +290,13 @@ class Input
   { 
     return bc[direction];
   }
-  
-  unsigned int get_map_size(void) const {return map_size;}
-  unsigned int get_dd_mode(void) const {return dd_mode;}
 
   private:
 
   // geometry
-  unsigned int n_x_cells; //!< Total x cells
-  unsigned int n_y_cells; //!< Total y cells
-  unsigned int n_z_cells; //!< Total z cells
+  uint32_t n_x_cells; //!< Total x cells
+  uint32_t n_y_cells; //!< Total y cells
+  uint32_t n_z_cells; //!< Total z cells
 
   double dx; //!< x grid spacing (cm)
   double dy; //!< y grid spacing (cm)
@@ -327,8 +327,8 @@ class Input
   double T_source; //!< Temperature of source
 
   // Monte Carlo parameters
-  unsigned int n_photons; //!< Photons to source each timestep
-  unsigned int seed; //!< Random number seed
+  uint64_t n_photons; //!< Photons to source each timestep
+  uint32_t seed; //!< Random number seed
 
   // Method parameters
   bool use_tilt; //!< Use tilting for emission sampling
@@ -341,11 +341,11 @@ class Input
   bool print_mesh_info; //!< Mesh information printing flag
 
   //parallel performance parameters
-  unsigned int map_size; //!< Size of stored off-rank mesh cells
-  unsigned int dd_mode; //!< Mode of domain decomposed transport algorithm
+  uint32_t map_size; //!< Size of stored off-rank mesh cells
+  uint32_t dd_mode; //!< Mode of domain decomposed transport algorithm
   bool use_ghost_cells; //!< Always keep first ghost cells
-  unsigned int batch_size; //!< Particles to run between MPI message checks
-  unsigned int particle_message_size; //!< Preferred number of particles in MPI sends
+  uint32_t batch_size; //!< Particles to run between MPI message checks
+  uint32_t particle_message_size; //!< Preferred number of particles in MPI sends
 
 };
 

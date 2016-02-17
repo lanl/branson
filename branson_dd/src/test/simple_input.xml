@@ -1,0 +1,58 @@
+<prototype>
+  <common>
+    <method>IMC</method>
+    <t_start>0.0</t_start>
+    <t_stop>0.1</t_stop>
+    <dt_start>0.01</dt_start>
+    <t_mult>1.0</t_mult>
+    <dt_max>1.0</dt_max>
+    <Tm_initial>1.0</Tm_initial>
+    <Tr_initial>1.1</Tr_initial>
+    <photons>10000</photons>
+    <seed>14706</seed>
+    <tilt>FALSE</tilt>
+    <output_frequency>1</output_frequency>
+    <stratified_sampling>FALSE</stratified_sampling>
+    <dd_transport_type>PARTICLE_PASS</dd_transport_type>
+    <map_size>50000</map_size>
+    <batch_size>10000</batch_size>
+    <particle_message_size>1000</particle_message_size>
+  </common>
+
+  <debug_options>
+    <print_verbose>FALSE</print_verbose>
+    <print_mesh_info>FALSE</print_mesh_info>
+  </debug_options>
+
+  <spatial>
+    <n_x_cells>10</n_x_cells>
+    <dx>1.0</dx>
+    <n_y_cells>20</n_y_cells>
+    <dy>2.0</dy>
+    <n_z_cells>30</n_z_cells>
+    <dz>3.0</dz>
+
+    <bc_right>REFLECT</bc_right>
+    <bc_left>REFLECT</bc_left>
+
+    <bc_up>VACUUM</bc_up>
+    <bc_down>VACUUM</bc_down>
+
+    <bc_top>REFLECT</bc_top>
+    <bc_bottom>VACUUM</bc_bottom>
+  </spatial>
+
+  <source>
+    <source_element>0</source_element>
+    <T_source>0.0</T_source>
+  </source>
+
+  <material>
+    <density>1.0</density>
+    <CV>2.0</CV>
+    <opacA>3.0</opacA>
+    <opacB>0.0</opacB>
+    <opacC>0.0</opacC>
+    <opacS>5.0</opacS>
+  </material>
+</prototype>

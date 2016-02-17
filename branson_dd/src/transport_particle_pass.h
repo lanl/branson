@@ -8,12 +8,13 @@
 #define transport_particle_pass_h_
 
 #include <algorithm>
-#include <vector>
-#include <stack>
+#include <boost/mpi.hpp>
 #include <iostream>
 #include <numeric>
 #include <queue>
-#include <boost/mpi.hpp>
+#include <map>
+#include <stack>
+#include <vector>
 
 #include "constants.h"
 #include "buffer.h"
@@ -149,6 +150,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
   using std::queue;
   using std::vector;
   using std::stack;
+  using std::map;
   using Constants::proc_null;
   using Constants::count_tag;
   using std::cout;
@@ -213,18 +215,24 @@ std::vector<Photon> transport_particle_pass(Source& source,
   mpi::request c1_send_request;
   mpi::request c2_send_request; 
   mpi::request p_send_request;
-  mpi::request *phtn_recv_request   = new mpi::request[n_rank-1];
-  mpi::request *phtn_send_request   = new mpi::request[n_rank-1];
 
-  //Buffers
+  //Buffers for photon completed counts
   Buffer<uint64_t> c1_recv_buffer;
   Buffer<uint64_t> c2_recv_buffer;
   Buffer<uint64_t> p_recv_buffer;
   Buffer<uint64_t> c1_send_buffer;
   Buffer<uint64_t> c2_send_buffer;
   Buffer<uint64_t> p_send_buffer;
-  vector<Buffer<Photon> > phtn_recv_buffer(n_rank-1);
-  vector<Buffer<Photon> > phtn_send_buffer(n_rank-1);
+
+  //Get adjacent processor map (off_rank_id -> adjacent_proc_number)
+  map<uint32_t, uint32_t> adjacent_procs = mesh->get_proc_adjacency_list();
+  uint32_t n_adjacent = adjacent_procs.size();
+  //Messsage requests for photon sends and receives
+  mpi::request *phtn_recv_request   = new mpi::request[n_adjacent];
+  mpi::request *phtn_send_request   = new mpi::request[n_adjacent];
+  // make a send/receive particle buffer for each adjacent processor
+  vector<Buffer<Photon> > phtn_recv_buffer(n_adjacent);
+  vector<Buffer<Photon> > phtn_send_buffer(n_adjacent);
 
   // Messages are sent up the tree whenever a rank has completed its local work
   // or received an updated particle complete count from its child
@@ -247,20 +255,22 @@ std::vector<Photon> transport_particle_pass(Source& source,
     p_recv_buffer.set_awaiting();
   }
 
-  //Post receives for photons from other ranks
-  //NOTE: This should just involve adjacent sub-domains
-  // I can precalculate those
-  for (int ir=0; ir<n_rank; ir++) {
-    if (ir != rank) {
+  //Post receives for photons from adjacent sub-domains
+  {
+    uint32_t i_b; // buffer index
+    int adj_rank; // adjacent rank
+    for ( std::map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin(); 
+      it != adjacent_procs.end(); ++it) {
+      adj_rank = it->first;
+      i_b = it->second;
       //push back send and receive lists
       vector<Photon> empty_phtn_vec;
       send_list.push_back(empty_phtn_vec);
-      //get correct index into requests and vectors 
-      int r_index = ir - (ir>rank);
-      phtn_recv_request[r_index] = world.irecv(ir, photon_tag, phtn_recv_buffer[r_index].get_buffer());
+      phtn_recv_request[i_b] = 
+        world.irecv(adj_rank, photon_tag, phtn_recv_buffer[i_b].get_buffer());
       n_receives_posted++;
-      phtn_recv_buffer[r_index].set_awaiting();
-    }
+      phtn_recv_buffer[i_b].set_awaiting();
+    } // end loop over adjacent processors
   }
 
   ////////////////////////////////////////////////////////////////////////
@@ -326,8 +336,8 @@ std::vector<Photon> transport_particle_pass(Source& source,
           break;
         case PASS:
           send_rank = mesh->get_rank(phtn.get_cell());
-          int r_index = send_rank - (send_rank>rank);
-          send_list[r_index].push_back(phtn);
+          int i_b = adjacent_procs[send_rank];
+          send_list[i_b].push_back(phtn);
           break;
       }
       n--;
@@ -337,52 +347,57 @@ std::vector<Photon> transport_particle_pass(Source& source,
     ////////////////////////////////////////////////////////////////////////////
     // process photon send and receives 
     ////////////////////////////////////////////////////////////////////////////
-    for (int ir=0; ir<n_rank; ir++) {
-      if (ir != rank) {
-        int r_index = ir - (ir>rank);
-       
+    {
+      uint32_t i_b; // buffer index
+      int adj_rank; // adjacent rank
+      for ( std::map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin(); 
+        it != adjacent_procs.end(); ++it) {
+        adj_rank = it->first;
+        i_b = it->second;
         // process send buffer
-        if (phtn_send_buffer[r_index].sent()) {
-          if (phtn_send_request[r_index].test()) {
-            phtn_send_buffer[r_index].reset();
+        if (phtn_send_buffer[i_b].sent()) {
+          if (phtn_send_request[i_b].test()) {
+            phtn_send_buffer[i_b].reset();
             n_sends_completed++;
           } 
         }
 
-        if ( (phtn_send_buffer[r_index].empty() && !send_list[r_index].empty()) &&
-          (send_list[r_index].size() >= max_buffer_size || n_local_sourced == n_local) ) {
+        if ( (phtn_send_buffer[i_b].empty() && !send_list[i_b].empty()) &&
+          (send_list[i_b].size() >= max_buffer_size || n_local_sourced == n_local) ) {
           uint32_t n_photons_to_send = max_buffer_size;
-          if ( send_list[r_index].size() < max_buffer_size) 
-            n_photons_to_send = send_list[r_index].size();
-          vector<Photon>::iterator copy_start = send_list[r_index].begin();
-          vector<Photon>::iterator copy_end = send_list[r_index].begin()+n_photons_to_send;
+          if ( send_list[i_b].size() < max_buffer_size) 
+            n_photons_to_send = send_list[i_b].size();
+          vector<Photon>::iterator copy_start = send_list[i_b].begin();
+          vector<Photon>::iterator copy_end = send_list[i_b].begin()+n_photons_to_send;
           vector<Photon> send_now_list(copy_start, copy_end);
-          send_list[r_index].erase(copy_start,copy_end); 
-          phtn_send_buffer[r_index].fill(send_now_list);
+          send_list[i_b].erase(copy_start,copy_end); 
+          phtn_send_buffer[i_b].fill(send_now_list);
           n_photons_sent += n_photons_to_send;
-          phtn_send_request[r_index] = 
-            world.isend(ir, photon_tag, phtn_send_buffer[r_index].get_buffer());
+          phtn_send_request[i_b] = 
+            world.isend(adj_rank, photon_tag, phtn_send_buffer[i_b].get_buffer());
           n_sends_posted++;
-          phtn_send_buffer[r_index].set_sent();
+          phtn_send_buffer[i_b].set_sent();
           n_photon_messages++;
         }
 
         //process receive buffer
-        if (phtn_recv_buffer[r_index].awaiting()) {
-          if (phtn_recv_request[r_index].test()) {
+        if (phtn_recv_buffer[i_b].awaiting()) {
+          if (phtn_recv_request[i_b].test()) {
             n_receives_completed++;
-            vector<Photon> receive_list = phtn_recv_buffer[r_index].get_buffer();
+            vector<Photon> receive_list = phtn_recv_buffer[i_b].get_buffer();
             for (uint32_t i=0; i<receive_list.size(); i++) 
               phtn_recv_stack.push(receive_list[i]);
-            phtn_recv_buffer[r_index].reset();
+            phtn_recv_buffer[i_b].reset();
             //post receive again
-            phtn_recv_request[r_index] = world.irecv(ir, photon_tag, phtn_recv_buffer[r_index].get_buffer());
+            phtn_recv_request[i_b] = world.irecv(adj_rank, 
+              photon_tag, 
+              phtn_recv_buffer[i_b].get_buffer());
             n_receives_posted++;
-            phtn_recv_buffer[r_index].set_awaiting();
+            phtn_recv_buffer[i_b].set_awaiting();
           }
         }
-      }
-    } // end loop over ranks
+      } // end loop over adjacent processors
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     // binary tree completion communication
@@ -515,24 +530,27 @@ std::vector<Photon> transport_particle_pass(Source& source,
   
 
   //finish off posted photon receives
-  vector<Photon> empty_buffer;
-  for (int ir=0; ir<n_rank; ir++) {
-    if (ir != rank) {
-      //get correct index into requests and vectors 
-      int r_index = ir - (ir>rank);
+  {
+    vector<Photon> empty_buffer;
+    uint32_t i_b; // buffer index
+    int adj_rank; // adjacent rank
+    for ( std::map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin(); 
+      it != adjacent_procs.end(); ++it) {
+      adj_rank = it->first;
+      i_b = it->second;
       //wait for completion of previous sends
-      if (phtn_send_buffer[r_index].sent()) phtn_send_request[r_index].wait();
+      if (phtn_send_buffer[i_b].sent()) phtn_send_request[i_b].wait();
       //send empty buffer to finish off receives
-      phtn_send_request[r_index] = world.isend(ir, photon_tag, empty_buffer);
+      phtn_send_request[i_b] = world.isend(adj_rank, photon_tag, empty_buffer);
       n_sends_posted++;
-      phtn_send_request[r_index].wait();
+      phtn_send_request[i_b].wait();
       n_sends_completed++;
-    }
+    } // end loop over adjacent processors
   }
 
   // Wait for receive requests
-  for (int i=0; i<n_rank-1 ;i++) {
-    phtn_recv_request[i].wait();
+  for (uint32_t i_b=0; i_b<n_adjacent; i_b++) {
+    phtn_recv_request[i_b].wait();
     n_receives_completed++;
   }
 

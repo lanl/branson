@@ -54,9 +54,9 @@ void imc_cell_pass_driver(const int& rank,
 
     imc_state->set_pre_census_E(get_photon_list_E(census_photons));
 
-    Source source(mesh, imc_state, global_source_energy, census_photons);
+    Source source(mesh, imc_parameters, global_source_energy, census_photons);
 
-    imc_state->set_transported_photons(source.get_n_photon());
+    imc_state->set_transported_particles(source.get_n_photon());
     //cout<<"Rank: "<<rank<<" about to transport ";
     //cout<<n_photon<<" particles."<<endl;
 
@@ -131,9 +131,9 @@ void imc_particle_pass_driver(const int& rank,
 
     imc_state->set_pre_census_E(get_photon_list_E(census_photons)); 
 
-    Source source(mesh, imc_state, global_source_energy, census_photons);
+    Source source(mesh, imc_parameters, global_source_energy, census_photons);
 
-    imc_state->set_transported_photons(source.get_n_photon());
+    imc_state->set_transported_particles(source.get_n_photon());
 
     census_photons = transport_particle_pass( source, 
                                               mesh, 

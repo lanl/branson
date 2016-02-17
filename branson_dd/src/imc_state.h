@@ -10,6 +10,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <boost/mpi.hpp>
 
 #include "input.h"
 #include "photon.h"
@@ -25,23 +26,40 @@ class IMC_State
       m_time_stop(input->get_time_finish()),
       m_step(1),
       m_dt_mult(input->get_time_mult()),
-      m_dt_max(input->get_dt_max()),
-      m_total_photons(input->get_number_photons()),
-      m_trans_photons(0)
+      m_dt_max(input->get_dt_max())
     {
-      m_RNG = new RNG();
-      m_RNG->set_seed(input->get_rng_seed()+MPI::COMM_WORLD.Get_rank()*4106);
       pre_census_E = 0.0;
-      post_census_E = 0.0;      
+      post_census_E = 0.0;
       pre_mat_E = 0.0;
       post_mat_E = 0.0;
+      emission_E = 0.0;
       exit_E = 0.0;
       absorbed_E = 0.0;
+      source_E = 0.0;
+
+      //64 bit
+      trans_particles = 0;
+      census_size = 0;
+      step_particles_sent = 0;
+      total_particles_sent=0;
+      //32 bit
       total_cells_requested=0;
       total_cells_sent=0;
       total_cell_messages=0;
-      total_particles_sent=0;
       total_particle_messages=0;
+
+      step_particle_messages=0;
+      step_cells_requested=0;
+      step_cell_messages=0;
+      step_cells_sent=0;
+
+      step_sends_posted=0;
+      step_sends_completed=0;
+      step_receives_posted=0;
+      step_receives_completed=0;
+
+      m_RNG = new RNG();
+      m_RNG->set_seed(input->get_rng_seed()+MPI::COMM_WORLD.Get_rank()*4106);
     }
 
   ~IMC_State() { delete m_RNG;}
@@ -50,9 +68,11 @@ class IMC_State
 /* const functions                                                           */
 /*****************************************************************************/
   double get_dt(void) const {return m_dt;}
-  unsigned int get_step(void) const {return m_step;}
-  unsigned int get_total_step_photons(void) const {return m_total_photons;}
-  unsigned int get_census_size(void) const {return census_size;}
+  uint32_t get_step(void) const {return m_step;}
+  uint64_t get_transported_particles(void) const {return trans_particles;}
+  uint64_t get_census_size(void) const {return census_size;}
+  uint64_t get_step_particles_sent(void) const {return step_particles_sent;}
+  uint64_t get_total_particles_sent(void) const {return total_particles_sent;}
   double get_pre_census_E(void) {return pre_census_E;}
   double get_emission_E(void) {return emission_E;}
   double get_next_dt(void) const {
@@ -84,7 +104,7 @@ class IMC_State
 /*****************************************************************************/
 /* non-const functions                                                       */
 /*****************************************************************************/
-  void print_conservation(unsigned int dd_type ) {
+  void print_conservation(uint32_t dd_type ) {
     using std::cout;
     using std::endl;
     using Constants::PARTICLE_PASS;
@@ -98,17 +118,19 @@ class IMC_State
     double g_post_census_E=0.0;
     double g_post_mat_E=0.0;
     double g_exit_E = 0.0;
-    unsigned int g_census_size=0;
-    unsigned int g_trans_photons=0;
-    unsigned int g_step_particle_messages=0;
-    unsigned int g_step_particles_sent=0;
-    unsigned int g_step_cells_requested=0;
-    unsigned int g_step_cell_messages=0;
-    unsigned int g_step_cells_sent=0;
-    unsigned int g_step_sends_posted=0;
-    unsigned int g_step_sends_completed=0;
-    unsigned int g_step_receives_posted=0;
-    unsigned int g_step_receives_completed=0;
+    // 64 bit global integers
+    uint64_t g_census_size=0;
+    uint64_t g_trans_particles=0;
+    uint64_t g_step_particles_sent=0;
+    // 32 bit global integers
+    uint32_t g_step_particle_messages=0;
+    uint32_t g_step_cells_requested=0;
+    uint32_t g_step_cell_messages=0;
+    uint32_t g_step_cells_sent=0;
+    uint32_t g_step_sends_posted=0;
+    uint32_t g_step_sends_completed=0;
+    uint32_t g_step_receives_posted=0;
+    uint32_t g_step_receives_completed=0;
 
     //reduce energy conservation values
     MPI::COMM_WORLD.Allreduce(&absorbed_E, &g_absorbed_E, 1, MPI_DOUBLE, MPI_SUM);
@@ -120,10 +142,15 @@ class IMC_State
     MPI::COMM_WORLD.Allreduce(&exit_E, &g_exit_E, 1, MPI_DOUBLE, MPI_SUM);
 
     // reduce diagnostic values
+    // 64 bit integer reductions
     MPI::COMM_WORLD.Allreduce(
-      &census_size, &g_census_size, 1, MPI_UNSIGNED, MPI_SUM);
+      &trans_particles, &g_trans_particles, 1, MPI_UNSIGNED_LONG, MPI_SUM);
     MPI::COMM_WORLD.Allreduce(
-      &m_trans_photons, &g_trans_photons, 1, MPI_UNSIGNED, MPI_SUM);
+      &step_particles_sent, &g_step_particles_sent, 1, MPI_UNSIGNED_LONG, MPI_SUM);
+    MPI::COMM_WORLD.Allreduce(
+      &census_size, &g_census_size, 1, MPI_UNSIGNED_LONG, MPI_SUM);
+
+    // 32 bit integer reductions
     MPI::COMM_WORLD.Allreduce(
       &step_cells_requested, 
       &g_step_cells_requested, 
@@ -138,8 +165,6 @@ class IMC_State
       MPI_UNSIGNED, 
       MPI_SUM);
 
-    MPI::COMM_WORLD.Allreduce(
-      &step_particles_sent, &g_step_particles_sent, 1, MPI_UNSIGNED, MPI_SUM);
     MPI::COMM_WORLD.Allreduce(
       &step_cell_messages, &g_step_cell_messages, 1, MPI_UNSIGNED, MPI_SUM);
     MPI::COMM_WORLD.Allreduce(
@@ -172,7 +197,7 @@ class IMC_State
     
 
     if (MPI::COMM_WORLD.Get_rank() == 0) {
-      cout<<"Total Photons transported: "<<g_trans_photons<<endl;
+      cout<<"Total Photons transported: "<<g_trans_particles<<endl;
       cout<<"Emission E: "<<g_emission_E<<", Absorption E: "<<g_absorbed_E;
       cout<<", Exit E: "<<g_exit_E<<endl;
       cout<<"Pre census E: "<<g_pre_census_E<<" Post census E: ";
@@ -196,7 +221,7 @@ class IMC_State
     } // if rank==0
   }
 
-  void print_simulation_footer(unsigned int dd_type ) {
+  void print_simulation_footer(uint32_t dd_type ) {
     using std::cout;
     using std::endl;
     using Constants::PARTICLE_PASS;
@@ -226,9 +251,6 @@ class IMC_State
     m_step++;
   }
 
-  void set_transported_photons(unsigned int _trans_photons) {
-    m_trans_photons = _trans_photons;
-  }
   void set_pre_census_E(double _pre_census_E) {pre_census_E = _pre_census_E;}
   void set_post_census_E(double _post_census_E) {
     post_census_E = _post_census_E;
@@ -239,34 +261,37 @@ class IMC_State
   void set_source_E(double _source_E) {source_E = _source_E;}
   void set_absorbed_E(double _absorbed_E) {absorbed_E = _absorbed_E;}
   void set_exit_E(double _exit_E) {exit_E = _exit_E;}
-  //set diagnostic values
-  void set_census_size(unsigned int _census_size) {census_size = _census_size;}
-  void set_step_cells_requested(unsigned int _step_cells_requested) {
-    step_cells_requested = _step_cells_requested;
+  //set diagnostic values (64 bit)
+  void set_transported_particles(uint64_t _trans_particles) {
+    trans_particles = _trans_particles;
   }
-
-  void set_step_particle_messages(unsigned int _step_particle_messages) {
-    step_particle_messages=_step_particle_messages;
-  }
-  void set_step_particles_sent(unsigned int _step_particles_sent) {
+  void set_census_size(uint64_t _census_size) {census_size = _census_size;}
+  void set_step_particles_sent(uint64_t _step_particles_sent) {
     step_particles_sent=_step_particles_sent;
   }
-  void set_step_cell_messages(unsigned int _step_cell_messages) {
+  // set diagnostic values (32 bit)
+  void set_step_cells_requested(uint32_t _step_cells_requested) {
+    step_cells_requested = _step_cells_requested;
+  }
+  void set_step_particle_messages(uint32_t _step_particle_messages) {
+    step_particle_messages=_step_particle_messages;
+  }
+  void set_step_cell_messages(uint32_t _step_cell_messages) {
     step_cell_messages=_step_cell_messages;
   }
-  void set_step_cells_sent(unsigned int _step_cells_sent) {
+  void set_step_cells_sent(uint32_t _step_cells_sent) {
     step_cells_sent=_step_cells_sent;
   }
-  void set_step_sends_posted(unsigned int _step_sends_posted) {
+  void set_step_sends_posted(uint32_t _step_sends_posted) {
     step_sends_posted=_step_sends_posted;
   }
-  void set_step_sends_completed(unsigned int _step_sends_completed) {
+  void set_step_sends_completed(uint32_t _step_sends_completed) {
     step_sends_completed=_step_sends_completed;
   }
-  void set_step_receives_posted(unsigned int _step_receives_posted) {
+  void set_step_receives_posted(uint32_t _step_receives_posted) {
     step_receives_posted=_step_receives_posted;
   }
-  void set_step_receives_completed(unsigned int _step_receives_completed) { 
+  void set_step_receives_completed(uint32_t _step_receives_completed) { 
     step_receives_completed=_step_receives_completed;
   }
 
@@ -278,12 +303,9 @@ class IMC_State
   double m_dt; //! Current time step size (sh)
   double m_time; //! Current time (sh)
   double m_time_stop; //! End time (sh)
-  unsigned int m_step; //! Time step (start at 1)
+  uint32_t m_step; //! Time step (start at 1)
   double m_dt_mult; //! Time step multiplier
   double m_dt_max;  //! Max time step
-  //photons
-  unsigned int m_total_photons; //! Photons desired
-  unsigned int m_trans_photons; //! Photons transported
 
   //conservation
   double pre_census_E; //! Census energy at the beginning of the timestep
@@ -295,36 +317,36 @@ class IMC_State
   double absorbed_E; //! Total absorbed energy 
   double source_E; //! Sourced energy
 
-  //diagnostic
-  unsigned int census_size; //! Number of particles in census
+  //diagnostic 64 bit integers relating to particle counts
+  uint64_t trans_particles; //! Particles transported
+  uint64_t census_size; //! Number of particles in census
 
-
-  //! Total number of cells requested for simulation
-  unsigned int total_cells_requested; 
-
-  //! Total number of cells sent for simulation
-  unsigned int total_cells_sent;
-
-  //! Total number of cell message for simulation
-  unsigned int total_cell_messages;
+  uint64_t step_particles_sent; //! Number of particles passed
 
   //! Total number of particles sent for simulation
-  unsigned int total_particles_sent; 
+  uint64_t total_particles_sent; 
+
+  //diagnostic 32 bit integers relating to messages and cell counts
+  //! Total number of cells requested for simulation
+  uint32_t total_cells_requested; 
+
+  //! Total number of cells sent for simulation
+  uint32_t total_cells_sent;
+
+  //! Total number of cell message for simulation
+  uint32_t total_cell_messages;
 
   //! Total number of particle messages sent for simulation
-  unsigned int total_particle_messages;
+  uint32_t total_particle_messages;
  
-  unsigned int step_particle_messages; //! Number of particle messages
-  unsigned int step_particles_sent; //! Number of particles passed
-  unsigned int step_cells_requested; //! Number of cells requested by this rank
-  unsigned int step_cell_messages; //! Number of cell messages
-  unsigned int step_cells_sent; //! Number of cells passed
-  unsigned int step_sends_posted; //! Number of sent messages posted
-  unsigned int step_sends_completed; //! Number of sent messages completed
-  unsigned int step_receives_posted; //! Number of received messages completed
-
-  //! Number of received messages completed
-  unsigned int step_receives_completed; 
+  uint32_t step_particle_messages; //! Number of particle messages
+  uint32_t step_cells_requested; //! Number of cells requested by this rank
+  uint32_t step_cell_messages; //! Number of cell messages
+  uint32_t step_cells_sent; //! Number of cells passed
+  uint32_t step_sends_posted; //! Number of sent messages posted
+  uint32_t step_sends_completed; //! Number of sent messages completed
+  uint32_t step_receives_posted; //! Number of received messages completed
+  uint32_t step_receives_completed;  //! Number of received messages completed
 
   //RNG
   RNG* m_RNG;

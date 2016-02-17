@@ -24,13 +24,13 @@ double get_photon_list_E(std::vector<Photon> photons) {
 std::vector<Photon> make_initial_census_photons(Mesh* mesh, 
                                           IMC_State* imc_state, 
                                           const double& total_E, 
-                                          const unsigned int& n_user_photon) {
+                                          const uint32_t& n_user_photon) {
   using std::vector;
   using Constants::c;
 
   vector<double> census_E = mesh->get_census_E_ref();
 
-  unsigned int n_cell =mesh->get_number_of_objects();
+  uint32_t n_cell =mesh->get_number_of_objects();
 
   double delta_t = imc_state->get_dt();
 
@@ -41,18 +41,18 @@ std::vector<Photon> make_initial_census_photons(Mesh* mesh,
   // make the photons
   Cell cell;
   double pos[3]; double angle[3];
-  unsigned int g_ID;
-  unsigned int p_index =0;
-  for (unsigned int icell = 0; icell<n_cell; icell++) {
+  uint32_t g_ID;
+  uint32_t p_index =0;
+  for (uint32_t icell = 0; icell<n_cell; icell++) {
     cell = mesh->get_cell(icell);
     g_ID = cell.get_ID();
 
     //Census photons scope
     if (census_E[icell] > 0.0) { 
-      unsigned int t_num_census = int(n_user_photon*census_E[icell]/total_E);
+      uint32_t t_num_census = int(n_user_photon*census_E[icell]/total_E);
       if (t_num_census == 0) t_num_census =1;
       double census_phtn_E = census_E[icell] / t_num_census;
-      for (unsigned int iphtn = 0; iphtn< t_num_census; ++iphtn) {
+      for (uint32_t iphtn = 0; iphtn< t_num_census; ++iphtn) {
         cell.uniform_position_in_cell(rng, pos);
         get_uniform_angle(angle, rng);
         Photon census_photon;

@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "constants.h"
-#include "imc_state.h"
+#include "imc_parameters.h"
 #include "mesh.h"
 #include "photon.h"
 #include "sampling_functions.h"
@@ -18,7 +18,7 @@ class Source {
 
   public:
   Source( Mesh *_mesh, 
-          IMC_State *imc_state, 
+          IMC_Parameters *imc_parameters,
           const double& total_E, 
           std::vector<Photon>& _census_photons)
     : mesh(_mesh),
@@ -34,20 +34,20 @@ class Source {
     E_cell_emission = mesh->get_emission_E();
     E_cell_source = mesh->get_source_E();
 
-    n_p_cell_emission = vector<unsigned int>(n_cell,0);
-    n_p_cell_census = vector<unsigned int>(n_cell,0);
-    n_p_cell_source = vector<unsigned int>(n_cell,0);
-    n_p_cell = vector<unsigned int>(n_cell,0);
+    n_p_cell_emission = vector<uint32_t>(n_cell,0);
+    n_p_cell_census = vector<uint32_t>(n_cell,0);
+    n_p_cell_source = vector<uint32_t>(n_cell,0);
+    n_p_cell = vector<uint32_t>(n_cell,0);
 
     //user desired photons
-    unsigned int user_photons = imc_state->get_total_step_photons();
+    uint64_t user_photons = imc_parameters->get_n_user_photon();
 
     //reset the total number of photons before counting
     n_photon = 0;
 
     //first, count the census photons in each cell
     n_photon+=census_photons.size();
-    unsigned int local_index;
+    uint32_t local_index;
     for (vector<Photon>::iterator iphtn =census_photons.begin(); 
       iphtn!=census_photons.end();iphtn++) {
       local_index = mesh->get_local_ID(iphtn->get_cell());
@@ -55,10 +55,10 @@ class Source {
     }
 
     // count the total number of photons 
-    for (unsigned int i = 0; i<n_cell; i++) {
+    for (uint32_t i = 0; i<n_cell; i++) {
       //emission 
       if (E_cell_emission[i] > 0.0) {
-        unsigned int t_num_emission = 
+        uint32_t t_num_emission = 
           int(user_photons*E_cell_emission[icell]/total_E);
         if (t_num_emission == 0) t_num_emission =1;
         n_photon+=t_num_emission;
@@ -66,7 +66,7 @@ class Source {
       }
       //source
       if (E_cell_source[i] > 0.0) {
-        unsigned int t_num_source = 
+        uint32_t t_num_source = 
           int(user_photons*E_cell_source[icell]/total_E);
         if (t_num_source == 0) t_num_source =1;
         n_photon+=t_num_source; 
@@ -79,7 +79,7 @@ class Source {
   }
   ~Source() {}
 
-  unsigned int get_n_photon(void) const {return n_photon;}
+  uint32_t get_n_photon(void) const {return n_photon;}
 
   Photon get_photon(RNG *rng, const double& dt) {
     Photon return_photon;
@@ -130,17 +130,17 @@ class Source {
   private:
   const Mesh * const mesh; //!< Pointer to mesh (source cannot change Mesh)
   std::vector<Photon>&  census_photons; //!< Reference to census photons
-  unsigned int icell; //!< Index of current cell to generate photons from
-  unsigned int icensus; //!< Index of current census photon to be returned
+  uint32_t icell; //!< Index of current cell to generate photons from
+  uint32_t icensus; //!< Index of current census photon to be returned
   Cell cell;  //!< Current cell
-  unsigned int n_p_in_cell; 
-  unsigned int n_cell;
+  uint32_t n_p_in_cell; 
+  uint32_t n_cell;
   double emission_phtn_E;  //!< Energy of emitted photon in current cell
-  unsigned int n_photon;  //!< User requested number of photons to create
-  std::vector<unsigned int> n_p_cell_emission;
-  std::vector<unsigned int> n_p_cell_census;
-  std::vector<unsigned int> n_p_cell_source;
-  std::vector<unsigned int> n_p_cell;
+  uint32_t n_photon;  //!< User requested number of photons to create
+  std::vector<uint32_t> n_p_cell_emission;
+  std::vector<uint32_t> n_p_cell_census;
+  std::vector<uint32_t> n_p_cell_source;
+  std::vector<uint32_t> n_p_cell;
   std::vector<double> E_cell_emission;
   std::vector<double> E_cell_source;
 };

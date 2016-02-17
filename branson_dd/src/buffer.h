@@ -38,7 +38,7 @@ class Buffer {
 
   private:
   std::vector<T> object;
-  unsigned int status;
+  uint32_t status;
   enum {EMPTY, READY, SENT, AWAITING, RECEIVED};
 
 };

@@ -180,9 +180,12 @@ class Mesh {
   {
     return  cell_list[index].get_ID();
   }
-  uint32_t get_rank(void) const {return  rank;}
+  uint32_t get_my_rank(void) const {return  rank;}
   uint32_t get_offset(void) const {return on_rank_start;}
   uint32_t get_global_num_cells(void) const {return n_global;}
+  std::map<uint32_t, uint32_t> get_proc_adjacency_list(void) const {
+    return adjacent_procs;
+  }
   double get_total_photon_E(void) const {return total_photon_E;}
 
   void print(void) {
@@ -331,6 +334,7 @@ class Mesh {
     using Constants::PROCESSOR;
     using Constants::dir_type;
     using std::map;
+    using std::set;
 
     uint32_t next_index;
     map<uint32_t, uint32_t>::iterator end = off_map.end();
@@ -350,6 +354,13 @@ class Mesh {
           cell.set_neighbor( dir_type(d) , new_index );
           cell.set_bc(dir_type(d), PROCESSOR);
           boundary_cells.push_back(new_index);
+          // add off-rank ID to map
+          uint32_t off_rank = get_off_rank_id(new_index);
+          if (adjacent_procs.find(off_rank) 
+            == adjacent_procs.end()) {
+            uint32_t rank_count = adjacent_procs.size();
+            adjacent_procs[off_rank] = rank_count;
+          } // if adjacent_proc.find(off_rank) 
         }
       }
     }
@@ -708,6 +719,8 @@ class Mesh {
   std::vector<uint32_t> remove_cell_list; //! Cells to be removed
   std::vector<uint32_t> off_rank_bounds; //! Ending value of global ID for each rank
   std::vector<uint32_t> boundary_cells; //! Index of adjacent ghost cells
+ 
+  std::map<uint32_t, uint32_t> adjacent_procs; //! List of adjacent processors
 
   double m_opA; //! Opacity coefficient A in A + B^C
   double m_opB; //! Opacity coefficient B in A + B^C
