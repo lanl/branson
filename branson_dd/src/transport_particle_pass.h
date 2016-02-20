@@ -180,7 +180,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
   MPI::COMM_WORLD.Allreduce(&n_local, 
                             &n_global, 
                            1, 
-                           MPI_UNSIGNED, 
+                           MPI_UNSIGNED_LONG, 
                            MPI_SUM);
 
   int parent = (rank + 1) / 2 - 1;
@@ -205,7 +205,6 @@ std::vector<Photon> transport_particle_pass(Source& source,
   }
 
   // This flag indicates that send processing is needed for target rank
-  vector<bool> process_send_flag(n_rank-1,false);
   vector<vector<Photon> > send_list;
 
   //Message requests for finished photon counts

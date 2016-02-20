@@ -420,7 +420,6 @@ std::vector<Photon> transport_mesh_pass(Source& source,
 
   imc_state->set_exit_E(exit_E);
   imc_state->set_post_census_E(census_E);
-  imc_state->set_census_size(census_list.size());
   imc_state->set_step_cell_messages(n_cell_messages);
   imc_state->set_step_cells_sent(n_cells_sent);
   imc_state->set_step_sends_posted(n_sends_posted);
@@ -439,6 +438,9 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   
   //sort on census vectors by cell ID (global ID)
   sort(census_list.begin(), census_list.end());
+
+  // set post census size after sorting and merging
+  imc_state->set_census_size(census_list.size());
 
   return census_list;
 }
