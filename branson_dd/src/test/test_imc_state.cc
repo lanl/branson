@@ -10,15 +10,19 @@
 #include "../input.h"
 #include "testing_functions.h"
 
+namespace mpi = boost::mpi;
+
+using std::cout;
+using std::endl;
+using std::string;
+
+
 int main (int argc, char *argv[]) {
 
-  using std::cout;
-  using std::endl;
-  using std::string;
-  namespace mpi = boost::mpi;
+  mpi::environment env(argc, argv);
+  mpi::communicator world;
 
-  MPI::Init(argc, argv);
-
+  int rank = world.rank();
   int nfail = 0;
   
   // test get functions
@@ -28,7 +32,7 @@ int main (int argc, char *argv[]) {
     //setup imc_state
     string filename("simple_input.xml");
     Input *input = new Input(filename);
-    IMC_State imc_state(input);
+    IMC_State imc_state(input, rank);
 
     if (imc_state.get_dt() != input->get_dt()) get_functions_pass = false;
     //no time multiplier so next dt should be the same
@@ -55,7 +59,7 @@ int main (int argc, char *argv[]) {
     //setup imc_state
     string large_filename("large_particle_input.xml");
     Input *input = new Input(large_filename);
-    IMC_State imc_state(input);
+    IMC_State imc_state(input, rank);
 
     if (imc_state.get_dt() != input->get_dt()) time_functions_pass = false;
     if (imc_state.get_step() != 1) time_functions_pass = false;
@@ -91,7 +95,7 @@ int main (int argc, char *argv[]) {
     //setup imc_state
     string filename("simple_input.xml");
     Input *input = new Input(filename);
-    IMC_State imc_state(input);
+    IMC_State imc_state(input, rank);
 
     uint64_t big_64_bit_number_1 = 7000000000;
     uint64_t big_64_bit_number_2 = 8000000000;
@@ -126,14 +130,14 @@ int main (int argc, char *argv[]) {
     //setup imc_state
     string filename("simple_input.xml");
     Input *input = new Input(filename);
-    IMC_State imc_state(input);
+    IMC_State imc_state(input, rank);
 
     uint32_t big_32_bit_number = 3500000000;
     uint64_t combined_64_bit_number = 7000000000;
 
     imc_state.set_step_particles_sent(big_32_bit_number);
     
-    imc_state.print_conservation(0);
+    imc_state.print_conservation(0, world);
     
     if (imc_state.get_total_particles_sent() != combined_64_bit_number)
       large_reduction_pass = false;
@@ -145,8 +149,6 @@ int main (int argc, char *argv[]) {
     }
     delete input;
   }
-
-  MPI::Finalize();
 
   return nfail;
 }

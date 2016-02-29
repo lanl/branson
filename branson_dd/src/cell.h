@@ -107,14 +107,14 @@ class Cell
     using Constants::PROCESSOR;
     using std::cout;
     using std::endl;
-    uint32_t my_rank = MPI::COMM_WORLD.Get_rank();
+    //uint32_t my_rank = MPI::COMM_WORLD.Get_rank();
     bool boundary = false;
     for (uint32_t i=0;i<6;i++) {
       if (bc[i] == PROCESSOR) boundary = true;
     }
     
-    cout<<my_rank<<" "<<nodes[0]<<" "<<nodes[2]<<" "<<nodes[4]<<" ";
-    cout<<g_ID<<" "<<boundary<<endl;
+    cout<<g_ID<<" "<<boundary;
+    cout<<nodes[0]<<" "<<nodes[2]<<" "<<nodes[4]<<endl;
     /*
     cout<<"Rank: "<<my_rank<<" Global ID: "<<g_ID<<endl;
     cout<<nodes[0]<<" "<<nodes[2]<<" "<<nodes[4]<<" "<<endl;

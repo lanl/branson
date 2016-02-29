@@ -26,8 +26,6 @@ namespace mpi = boost::mpi;
 
 int main(int argc, char *argv[])
 {
-  MPI::Init(argc, argv);
-
   mpi::environment env(argc, argv);
   mpi::communicator world;
   uint32_t rank = world.rank();
@@ -37,7 +35,7 @@ int main(int argc, char *argv[])
   if (argc != 2) {
     cout<<"Usage: BRANSON <path_to_input_file>"<<endl;
     exit(EXIT_FAILURE); 
-  }  
+  }
 
   //get input object from filename
   std::string filename( argv[1]);
@@ -51,7 +49,7 @@ int main(int argc, char *argv[])
 
   //IMC state setup
   IMC_State *imc_state;
-  imc_state = new IMC_State(input);
+  imc_state = new IMC_State(input, rank);
 
   // make mesh from input object
   Mesh *mesh = new Mesh(input, rank, size);
@@ -59,7 +57,7 @@ int main(int argc, char *argv[])
   // decompose mesh with ParMETIS and Boost MPI
   decompose_mesh(mesh, world, argc, argv);
 
-  MPI::COMM_WORLD.Barrier();
+  world.barrier();
   //print_MPI_out(mesh, rank, size);
 
   //timing 
@@ -67,9 +65,9 @@ int main(int argc, char *argv[])
   struct timezone tzp;
   gettimeofday(&start, &tzp); 
 
-/******************************************************************************/ 
-// TRT PHYSICS CALCULATION
-/******************************************************************************/
+  /****************************************************************************/ 
+  // TRT PHYSICS CALCULATION
+  /****************************************************************************/
 
   if (input->get_dd_mode() == PARTICLE_PASS)
     imc_particle_pass_driver(rank, mesh, imc_state, imc_p, world);
@@ -84,9 +82,9 @@ int main(int argc, char *argv[])
     imc_state->print_simulation_footer(input->get_dd_mode());
   }
 
-  MPI::COMM_WORLD.Barrier();
+  world.barrier();
+
   delete mesh;
   delete imc_state;
   delete imc_p;
-  MPI::Finalize();
 }

@@ -30,7 +30,7 @@ std::vector<Photon> make_initial_census_photons(Mesh* mesh,
 
   vector<double> census_E = mesh->get_census_E_ref();
 
-  uint32_t n_cell =mesh->get_number_of_objects();
+  uint32_t n_cell =mesh->get_n_local_cells();
 
   double delta_t = imc_state->get_dt();
 

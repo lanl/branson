@@ -5,7 +5,9 @@
 */
 
 #include <boost/mpi.hpp>
+#include <functional>
 #include <vector>
+
 
 #include "imc_state.h"
 #include "imc_parameters.h"
@@ -37,11 +39,7 @@ void imc_cell_pass_driver(const int& rank,
     //all reduce to get total source energy to make correct number of
     //particles on each rank
     double global_source_energy = mesh->get_total_photon_E();
-    MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, 
-                              &global_source_energy, 
-                              1, 
-                              MPI_DOUBLE, 
-                              MPI_SUM);
+    global_source_energy = mpi::all_reduce(world, global_source_energy, std::plus<double>());
 
     //make initial census photons
     //on subsequent timesteps, this comes from transport
@@ -63,7 +61,7 @@ void imc_cell_pass_driver(const int& rank,
     //cell properties are set in calculate_photon_energy. 
     //make sure everybody gets here together so that windows are not changing 
     //when transport starts
-    MPI::COMM_WORLD.Barrier();
+    world.barrier();
 
     //transport photons
     census_photons = transport_mesh_pass(source, 
@@ -74,16 +72,17 @@ void imc_cell_pass_driver(const int& rank,
                                           world);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
-    MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, 
-                              &abs_E[0], 
-                              mesh->get_global_num_cells(), 
-                              MPI_DOUBLE, 
-                              MPI_SUM);
+    MPI_Allreduce(MPI_IN_PLACE, 
+                  &abs_E[0], 
+                  mesh->get_global_num_cells(), 
+                  MPI_DOUBLE, 
+                  MPI_SUM, 
+                  MPI_COMM_WORLD);
 
     //cout<<"updating temperature..."<<endl;
     mesh->update_temperature(abs_E, imc_state);
 
-    imc_state->print_conservation(imc_parameters->get_dd_mode());
+    imc_state->print_conservation(imc_parameters->get_dd_mode(), world);
 
     //purge the working mesh, it will be updated by other ranks and is now 
     //invalid
@@ -115,11 +114,7 @@ void imc_particle_pass_driver(const int& rank,
     //all reduce to get total source energy to make correct number of
     //particles on each rank
     double global_source_energy = mesh->get_total_photon_E();
-    MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, 
-                              &global_source_energy, 
-                              1, 
-                              MPI_DOUBLE, 
-                              MPI_SUM);
+    global_source_energy = mpi::all_reduce(world, global_source_energy, std::plus<double>());
 
     //make initial census photons
     //on subsequent timesteps, this comes from transport
@@ -145,7 +140,7 @@ void imc_particle_pass_driver(const int& rank,
     mesh->update_temperature(abs_E, imc_state);
     //update time for next step
     
-    imc_state->print_conservation(imc_parameters->get_dd_mode());
+    imc_state->print_conservation(imc_parameters->get_dd_mode(), world);
     imc_state->next_time_step();
   }
 }

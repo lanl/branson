@@ -7,6 +7,7 @@
 #define imc_state_h_
 
 
+#include <functional>
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -17,11 +18,14 @@
 #include "constants.h"
 #include "RNG.h"
 
+namespace mpi = boost::mpi;
+
 class IMC_State
 {
   public:
-  IMC_State(Input *input)
-    : m_dt(input->get_dt()),
+  IMC_State(Input *input, uint32_t _rank)
+    : rank(_rank),
+      m_dt(input->get_dt()),
       m_time(input->get_time_start()),
       m_time_stop(input->get_time_finish()),
       m_step(1),
@@ -59,7 +63,7 @@ class IMC_State
       step_receives_completed=0;
 
       m_RNG = new RNG();
-      m_RNG->set_seed(input->get_rng_seed()+MPI::COMM_WORLD.Get_rank()*4106);
+      m_RNG->set_seed(input->get_rng_seed()+rank*4106);
     }
 
   ~IMC_State() { delete m_RNG;}
@@ -104,9 +108,10 @@ class IMC_State
 /*****************************************************************************/
 /* non-const functions                                                       */
 /*****************************************************************************/
-  void print_conservation(uint32_t dd_type ) {
+  void print_conservation(uint32_t dd_type, mpi::communicator world ) {
     using std::cout;
     using std::endl;
+    using std::plus;
     using Constants::PARTICLE_PASS;
     using Constants::CELL_PASS;
 
@@ -132,55 +137,30 @@ class IMC_State
     uint32_t g_step_receives_posted=0;
     uint32_t g_step_receives_completed=0;
 
-    //reduce energy conservation values
-    MPI::COMM_WORLD.Allreduce(&absorbed_E, &g_absorbed_E, 1, MPI_DOUBLE, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&emission_E, &g_emission_E, 1, MPI_DOUBLE, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&pre_census_E, &g_pre_census_E, 1, MPI_DOUBLE, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&pre_mat_E, &g_pre_mat_E, 1, MPI_DOUBLE, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&post_census_E, &g_post_census_E, 1, MPI_DOUBLE, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&post_mat_E, &g_post_mat_E, 1, MPI_DOUBLE, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(&exit_E, &g_exit_E, 1, MPI_DOUBLE, MPI_SUM);
+    //reduce energy conservation values (double)
+    mpi::all_reduce(world,absorbed_E, g_absorbed_E, plus<double>() );
+    mpi::all_reduce(world,emission_E, g_emission_E, plus<double>() );
+    mpi::all_reduce(world,pre_census_E, g_pre_census_E, plus<double>() );
+    mpi::all_reduce(world,pre_mat_E, g_pre_mat_E, plus<double>());
+    mpi::all_reduce(world,post_census_E, g_post_census_E, plus<double>());
+    mpi::all_reduce(world,post_mat_E, g_post_mat_E, plus<double>());
+    mpi::all_reduce(world,exit_E, g_exit_E, plus<double>());
 
     // reduce diagnostic values
     // 64 bit integer reductions
-    MPI::COMM_WORLD.Allreduce(
-      &trans_particles, &g_trans_particles, 1, MPI_UNSIGNED_LONG, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(
-      &step_particles_sent, &g_step_particles_sent, 1, MPI_UNSIGNED_LONG, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(
-      &census_size, &g_census_size, 1, MPI_UNSIGNED_LONG, MPI_SUM);
+    mpi::all_reduce(world, trans_particles, g_trans_particles, plus<uint64_t>());
+    mpi::all_reduce(world, step_particles_sent, g_step_particles_sent, plus<uint64_t>());
+    mpi::all_reduce(world, census_size, g_census_size, plus<uint64_t>());
 
     // 32 bit integer reductions
-    MPI::COMM_WORLD.Allreduce(
-      &step_cells_requested, 
-      &g_step_cells_requested, 
-      1, 
-      MPI_UNSIGNED, 
-      MPI_SUM);
-
-    MPI::COMM_WORLD.Allreduce(
-      &step_particle_messages, 
-      &g_step_particle_messages, 
-      1, 
-      MPI_UNSIGNED, 
-      MPI_SUM);
-
-    MPI::COMM_WORLD.Allreduce(
-      &step_cell_messages, &g_step_cell_messages, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(
-      &step_cells_sent, &g_step_cells_sent, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(
-      &step_sends_posted, &g_step_sends_posted, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(
-      &step_sends_completed, &g_step_sends_completed, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(
-      &step_receives_posted, &g_step_receives_posted, 1, MPI_UNSIGNED, MPI_SUM);
-    MPI::COMM_WORLD.Allreduce(
-      &step_receives_completed, 
-      &g_step_receives_completed, 
-      1, 
-      MPI_UNSIGNED, 
-      MPI_SUM);
+    mpi::all_reduce(world, step_cells_requested, g_step_cells_requested, plus<uint32_t>());
+    mpi::all_reduce(world, step_particle_messages, g_step_particle_messages, plus<uint32_t>());
+    mpi::all_reduce(world, step_cell_messages, g_step_cell_messages, plus<uint32_t>());
+    mpi::all_reduce(world, step_cells_sent, g_step_cells_sent, plus<uint32_t>());
+    mpi::all_reduce(world, step_sends_posted, g_step_sends_posted, plus<uint32_t>());
+    mpi::all_reduce(world, step_sends_completed, g_step_sends_completed, plus<uint32_t>());
+    mpi::all_reduce(world, step_receives_posted, g_step_receives_posted, plus<uint32_t>());
+    mpi::all_reduce(world, step_receives_completed, g_step_receives_completed, plus<uint32_t>());
     
     double rad_conservation = (g_absorbed_E + g_post_census_E + g_exit_E) - 
       (g_pre_census_E + g_emission_E + source_E);
@@ -196,7 +176,7 @@ class IMC_State
     total_particle_messages+=g_step_particle_messages;
     
 
-    if (MPI::COMM_WORLD.Get_rank() == 0) {
+    if (rank == 0) {
       cout<<"Total Photons transported: "<<g_trans_particles<<endl;
       cout<<"Emission E: "<<g_emission_E<<", Absorption E: "<<g_absorbed_E;
       cout<<", Exit E: "<<g_exit_E<<endl;
@@ -299,6 +279,7 @@ class IMC_State
 /* member variables and private functions                                    */
 /*****************************************************************************/
   private:
+  uint32_t rank; //! Rank owning this states object
   //time
   double m_dt; //! Current time step size (sh)
   double m_time; //! Current time (sh)

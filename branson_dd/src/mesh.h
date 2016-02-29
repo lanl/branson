@@ -21,12 +21,12 @@ class Mesh {
 
   public:
 
-  Mesh(Input* input, int _rank, int _nrank)
+  Mesh(Input* input, int _rank, int _n_rank)
   : ngx(input->get_n_x_cells()),
     ngy(input->get_n_y_cells()),
     ngz(input->get_n_z_cells()),
     rank(_rank),
-    n_rank(_nrank)
+    n_rank(_n_rank)
   {
     using std::vector;
     using Constants::bc_type;
@@ -43,10 +43,6 @@ class Mesh {
     bc[X_POS] = input->get_bc(X_POS); bc[X_NEG] = input->get_bc(X_NEG);
     bc[Y_POS] = input->get_bc(Y_POS); bc[Y_NEG] = input->get_bc(Y_NEG);
     bc[Z_POS] = input->get_bc(Z_POS); bc[Z_NEG] = input->get_bc(Z_NEG);
-
-    //number of ranks
-    n_rank =MPI::COMM_WORLD.Get_size();
-    rank = MPI::COMM_WORLD.Get_rank();
 
     //initialize number of DMA requests as zero
     off_rank_reads=0;
@@ -130,16 +126,20 @@ class Mesh {
     // Three type entries in the class
     const int entry_count = 3 ; 
     // 7 uint32_t, 6 int, 13 double
-    const int array_of_block_length[4] = {8, 6, 14};
+    int array_of_block_length[4] = {8, 6, 14};
     // Displacements of each type in the cell
-    const MPI::Aint array_of_block_displace[3] = 
+    MPI_Aint array_of_block_displace[3] = 
       {0, 8*sizeof(uint32_t),  8*sizeof(uint32_t)+6*sizeof(int)};
     //Type of each memory block
-    MPI::Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
+    MPI_Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
 
-    MPI_Cell = MPI::Datatype::Create_struct(entry_count,
-      array_of_block_length, array_of_block_displace, array_of_types);
-    MPI_Cell.Commit();
+    MPI_Datatype MPI_Cell;
+    MPI_Type_create_struct(entry_count, array_of_block_length, 
+      array_of_block_displace, array_of_types, &MPI_Cell);
+
+    MPI_Type_commit(&MPI_Cell);
+
+    MPI_Type_size(MPI_Cell, &mpi_cell_size);
 
     //bool flags to say if data is needed
     need_data = vector<bool>(n_rank-1, false);
@@ -175,11 +175,7 @@ class Mesh {
 /*****************************************************************************/
   //const functions
 /*****************************************************************************/
-  uint32_t get_number_of_objects(void) const {return n_cell;}
-  uint32_t get_global_ID(uint32_t index) const 
-  {
-    return  cell_list[index].get_ID();
-  }
+  uint32_t get_n_local_cells(void) const {return n_cell;}
   uint32_t get_my_rank(void) const {return  rank;}
   uint32_t get_offset(void) const {return on_rank_start;}
   uint32_t get_global_num_cells(void) const {return n_global;}
@@ -188,7 +184,7 @@ class Mesh {
   }
   double get_total_photon_E(void) const {return total_photon_E;}
 
-  void print(void) {
+  void pre_renumber_print(void) {
     for (uint32_t i= 0; i<n_cell; i++)
       cell_list[i].print();
   }
@@ -203,13 +199,14 @@ class Mesh {
     return local_map;
   }
 
-  Cell get_pre_cell(const uint32_t& local_ID) const 
+  Cell get_pre_renumber_cell(const uint32_t& local_ID) const 
   {
     return cell_list[local_ID];
-  } 
+  }
+
   Cell get_cell(const uint32_t& local_ID) const {
     return cells[local_ID];
-  } 
+  }
 
   uint32_t get_off_rank_id(const uint32_t& index) const {
     //find rank of index
@@ -425,8 +422,8 @@ class Mesh {
 
   void make_MPI_window(void) {
     //make the MPI window with the sorted cell list
-    uint32_t num_bytes =n_cell*MPI_Cell.Get_size();
-    cells = (Cell*) MPI::Alloc_mem(num_bytes, MPI_INFO_NULL);
+    MPI_Aint num_bytes(n_cell*mpi_cell_size);
+    MPI_Alloc_mem(num_bytes, MPI_INFO_NULL, &cells);
     memcpy(cells,&cell_list[0], num_bytes);
     
     cell_list.clear();
@@ -729,7 +726,8 @@ class Mesh {
 
   double total_photon_E; //! Total photon energy on the mesh
 
-  MPI::Datatype MPI_Cell; //! MPI type, allows simpler parallel communication
+  MPI_Datatype MPI_Cell; //! MPI type, allows simpler parallel communication
+  int32_t mpi_cell_size; //! Size of custom MPI_Cell type
 
   uint32_t max_map_size; //! Maximum size of map object
   uint32_t off_rank_reads; //! Number of off rank reads

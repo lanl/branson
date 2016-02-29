@@ -49,8 +49,8 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& census_list,
   using std::vector;
   using std::sort;
 
-  uint32_t rank = MPI::COMM_WORLD.Get_rank();
-  uint32_t size = MPI::COMM_WORLD.Get_size();
+  uint32_t rank = world.rank();
+  uint32_t size = world.size();
 
   //sort the census vector by cell ID (global ID)
   sort(census_list.begin(), census_list.end());

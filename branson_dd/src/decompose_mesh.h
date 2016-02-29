@@ -16,10 +16,11 @@
 #include <numeric>
 #include <vector>
 
-
 #include "mesh.h"
 
 namespace mpi = boost::mpi;
+
+
 
 void print_MPI_out(Mesh *mesh, uint32_t rank, uint32_t size) {
   using std::cout;
@@ -28,7 +29,7 @@ void print_MPI_out(Mesh *mesh, uint32_t rank, uint32_t size) {
 
   for (uint32_t p_rank = 0; p_rank<size; p_rank++) {
     if (rank == p_rank) {
-      mesh->print();
+      mesh->pre_renumber_print();
       cout.flush();
     }
     usleep(100);
@@ -62,9 +63,10 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   using std::map;
   using std::partial_sum;
   
-  int rank = MPI::COMM_WORLD.Get_rank();
-  int nrank = MPI::COMM_WORLD.Get_size();
-  MPI_Comm comm = MPI::COMM_WORLD.Dup();
+  int rank = world.rank();
+  int nrank = world.size();
+  MPI_Comm comm;
+  MPI_Comm_dup(MPI_COMM_WORLD, &comm);
 
   //begin PARMETIS routines
 
@@ -72,7 +74,7 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   //vtxdist has number of vertices on each rank, same for all ranks
   vector<int> start_ncells(nrank, 0);
   vector<int> vtxdist(nrank, 0);
-  int ncell_on_rank = mesh->get_number_of_objects();
+  int ncell_on_rank = mesh->get_n_local_cells();
   mpi::all_gather(world, ncell_on_rank, start_ncells);
   partial_sum(start_ncells.begin(), 
               start_ncells.end(), 
@@ -85,8 +87,8 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   int adjncy_ctr = 0;
   Cell cell;
   uint32_t g_ID; //! Global ID
-  for (uint32_t i=0; i<mesh->get_number_of_objects();i++) {
-    cell = mesh->get_pre_cell(i);
+  for (uint32_t i=0; i<mesh->get_n_local_cells();i++) {
+    cell = mesh->get_pre_renumber_cell(i);
     g_ID = cell.get_ID();
     uint32_t xm_neighbor =cell.get_next_cell(X_NEG);
     uint32_t xp_neighbor =cell.get_next_cell(X_POS);
@@ -151,7 +153,7 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
             vector<Cell> send_list;
             for (uint32_t i=0; i<ncell_on_rank; i++) {
               if(part[i] == recv_rank)
-                send_list.push_back(mesh->get_pre_cell(i));
+                send_list.push_back(mesh->get_pre_renumber_cell(i));
             }
             world.send(recv_rank, 0, send_list);
             //Erase these cells from the mesh
@@ -177,7 +179,7 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   //get the number of cells on each processor
   vector<uint32_t> out_cells_proc(nrank, 0);
   vector<uint32_t> prefix_cells_proc(nrank, 0);
-  uint32_t n_cell = mesh->get_number_of_objects();
+  uint32_t n_cell = mesh->get_n_local_cells();
   mpi::all_gather(world, n_cell, out_cells_proc);
   partial_sum(out_cells_proc.begin(), out_cells_proc.end(), prefix_cells_proc.begin());
 

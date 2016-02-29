@@ -29,7 +29,7 @@ class Source {
       n_p_in_cell(0)
   {
     using std::vector;
-    n_cell =mesh->get_number_of_objects();
+    n_cell =mesh->get_n_local_cells();
 
     E_cell_emission = mesh->get_emission_E();
     E_cell_source = mesh->get_source_E();

@@ -11,7 +11,7 @@ message ("Compiler: " ${CMAKE_CXX_COMPILER} )
 # add compiler flags
 set( DEBUG_FLAGS -gdwarf-3)
 set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
-#set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
+set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
 set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${DEBUG_FLAGS}" )
 message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
 
@@ -43,10 +43,10 @@ link_directories($ENV{PARMETIS_LIB_DIR})
 #set(BOOST_ROOT /projects/opt/boost/1.58.0/draco/vendors/boost-1.58.0)
 
 # MOONLIGHT 
-#set(BOOST_ROOT /usr/projects/draco/vendors/boost-1.59.0/moonlight-openmpi-1.6.5-intel-15.0.3)
+set(BOOST_ROOT /usr/projects/draco/vendors/boost-1.59.0/moonlight-openmpi-1.6.5-intel-15.0.3)
 
 # CCS
-set(BOOST_ROOT /ccs/codes/radtran/vendors/boost-1.58.0/openmpi-1.6.3-gcc-4.8.1/)
+#set(BOOST_ROOT /ccs/codes/radtran/vendors/boost-1.58.0/openmpi-1.6.3-gcc-4.8.1/)
 
 message("Boost from: " ${BOOST_ROOT})
 set(Boost_INCLUDE_DIR ${BOOST_ROOT}/include)
@@ -68,6 +68,7 @@ target_link_libraries(BRANSON boost_wserialization-mt)
 enable_testing()
 
 add_subdirectory(test)
+# Define variables needed to compile and link unit test executables
 get_directory_property(Boost_INCLUDE_DIR DIRECTORY test VARIABLES Boost_INCLUDE_DIR)
 get_directory_property(Boost_LIB_DIR DIRECTORY test VARIABLES Boost_LIB_DIR)
 

@@ -410,11 +410,11 @@ std::vector<Photon> transport_mesh_pass(Source& source,
 
   //wait for all ranks to finish transport to finish off cell and cell id
   //requests and sends
-  MPI::COMM_WORLD.Barrier();
+  world.barrier();
   mesh->finish_mesh_pass_messages(world, n_sends_posted, n_sends_completed,
                                   n_receives_posted, n_receives_completed);
 
-  MPI::COMM_WORLD.Barrier();
+  world.barrier();
 
   //All ranks have now finished transport
 

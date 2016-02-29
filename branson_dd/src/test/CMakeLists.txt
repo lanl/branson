@@ -35,4 +35,5 @@ add_test(NAME test_input COMMAND test_input_exe)
 
 # IMC_State class test
 add_executable(test_imc_state_exe test_imc_state.cc)
+target_link_libraries(test_imc_state_exe boost_mpi-mt)
 add_test(NAME test_imc_state COMMAND mpirun -np 2 test_imc_state_exe)

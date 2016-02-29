@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <boost/mpi.hpp>
+#include <functional>
 #include <iostream>
 #include <numeric>
 #include <queue>
@@ -173,15 +174,14 @@ std::vector<Photon> transport_particle_pass(Source& source,
   uint32_t n_sends_completed=0; //! Number of sent messages completed
   uint32_t n_receives_posted=0; //! Number of received messages completed
   uint32_t n_receives_completed=0; //! Number of received messages completed
+  uint64_t n_complete_messages=0; //! Number of complete messages
+  uint64_t n_photon_tests=0; //! Number of receive tests for photon lists
 
   //get global photon count
   uint64_t n_local = source.get_n_photon();
   uint64_t n_global;
-  MPI::COMM_WORLD.Allreduce(&n_local, 
-                            &n_global, 
-                           1, 
-                           MPI_UNSIGNED_LONG, 
-                           MPI_SUM);
+
+  mpi::all_reduce(world, n_local, n_global, std::plus<uint64_t>());
 
   int parent = (rank + 1) / 2 - 1;
   int child1 = rank * 2 + 1;
@@ -203,6 +203,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
     else if (child1 == last_node)
         child2 = proc_null;
   }
+
 
   // This flag indicates that send processing is needed for target rank
   vector<vector<Photon> > send_list;
@@ -381,6 +382,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
         //process receive buffer
         if (phtn_recv_buffer[i_b].awaiting()) {
+          n_photon_tests++;
           if (phtn_recv_request[i_b].test()) {
             n_receives_completed++;
             vector<Photon> receive_list = phtn_recv_buffer[i_b].get_buffer();
@@ -408,7 +410,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
     //test receives from children and add work to tree count
     if (c1_recv_buffer.awaiting()) {
-      if (c1_recv_request.test()) {
+      if(c1_recv_request.test()) {
         n_receives_completed++;
         c1_recv_buffer.set_received();
         c1_count = c1_recv_buffer.get_buffer()[0];
@@ -421,6 +423,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
         c1_recv_buffer.set_awaiting();
       }
     }
+
     if (c2_recv_buffer.awaiting()) {
       if (c2_recv_request.test()) {
         n_receives_completed++;
@@ -436,7 +439,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
       }
     }
 
-    // test receive from parent and add work to tree count
+    // test receive from parent, this is always the finished count 
     if (p_recv_buffer.awaiting()) {
       if (p_recv_request.test()) {
         n_receives_completed++;
@@ -457,14 +460,16 @@ std::vector<Photon> transport_particle_pass(Source& source,
     tree_count+=n_complete;
     n_complete = 0;
 
+
     // If tree count is non-zero, buffers are empty, and local work is done 
     // send message to parent. You may still get more work done and send again.
     // That's OK. To finish transport all particles histories must be completed,
     // meaning that all of the sends will be processed (received)
-    if ((parent!=proc_null && tree_count) && (n_local==n_local_sourced && phtn_recv_stack.empty()) ) {
+    if ((parent!=proc_null && tree_count) && (n_local==n_local_sourced && phtn_recv_stack.empty()) && p_send_buffer.empty()) {
       p_send_buffer.fill(vector<uint64_t> (1,tree_count));
       p_send_request = world.isend(parent, count_tag, p_send_buffer.get_buffer());
       n_sends_posted++;
+      n_complete_messages++;
       p_send_buffer.set_sent();
       //reset tree count so work is not double counted
       tree_count =0;
@@ -508,7 +513,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
   // Do this because it's possible for a rank to receive the empty message
   // while it's still in the transport loop. In that case, it will post a 
   // receive again, which will never have a matching send
-  MPI::COMM_WORLD.Barrier();
+  world.barrier();
 
   //finish off parent's receive call with empty send
   if (parent!=proc_null) {
@@ -553,7 +558,21 @@ std::vector<Photon> transport_particle_pass(Source& source,
     n_receives_completed++;
   }
 
-  MPI::COMM_WORLD.Barrier();
+  world.barrier();
+
+  uint64_t g_complete_messages=0;
+  uint64_t g_photon_tests=0;
+  mpi::all_reduce(
+    world, n_complete_messages, g_complete_messages, std::plus<uint64_t>());
+  mpi::all_reduce(
+    world, n_photon_tests, g_photon_tests, std::plus<uint64_t>());
+
+  /*  
+  if (rank==0) {
+    cout<<"Total complete messages sent: "<<g_complete_messages<<endl;
+    cout<<"Total photon message tests: "<<g_photon_tests<<endl;
+  }
+  */
 
   cout.flush();
   std::sort(census_list.begin(), census_list.end());
