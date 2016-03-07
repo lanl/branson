@@ -25,7 +25,7 @@ int main (void) {
     if (!buffer.empty()) test_buffer_construction = false;
     
     // the vector of objects should also be empty (size == 0)
-    if (!buffer.get_buffer().empty()) test_buffer_construction=false;
+    if (!buffer.get_object().empty()) test_buffer_construction=false;
 
     // all other status checks should return false
     if (buffer.received()) test_buffer_construction = false;
@@ -54,12 +54,12 @@ int main (void) {
     buffer.fill(test_vector);
  
     //test vector should be inside buffer
-    if (buffer.get_buffer().size() != test_vector.size() )
+    if (buffer.get_object().size() != test_vector.size() )
       test_buffer_fill = false;
-    if (buffer.get_buffer()[0] != test_vector[0]) test_buffer_fill = false;
-    if (buffer.get_buffer()[1] != test_vector[1]) test_buffer_fill = false;
-    if (buffer.get_buffer()[2] != test_vector[2]) test_buffer_fill = false;
-    if (buffer.get_buffer()[3] != test_vector[3]) test_buffer_fill = false;
+    if (buffer.get_object()[0] != test_vector[0]) test_buffer_fill = false;
+    if (buffer.get_object()[1] != test_vector[1]) test_buffer_fill = false;
+    if (buffer.get_object()[2] != test_vector[2]) test_buffer_fill = false;
+    if (buffer.get_object()[3] != test_vector[3]) test_buffer_fill = false;
 
     //after filling buffer, it should be ready
     if (!buffer.ready()) test_buffer_fill = false;
@@ -72,7 +72,7 @@ int main (void) {
 
     // clear buffer, buffer should be empty and buffer should have state == EMPTY
     buffer.reset();
-    if (!buffer.get_buffer().empty()) test_buffer_fill = false;
+    if (!buffer.get_object().empty()) test_buffer_fill = false;
     if (!buffer.empty() ) test_buffer_fill = false;
     
     if (test_buffer_fill) cout<<"TEST PASSED: Buffer fill"<<endl;

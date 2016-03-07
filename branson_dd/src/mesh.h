@@ -184,9 +184,14 @@ class Mesh {
   }
   double get_total_photon_E(void) const {return total_photon_E;}
 
-  void pre_renumber_print(void) {
+  void pre_decomp_print(void) const {
     for (uint32_t i= 0; i<n_cell; i++)
       cell_list[i].print();
+  }
+
+  void post_decomp_print(void) const {
+    for (uint32_t i= 0; i<n_cell; i++) 
+      cells[i].print();
   }
 
   std::map<uint32_t, uint32_t> get_map(void) const {
@@ -246,7 +251,7 @@ class Mesh {
     return  (index>=on_rank_start) && (index<=on_rank_end) ; 
   }
 
-  void print_map(void)  {
+  void print_map(void) {
     for ( std::map<uint32_t,Cell>::iterator map_i =
       stored_cells.begin();
       map_i!=stored_cells.end(); map_i++)
@@ -517,7 +522,7 @@ class Mesh {
             send_id_buffer[r_index].fill(ids_needed[r_index]);
             //send to ir
             s_id_reqs[r_index] = 
-              world.isend(ir, cell_id_tag, send_id_buffer[r_index].get_buffer());
+              world.isend(ir, cell_id_tag, send_id_buffer[r_index].get_object());
             n_sends_posted++;
             send_id_buffer[r_index].set_sent();
             // clear requested cell ids 
@@ -526,7 +531,7 @@ class Mesh {
             ids_needed[r_index].clear();
             //post receive
             r_cell_reqs[r_index] = 
-              world.irecv(ir, cell_tag, recv_cell_buffer[r_index].get_buffer());
+              world.irecv(ir, cell_tag, recv_cell_buffer[r_index].get_object());
             n_receives_posted++;
             recv_cell_buffer[r_index].set_awaiting();
           }
@@ -538,7 +543,7 @@ class Mesh {
             new_data = true;
 
             //add received cells to working mesh
-            vector<Cell> r_cells = recv_cell_buffer[r_index].get_buffer();
+            vector<Cell> r_cells = recv_cell_buffer[r_index].get_object();
             for (uint32_t i=0; i<r_cells.size();i++) {
               uint32_t index = r_cells[i].get_ID();
               //add this cell to the map, if possible, otherwise manage map
@@ -565,7 +570,7 @@ class Mesh {
         if ( recv_id_buffer[r_index].empty() &&
              send_cell_buffer[r_index].empty()) {
           r_id_reqs[r_index] =
-            world.irecv( ir, cell_id_tag, recv_id_buffer[r_index].get_buffer());
+            world.irecv( ir, cell_id_tag, recv_id_buffer[r_index].get_object());
           n_receives_posted++;
           recv_id_buffer[r_index].set_awaiting();
         }
@@ -573,13 +578,13 @@ class Mesh {
         // add cell ids to requested for a rank
         if (recv_id_buffer[r_index].received()) {
           //make cell send list for this rank
-          vector<uint32_t> r_ids = recv_id_buffer[r_index].get_buffer();
+          vector<uint32_t> r_ids = recv_id_buffer[r_index].get_object();
           vector<Cell> s_cell;
           for (uint32_t i=0; i<r_ids.size();i++)
             s_cell.push_back(cells[r_ids[i]]);
           send_cell_buffer[r_index].fill(s_cell);
           s_cell_reqs[r_index] = 
-            world.isend( ir, cell_tag, send_cell_buffer[r_index].get_buffer());
+            world.isend( ir, cell_tag, send_cell_buffer[r_index].get_object());
           n_sends_posted++;
           n_cell_messages++;
           n_cells_sent+=s_cell.size();
@@ -629,7 +634,7 @@ class Mesh {
         if (!recv_id_buffer[r_index].awaiting()) {
           recv_id_buffer[r_index].reset();
           r_id_reqs[r_index] = 
-              world.irecv(ir, cell_id_tag, recv_id_buffer[r_index].get_buffer());
+              world.irecv(ir, cell_id_tag, recv_id_buffer[r_index].get_object());
           recv_id_buffer[r_index].set_awaiting();
           n_receives_posted++;
         }
@@ -656,7 +661,7 @@ class Mesh {
         vector<uint32_t> empty_id_vector;
         send_id_buffer[r_index].fill(empty_id_vector);
         s_id_reqs[r_index] = 
-          world.isend(ir, cell_id_tag, send_id_buffer[r_index].get_buffer());
+          world.isend(ir, cell_id_tag, send_id_buffer[r_index].get_object());
         n_sends_posted++;
         //wait for message to send
         s_id_reqs[r_index].wait();

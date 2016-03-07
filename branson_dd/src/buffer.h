@@ -22,8 +22,14 @@ class Buffer {
     status = READY;
   } 
 
-  std::vector<T>& get_buffer (void) {return object;}
-
+  void *get_buffer (void) {
+    if (object.size()>0) return &object[0];
+    else return &object;
+  }
+  
+  std::vector<T>& get_object(void) {return object;}
+  
+  void resize(uint32_t new_size) {object.resize(new_size);}
   void reset(void) {object.clear(); status=EMPTY;} 
   void set_sent(void) {status = SENT;}
   void set_received(void) {status = RECEIVED;}

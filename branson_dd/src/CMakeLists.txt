@@ -43,14 +43,15 @@ link_directories($ENV{PARMETIS_LIB_DIR})
 #set(BOOST_ROOT /projects/opt/boost/1.58.0/draco/vendors/boost-1.58.0)
 
 # MOONLIGHT 
-set(BOOST_ROOT /usr/projects/draco/vendors/boost-1.59.0/moonlight-openmpi-1.6.5-intel-15.0.3)
+#set(BOOST_ROOT /usr/projects/draco/vendors/boost-1.59.0/moonlight-openmpi-1.6.5-intel-15.0.3)
+#set(BOOST_ROOT /usr/projects/draco/vendors/boost-1.60.0/moonlight-openmpi-1.10.1-intel-15.0.3)
 
 # CCS
 #set(BOOST_ROOT /ccs/codes/radtran/vendors/boost-1.58.0/openmpi-1.6.3-gcc-4.8.1/)
 
-message("Boost from: " ${BOOST_ROOT})
-set(Boost_INCLUDE_DIR ${BOOST_ROOT}/include)
-set(Boost_LIBRARY_DIR ${BOOST_ROOT}/lib)
+message("Boost from: " $ENV{BOOST_ROOT})
+set(Boost_INCLUDE_DIR $ENV{BOOST_ROOT}/include)
+set(Boost_LIBRARY_DIR $ENV{BOOST_ROOT}/lib)
 
 include_directories(${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIR})

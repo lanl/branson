@@ -26,11 +26,11 @@
 
 
   <spatial>
-    <n_x_cells>10</n_x_cells>
+    <n_x_cells>50</n_x_cells>
     <dx>1.0</dx>
-    <n_y_cells>10</n_y_cells>
+    <n_y_cells>50</n_y_cells>
     <dy>1.0</dy>
-    <n_z_cells>10</n_z_cells>
+    <n_z_cells>50</n_z_cells>
     <dz>1.0</dz>
 
     <bc_right>REFLECT</bc_right>

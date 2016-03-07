@@ -7,8 +7,7 @@
 #ifndef decompose_mesh_h_
 #define decompose_mesh_h_
 
-#include <boost/mpi.hpp>
-#include <boost/serialization/map.hpp> //!< This provides serialization for std::map
+#include <mpi.h>
 #include <parmetis.h>
 #include <algorithm>
 #include <iostream>
@@ -17,9 +16,7 @@
 #include <vector>
 
 #include "mesh.h"
-
-namespace mpi = boost::mpi;
-
+#include "buffer.h"
 
 
 void print_MPI_out(Mesh *mesh, uint32_t rank, uint32_t size) {
@@ -29,7 +26,7 @@ void print_MPI_out(Mesh *mesh, uint32_t rank, uint32_t size) {
 
   for (uint32_t p_rank = 0; p_rank<size; p_rank++) {
     if (rank == p_rank) {
-      mesh->pre_renumber_print();
+      mesh->post_decomp_print();
       cout.flush();
     }
     usleep(100);
@@ -55,7 +52,7 @@ void print_MPI_maps(Mesh *mesh, uint32_t rank, uint32_t size) {
   }
 }
 
-void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) {
+void decompose_mesh(Mesh* mesh) {
 
   using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
   using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
@@ -63,10 +60,39 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   using std::map;
   using std::partial_sum;
   
-  int rank = world.rank();
-  int nrank = world.size();
+  int rank, nrank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nrank);
   MPI_Comm comm;
   MPI_Comm_dup(MPI_COMM_WORLD, &comm);
+
+  // make off processor map
+  int n_off_rank = nrank -1;
+  map<int,int> proc_map;
+  for (uint32_t i=0; i<n_off_rank; i++) {
+    int r_index = i + int(i>=rank);
+    proc_map[i] = r_index;
+  }
+
+  // get the MPI cell datatype from mesh
+  const int entry_count = 3 ; 
+  // 7 uint32_t, 6 int, 13 double
+  int array_of_block_length[4] = {8, 6, 14};
+  // Displacements of each type in the cell
+  MPI_Aint array_of_block_displace[3] = 
+    {0, 8*sizeof(uint32_t),  8*sizeof(uint32_t)+6*sizeof(int)};
+  //Type of each memory block
+  MPI_Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
+
+  MPI_Datatype MPI_Cell;
+  MPI_Type_create_struct(entry_count, array_of_block_length, 
+    array_of_block_displace, array_of_types, &MPI_Cell);
+
+  MPI_Type_commit(&MPI_Cell);
+
+  int mpi_cell_size;
+  MPI_Type_size(MPI_Cell, &mpi_cell_size);
+
 
   //begin PARMETIS routines
 
@@ -74,14 +100,21 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   //vtxdist has number of vertices on each rank, same for all ranks
   vector<int> start_ncells(nrank, 0);
   vector<int> vtxdist(nrank, 0);
+
   int ncell_on_rank = mesh->get_n_local_cells();
-  mpi::all_gather(world, ncell_on_rank, start_ncells);
+  start_ncells[rank] = ncell_on_rank;
+  MPI_Allreduce(MPI_IN_PLACE, 
+                &start_ncells[0], 
+                nrank, 
+                MPI_INT, 
+                MPI_SUM, 
+                MPI_COMM_WORLD);
   partial_sum(start_ncells.begin(), 
               start_ncells.end(), 
               vtxdist.begin());
   vtxdist.insert(vtxdist.begin(), 0); 
 
-  //build adjacency lists for each rank
+  //build adjacency list needed for ParMetis call for each rank
   vector<int> xadj;
   vector<int> adjncy;
   int adjncy_ctr = 0;
@@ -145,75 +178,146 @@ void decompose_mesh(Mesh* mesh, mpi::communicator world, int argc, char **argv) 
   //if edgecuts are made (edgecut > 0) send cells to other processors
   //otherwise mesh is already partitioned
 
+
+  vector<int> recv_from_rank(n_off_rank,0);
+  vector<int> send_to_rank(n_off_rank, 0);
+
+  MPI_Request *reqs = new MPI_Request[n_off_rank*2];
+  vector<Buffer<Cell> > send_cell(n_off_rank);
+  vector<Buffer<Cell> > recv_cell(n_off_rank);
+
   if (edgecut) {
-    for (int send_rank =0; send_rank<nrank; send_rank++) {
-      for (int recv_rank =0; recv_rank<nrank; recv_rank++) {
-        if (  (send_rank != recv_rank)  && (rank == send_rank || rank == recv_rank) ) {
-          if(rank == send_rank) {
-            vector<Cell> send_list;
-            for (uint32_t i=0; i<ncell_on_rank; i++) {
-              if(part[i] == recv_rank)
-                send_list.push_back(mesh->get_pre_renumber_cell(i));
-            }
-            world.send(recv_rank, 0, send_list);
-            //Erase these cells from the mesh
-            for (uint32_t i=0; i<ncell_on_rank; i++) {
-              if(part[i] == recv_rank) mesh->remove_cell(i);
-            }
-          }
-          // rank == recv_rank
-          else {
-            vector<Cell> recv_list;
-            world.recv(send_rank, 0, recv_list);
-            // add these cells to the mesh
-            for (uint32_t i = 0; i< recv_list.size(); i++) 
-              mesh->add_mesh_cell(recv_list[i]);
-          }
-        } //send_rank != recv_rank
-      } // loop over recv_ranks
-    } // loop over send ranks
+    for (uint32_t ir=0; ir<n_off_rank; ir++) {
+      //sends
+      int off_rank = proc_map[ir];
+      // make list of cells to send to off_rank
+      vector<Cell> send_list;
+      for (uint32_t i=0; i<ncell_on_rank; i++) {
+        if(part[i] == off_rank)
+          send_list.push_back(mesh->get_pre_renumber_cell(i));
+      }
+      send_to_rank[ir] = send_list.size();
+      send_cell[ir].fill(send_list);
+      MPI_Isend(&send_to_rank[ir], 1,  MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD, &reqs[ir]);
+      MPI_Irecv(&recv_from_rank[ir], 1, MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD, &reqs[ir+n_off_rank]);
+
+      // erase sent cells from the mesh
+      for (uint32_t i=0; i<ncell_on_rank; i++) {
+        if(part[i] == off_rank) mesh->remove_cell(i);
+      }
+    }
+
+    MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE); 
+
+    //now send the buffers and post receives  
+    for (uint32_t ir=0; ir<n_off_rank; ir++) {
+      int off_rank = proc_map[ir];
+      MPI_Isend(send_cell[ir].get_buffer(), 
+                send_to_rank[ir],  
+                MPI_Cell, 
+                off_rank, 
+                0, 
+                MPI_COMM_WORLD, 
+                &reqs[ir]);
+      recv_cell[ir].resize(recv_from_rank[ir]);
+      MPI_Irecv(recv_cell[ir].get_buffer(),
+                recv_from_rank[ir], 
+                MPI_Cell, 
+                off_rank, 
+                0, 
+                MPI_COMM_WORLD, 
+                &reqs[ir+n_off_rank]);
+    }
+ 
+    MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE); 
+
+    for (uint32_t ir=0; ir<n_off_rank; ir++) {
+      vector<Cell> new_cells = recv_cell[ir].get_object();
+      for (uint32_t i = 0; i< new_cells.size(); i++) {
+        mesh->add_mesh_cell(new_cells[i]);
+      }
+    } 
   }
+
   //update the cell list on each processor
   mesh->update_mesh();
 
-  //get the number of cells on each processor
+  // Gather the number of cells on each processor
+  uint32_t n_cell_post_decomp = mesh->get_n_local_cells();
   vector<uint32_t> out_cells_proc(nrank, 0);
+  out_cells_proc[rank] = mesh->get_n_local_cells();
+  MPI_Allreduce(MPI_IN_PLACE, 
+                &out_cells_proc[0], 
+                nrank, 
+                MPI_INT, 
+                MPI_SUM, 
+                MPI_COMM_WORLD);
+
+  // Prefix sum on out_cells to get global numbering
   vector<uint32_t> prefix_cells_proc(nrank, 0);
-  uint32_t n_cell = mesh->get_n_local_cells();
-  mpi::all_gather(world, n_cell, out_cells_proc);
   partial_sum(out_cells_proc.begin(), out_cells_proc.end(), prefix_cells_proc.begin());
 
-  uint32_t g_start = prefix_cells_proc[rank]-n_cell;
+  // Set global numbering
+  uint32_t g_start = prefix_cells_proc[rank]-n_cell_post_decomp;
   uint32_t g_end = prefix_cells_proc[rank]-1;
   mesh->set_global_bound(g_start, g_end);
-  //append zero to the prefix array to make it a standard bounds array
+
+  // Append zero to the prefix array to make it a standard bounds array
   prefix_cells_proc.insert( prefix_cells_proc.begin(), 0);
   mesh->set_off_rank_bounds(prefix_cells_proc);
 
   //make sure each index is remapped ONLY ONCE!
   vector< vector<bool> > remap_flag;
-  for (uint32_t i=0; i<n_cell; i++) remap_flag.push_back(vector<bool> (6,false));
+  for (uint32_t i=0; i<n_cell_post_decomp; i++) remap_flag.push_back(vector<bool> (6,false));
 
   //change global indices to match a simple number system for easy sorting,
   //this involves sending maps to each processor to get new indicies
   map<uint32_t, uint32_t> local_map = mesh->get_map();
-  // Send maps
-  for (int send_rank =0; send_rank<nrank; send_rank++) {
-    for (int recv_rank =0; recv_rank<nrank; recv_rank++) {
-      if (  (send_rank != recv_rank)  && (rank == send_rank || rank == recv_rank) ) {
-        if(rank == send_rank) {
-          world.send(recv_rank, 0, local_map);
-        }
-        // rank == recv_rank
-        else {
-          map<uint32_t, uint32_t> off_map;
-          world.recv(send_rank, 0, off_map);
-          //remap off processor indices
-          mesh->set_indices(off_map, remap_flag);
-        }
-      } //send_rank != recv_rank
-    } // loop over recv_ranks
-  } // loop over send ranks
+  vector<uint32_t> packed_map(n_cell_post_decomp*2);
+  vector<Buffer<uint32_t> > recv_packed_maps(n_off_rank);
+  
+  uint32_t i_packed = 0;
+  for(map<uint32_t, uint32_t>::iterator map_i=local_map.begin(); 
+    map_i!=local_map.end(); map_i++) {
+    packed_map[i_packed] = map_i->first;
+    i_packed++;
+    packed_map[i_packed] = map_i->second;
+    i_packed++;
+  }
+
+  // Send and receive packed maps for remapping boundaries
+  for (uint32_t ir=0; ir<n_off_rank; ir++) {
+    int off_rank = proc_map[ir];
+    // Send your packed map
+    MPI_Isend(&packed_map[0],
+              n_cell_post_decomp*2,  
+              MPI_UNSIGNED,
+              off_rank, 
+              0, 
+              MPI_COMM_WORLD, 
+              &reqs[ir]);
+    // Receive other packed maps
+    recv_packed_maps[ir].resize(out_cells_proc[off_rank]*2);
+    MPI_Irecv(recv_packed_maps[ir].get_buffer(),
+              out_cells_proc[off_rank]*2 , 
+              MPI_UNSIGNED, 
+              off_rank, 
+              0, 
+              MPI_COMM_WORLD, 
+              &reqs[ir+n_off_rank]);
+  }
+  
+  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE); 
+  
+  for (uint32_t ir=0; ir<n_off_rank; ir++) {
+    vector<uint32_t> off_packed_map = recv_packed_maps[ir].get_object();
+    map<uint32_t, uint32_t> off_map;
+    for (uint32_t m=0; m<off_packed_map.size(); m++) {
+      off_map[off_packed_map[m]] =off_packed_map[m+1];
+      m++;
+    }
+    mesh->set_indices(off_map, remap_flag);
+  }
 
   //now update the indices of local IDs
   mesh->set_local_indices(local_map);

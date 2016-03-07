@@ -214,17 +214,17 @@ std::vector<Photon> transport_mesh_pass(Source& source,
 
   //post finish message receives from children and parents
   if (parent != proc_null) {
-    p_recv_request = world.irecv(parent, finish_tag, p_recv_buffer.get_buffer() );
+    p_recv_request = world.irecv(parent, finish_tag, p_recv_buffer.get_object() );
     n_receives_posted++;
     p_recv_buffer.set_awaiting();
   }
   if (child1 != proc_null) {
-    c1_recv_request = world.irecv(child1, finish_tag, c1_recv_buffer.get_buffer() );
+    c1_recv_request = world.irecv(child1, finish_tag, c1_recv_buffer.get_object() );
     n_receives_posted++;
     c1_recv_buffer.set_awaiting();
   }
   if (child2 != proc_null) {
-    c2_recv_request = world.irecv(child2, finish_tag, c2_recv_buffer.get_buffer() );
+    c2_recv_request = world.irecv(child2, finish_tag, c2_recv_buffer.get_object() );
     n_receives_posted++;
     c2_recv_buffer.set_awaiting();
   }
@@ -354,21 +354,21 @@ std::vector<Photon> transport_mesh_pass(Source& source,
       if (c1_recv_request.test()) {
         n_receives_completed++;
         c1_recv_buffer.set_received();
-        c1_finished = c1_recv_buffer.get_buffer()[0];
+        c1_finished = c1_recv_buffer.get_object()[0];
       }
     }
     if (c2_recv_buffer.awaiting()) {
       if (c2_recv_request.test()) {
         n_receives_completed++;
         c2_recv_buffer.set_received();
-        c2_finished = c2_recv_buffer.get_buffer()[0];
+        c2_finished = c2_recv_buffer.get_object()[0];
       }
     }
     if (p_recv_buffer.awaiting()) {
       if (p_recv_request.test()) {
         n_receives_completed++;
         p_recv_buffer.set_received();
-        p_finished = p_recv_buffer.get_buffer()[0];
+        p_finished = p_recv_buffer.get_object()[0];
       }
     }
     
@@ -376,7 +376,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
     if ((c1_finished && c2_finished) && 
         (parent != proc_null && !p_send_buffer.sent()) ) {
       p_send_buffer.fill(s_bool);
-      p_send_request = world.isend(parent, finish_tag, p_send_buffer.get_buffer());
+      p_send_request = world.isend(parent, finish_tag, p_send_buffer.get_object());
       n_sends_posted++;
       p_send_buffer.set_sent();
     }
@@ -395,14 +395,14 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   //send complete message down the tree
   if (child1 != proc_null) { 
     c1_send_buffer.fill(s_bool);
-    c1_send_request = world.isend(child1, finish_tag, c1_send_buffer.get_buffer());
+    c1_send_request = world.isend(child1, finish_tag, c1_send_buffer.get_object());
     n_sends_posted++;
     c1_send_request.wait();
     n_sends_completed++;
   }
   if (child2 != proc_null)  {
     c2_send_buffer.fill(s_bool);
-    c2_send_request = world.isend(child2, finish_tag, c2_send_buffer.get_buffer());
+    c2_send_request = world.isend(child2, finish_tag, c2_send_buffer.get_object());
     n_sends_posted++;
     c2_send_request.wait();
     n_sends_completed++;

@@ -54,16 +54,17 @@ int main(int argc, char *argv[])
   // make mesh from input object
   Mesh *mesh = new Mesh(input, rank, size);
 
-  // decompose mesh with ParMETIS and Boost MPI
-  decompose_mesh(mesh, world, argc, argv);
-
-  world.barrier();
-  //print_MPI_out(mesh, rank, size);
-
   //timing 
   struct timeval start,end;
   struct timezone tzp;
   gettimeofday(&start, &tzp); 
+
+  // decompose mesh with ParMETIS
+  decompose_mesh(mesh);
+
+  world.barrier();
+  //print_MPI_out(mesh, rank, size);
+
 
   /****************************************************************************/ 
   // TRT PHYSICS CALCULATION
@@ -73,7 +74,7 @@ int main(int argc, char *argv[])
     imc_particle_pass_driver(rank, mesh, imc_state, imc_p, world);
   else if (input->get_dd_mode() == CELL_PASS)
     imc_cell_pass_driver(rank, mesh, imc_state, imc_p, world);
-
+  
   if (rank==0) {
     cout<<"****************************************";
     cout<<"****************************************"<<endl;
@@ -81,7 +82,6 @@ int main(int argc, char *argv[])
     print_elapsed_inside("runtime:",&start, &end);
     imc_state->print_simulation_footer(input->get_dd_mode());
   }
-
   world.barrier();
 
   delete mesh;
