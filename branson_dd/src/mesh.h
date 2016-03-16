@@ -124,22 +124,46 @@ class Mesh {
     //define the MPI cell type used for MPI windows
     //make the MPI datatype for my cell class
     // Three type entries in the class
-    const int entry_count = 3 ; 
-    // 7 uint32_t, 6 int, 13 double
-    int array_of_block_length[4] = {8, 6, 14};
-    // Displacements of each type in the cell
-    MPI_Aint array_of_block_displace[3] = 
-      {0, 8*sizeof(uint32_t),  8*sizeof(uint32_t)+6*sizeof(int)};
-    //Type of each memory block
-    MPI_Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
+    {
+      const int entry_count = 3 ; 
+      // 7 uint32_t, 6 int, 13 double
+      int array_of_block_length[4] = {8, 6, 14};
+      // Displacements of each type in the cell
+      MPI_Aint array_of_block_displace[3] = 
+        {0, 8*sizeof(uint32_t),  8*sizeof(uint32_t)+6*sizeof(int)};
+      //Type of each memory block
+      MPI_Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
 
-    MPI_Datatype MPI_Cell;
-    MPI_Type_create_struct(entry_count, array_of_block_length, 
-      array_of_block_displace, array_of_types, &MPI_Cell);
+      MPI_Datatype MPI_Cell;
+      MPI_Type_create_struct(entry_count, array_of_block_length, 
+        array_of_block_displace, array_of_types, &MPI_Cell);
 
-    MPI_Type_commit(&MPI_Cell);
+      MPI_Type_commit(&MPI_Cell);
 
-    MPI_Type_size(MPI_Cell, &mpi_cell_size);
+      MPI_Type_size(MPI_Cell, &mpi_cell_size);
+    }
+
+    //Make the MPI_Particle type
+    {
+      const int entry_count = 2 ; 
+      // 7 uint32_t, 6 int, 13 double
+      int array_of_block_length[3] = { 2, 9};
+      // Displacements of each type in the cell
+      MPI_Aint array_of_block_displace[2] = 
+        {0, 2*sizeof(uint32_t)};
+      //Type of each memory block
+      MPI_Datatype array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
+
+      MPI_Datatype MPI_Particle;
+      MPI_Type_create_struct(entry_count, array_of_block_length, 
+        array_of_block_displace, array_of_types, &MPI_Particle);
+
+      // Commit the type to MPI so it recognizes it in communication calls
+      MPI_Type_commit(&MPI_Particle);
+
+      int mpi_particle_size;
+      MPI_Type_size(MPI_Particle, &mpi_particle_size);
+    }
 
     //bool flags to say if data is needed
     need_data = vector<bool>(n_rank-1, false);
@@ -192,6 +216,10 @@ class Mesh {
   void post_decomp_print(void) const {
     for (uint32_t i= 0; i<n_cell; i++) 
       cells[i].print();
+  }
+
+  void get_MPI_particle_type(MPI_Datatype& _mpi_particle) {
+    _mpi_particle = MPI_Particle;
   }
 
   std::map<uint32_t, uint32_t> get_map(void) const {
@@ -732,7 +760,9 @@ class Mesh {
   double total_photon_E; //! Total photon energy on the mesh
 
   MPI_Datatype MPI_Cell; //! MPI type, allows simpler parallel communication
+  MPI_Datatype MPI_Particle; //! MPI type, allows simpler parallel communication
   int32_t mpi_cell_size; //! Size of custom MPI_Cell type
+  int32_t mpi_particle_size; //! Size of custom MPI_Particle type
 
   uint32_t max_map_size; //! Maximum size of map object
   uint32_t off_rank_reads; //! Number of off rank reads

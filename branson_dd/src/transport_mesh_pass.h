@@ -118,7 +118,7 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
       }
       //EVENT TYPE: REACH CENSUS
       else if(dist_to_event == dist_to_census) {
-        phtn.set_census_flag(true);
+        phtn.set_census_flag(1);
         phtn.set_distance_to_census(c*next_dt);
         active=false;
         census_E+=phtn.get_E();
@@ -430,8 +430,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   //send the off-rank census back to ranks that own the mesh its on.
   //receive census particles that are on your mesh
   vector<Photon> rebalanced_census = rebalance_census(off_rank_census_list,
-                                                      mesh,
-                                                      world);
+                                                      mesh);
   census_list.insert(census_list.end(), 
     rebalanced_census.begin(), 
     rebalanced_census.end());

@@ -74,7 +74,7 @@ void decompose_mesh(Mesh* mesh) {
     proc_map[i] = r_index;
   }
 
-  // get the MPI cell datatype from mesh
+  // remake the MPI cell datatype from mesh
   const int entry_count = 3 ; 
   // 7 uint32_t, 6 int, 13 double
   int array_of_block_length[4] = {8, 6, 14};
@@ -88,11 +88,8 @@ void decompose_mesh(Mesh* mesh) {
   MPI_Type_create_struct(entry_count, array_of_block_length, 
     array_of_block_displace, array_of_types, &MPI_Cell);
 
+  // Commit the type to MPI so it recognizes it in communication calls
   MPI_Type_commit(&MPI_Cell);
-
-  int mpi_cell_size;
-  MPI_Type_size(MPI_Cell, &mpi_cell_size);
-
 
   //begin PARMETIS routines
 
@@ -324,6 +321,12 @@ void decompose_mesh(Mesh* mesh) {
 
   //reallocate mesh data in new MPI window
   mesh->make_MPI_window();
+
+  // clean up dynamically allocated memory
+  delete[] tpwgts;
+  delete[] ubvec;
+  delete[] part;
+  delete[] reqs;
 }
 
 #endif // decompose_mesh_h

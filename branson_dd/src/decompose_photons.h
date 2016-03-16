@@ -1,6 +1,6 @@
-/* decompose_mesh.g
- * This file includes functions to decompose the 
- * mesh with Zoltan.
+/* decompose_photons.h
+ * This file includes functions to load balance census photons after a step
+ * in the mesh-passing DD algotithm
  * 6/17/2015 by Alex Long
 */
 
@@ -8,7 +8,8 @@
 #define decompose_photons_h_
 
 #include <iostream>
-#include <boost/mpi.hpp>
+#include <mpi.h>
+#include <map>
 #include <algorithm>
 #include <vector>
 
@@ -42,29 +43,61 @@ void print_MPI_photons( const std::vector<Photon>& phtn_vec,
 }
 
 
-std::vector<Photon> rebalance_census(std::vector<Photon>& census_list,
-                                     Mesh* mesh, 
-                                     mpi::communicator world) 
+std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
+                                     Mesh* mesh)
 {
-  using std::vector;
+  using std::map;
   using std::sort;
+  using std::vector;
 
-  uint32_t rank = world.rank();
-  uint32_t size = world.size();
+  int rank, n_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
+  uint32_t n_off_rank = n_rank-1;
+
+  // make the MPI Particle 
+  const int entry_count = 2 ; 
+  // 7 uint32_t, 6 int, 13 double
+  int array_of_block_length[3] = { 2, 9};
+  // Displacements of each type in the cell
+  MPI_Aint array_of_block_displace[2] = 
+    {0, 2*sizeof(uint32_t)};
+  //Type of each memory block
+  MPI_Datatype array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
+
+  MPI_Datatype MPI_Particle;
+  MPI_Type_create_struct(entry_count, array_of_block_length, 
+    array_of_block_displace, array_of_types, &MPI_Particle);
+
+  // Commit the type to MPI so it recognizes it in communication calls
+  MPI_Type_commit(&MPI_Particle);
+
+  int mpi_particle_size;
+  MPI_Type_size(MPI_Particle, &mpi_particle_size);
+ 
+  int particle_size = sizeof(Photon); 
+
+  // make off processor map
+  map<int,int> proc_map;
+  for (int32_t i=0; i<n_off_rank; i++) {
+    int r_index = i + int(i>=rank);
+    proc_map[i] = r_index;
+  }
 
   //sort the census vector by cell ID (global ID)
-  sort(census_list.begin(), census_list.end());
-  
-  uint32_t n_census = census_list.size();
+  sort(off_rank_census.begin(), off_rank_census.end());
+ 
+  //size of census list 
+  uint32_t n_census = off_rank_census.size();
 
   //count the photons belonging to each rank and the start index of each
   //count the ranks that you will send to, add them to a vector
-  vector<uint32_t> rank_count(size, 0);
-  vector<uint32_t> rank_start(size+1, 0);
-  vector<bool> rank_found(size, false);
+  vector<uint32_t> rank_count(n_rank, 0);
+  vector<uint32_t> rank_start(n_rank+1, 0);
+  vector<bool> rank_found(n_rank, false);
   uint32_t r;
   for (uint32_t i=0; i<n_census; i++) {
-    r = mesh->get_rank(census_list[i].get_cell());
+    r = mesh->get_rank(off_rank_census[i].get_cell());
     rank_count[r]++;
     if(rank_found[r]==false) {
       rank_found[r]=true;
@@ -73,50 +106,68 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& census_list,
   }
 
   // end of rank count is the total number of census photons
-  rank_start[size] = n_census;
+  rank_start[n_rank] = n_census;
 
-  //send photons to other processors
-  mpi::request* reqs = new mpi::request[ (size-1)*2];
+  // make requests for non-blocking communication
+  MPI_Request* reqs = new MPI_Request[n_off_rank*2];
+
+  // make n_off_rank receive buffers
   vector<vector<Photon> > recv_photons;
-  //make size-1 receive lists
-  for (uint32_t ir=0; ir<size-1; ir++) {
+  for (uint32_t ir=0; ir<n_off_rank; ir++) {
     vector<Photon> empty_vec;
     recv_photons.push_back(empty_vec);
   }
 
-  uint32_t icount = 0;
-  for (uint32_t ir=0; ir<size; ir++) {
-    if (rank != ir) {
-      //build send list
-      vector<Photon> send_photons(rank_count[ir]);
-      uint32_t start_send;
-      start_send = rank_start[ir];
-      memcpy(&send_photons[0], &census_list[start_send], sizeof(Photon)*rank_count[ir]);
-      reqs[icount] = world.isend(ir, 0, send_photons);
-      icount++;
-      //get correct index into received photon vector
-      uint32_t r_index = ir - (ir>rank);
-      reqs[icount] = world.irecv(ir,0,recv_photons[r_index]);
-      icount++;
-    }
+  //get the number of photons received from each rank
+  vector<int> recv_from_rank(n_off_rank, 0);
+
+  for (uint32_t ir=0; ir<n_off_rank; ir++) {
+    int off_rank = proc_map[ir];
+    MPI_Isend(&rank_count[off_rank], 1,  MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD, &reqs[ir]);
+    MPI_Irecv(&recv_from_rank[ir], 1, MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD, &reqs[ir+n_off_rank]);
+  }
+  
+  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE); 
+
+  // now send the buffers and post receives  
+  // resize receive buffers with recv_from_rank
+  for (uint32_t ir=0; ir<n_off_rank; ir++) {
+    int off_rank = proc_map[ir];
+    int start_copy = rank_start[off_rank];
+    MPI_Isend(&off_rank_census[start_copy], 
+              rank_count[off_rank],
+              MPI_Particle,
+              off_rank, 
+              0, 
+              MPI_COMM_WORLD, 
+              &reqs[ir]);
+    recv_photons[ir].resize(recv_from_rank[ir]);
+    MPI_Irecv(&recv_photons[ir][0],
+              recv_from_rank[ir], 
+              MPI_Particle, 
+              off_rank, 
+              0, 
+              MPI_COMM_WORLD, 
+              &reqs[ir+n_off_rank]);
   }
 
-  mpi::wait_all(reqs, reqs+(size-1)*2);
+  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE); 
 
-  //free memory from census list
-  census_list.clear();
+  //free memory from off rank census list
+  off_rank_census.clear();
 
-  //copy on rank census photons to new census list
-  vector<Photon> new_census_list;
-  for (uint32_t ir=0; ir<size-1; ir++)
-    new_census_list.insert(new_census_list.end(), 
+  //copy received census photons to a new census list
+  vector<Photon> new_on_rank_census;
+  for (uint32_t ir=0; ir<n_rank-1; ir++) {
+    new_on_rank_census.insert(new_on_rank_census.end(), 
       recv_photons[ir].begin(), 
       recv_photons[ir].end());
+  }
 
   //Explicitly delete the MPI requests
   delete[] reqs;
 
-  return new_census_list;
+  return new_on_rank_census;
 }
 
 

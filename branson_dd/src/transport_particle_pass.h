@@ -8,7 +8,7 @@
 #define transport_particle_pass_h_
 
 #include <algorithm>
-#include <boost/mpi.hpp>
+#include <mpi.h>
 #include <functional>
 #include <iostream>
 #include <numeric>
@@ -23,8 +23,6 @@
 #include "sampling_functions.h"
 #include "RNG.h"
 #include "photon.h"
-
-namespace mpi = boost::mpi;
 
 Constants::event_type transport_photon_particle_pass(Photon& phtn,
                                                       Mesh* mesh,
@@ -123,7 +121,7 @@ Constants::event_type transport_photon_particle_pass(Photon& phtn,
       }
       //EVENT TYPE: REACH CENSUS
       else if(dist_to_event == dist_to_census) {
-        phtn.set_census_flag(true);
+        phtn.set_census_flag(1);
         phtn.set_distance_to_census(c*next_dt);
         active=false;
         event=CENSUS;
@@ -140,8 +138,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
                                             Mesh* mesh,
                                             IMC_State* imc_state,
                                             IMC_Parameters* imc_parameters,
-                                            std::vector<double>& rank_abs_E,
-                                            mpi::communicator world)
+                                            std::vector<double>& rank_abs_E)
 {
   using Constants::event_type;
   using Constants::PASS; using Constants::CENSUS;
@@ -164,8 +161,9 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
   RNG *rng = imc_state->get_rng();
 
-  int n_rank = world.size();
-  int rank   = world.rank();
+  int rank, n_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
   // parallel event counters
   uint32_t n_photon_messages=0; //! Number of photon messages
@@ -177,11 +175,42 @@ std::vector<Photon> transport_particle_pass(Source& source,
   uint64_t n_complete_messages=0; //! Number of complete messages
   uint64_t n_photon_tests=0; //! Number of receive tests for photon lists
 
+  // Number of particles to run between MPI communication 
+  const uint32_t batch_size = imc_parameters->get_batch_size();
+
+  // Preferred size of MPI message
+  const uint32_t max_buffer_size 
+    = imc_parameters->get_particle_message_size();
+
+  // MPI Particle type
+  //Make the MPI_Particle type
+  const int entry_count = 2 ; 
+  // 7 uint32_t, 6 int, 13 double
+  int array_of_block_length[3] = { 2, 9};
+  // Displacements of each type in the cell
+  MPI_Aint array_of_block_displace[2] = 
+    {0, 2*sizeof(uint32_t)};
+  //Type of each memory block
+  MPI_Datatype array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
+
+  MPI_Datatype MPI_Particle;
+  MPI_Type_create_struct(entry_count, array_of_block_length, 
+    array_of_block_displace, array_of_types, &MPI_Particle);
+
+  // Commit the type to MPI so it recognizes it in communication calls
+  MPI_Type_commit(&MPI_Particle);
+
+  int mpi_particle_size;
+  MPI_Type_size(MPI_Particle, &mpi_particle_size);
+  //MPI_Datatype MPI_Particle;
+  //mesh->get_MPI_particle_type(MPI_Particle);
+
   //get global photon count
   uint64_t n_local = source.get_n_photon();
   uint64_t n_global;
 
-  mpi::all_reduce(world, n_local, n_global, std::plus<uint64_t>());
+  MPI_Allreduce(&n_local, &n_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, 
+    MPI_COMM_WORLD);
 
   int parent = (rank + 1) / 2 - 1;
   int child1 = rank * 2 + 1;
@@ -209,12 +238,12 @@ std::vector<Photon> transport_particle_pass(Source& source,
   vector<vector<Photon> > send_list;
 
   //Message requests for finished photon counts
-  mpi::request c1_recv_request;
-  mpi::request c2_recv_request;
-  mpi::request p_recv_request;
-  mpi::request c1_send_request;
-  mpi::request c2_send_request; 
-  mpi::request p_send_request;
+  MPI_Request c1_recv_request;
+  MPI_Request c2_recv_request;
+  MPI_Request p_recv_request;
+  MPI_Request c1_send_request;
+  MPI_Request c2_send_request; 
+  MPI_Request p_send_request;
 
   //Buffers for photon completed counts
   Buffer<uint64_t> c1_recv_buffer;
@@ -222,14 +251,14 @@ std::vector<Photon> transport_particle_pass(Source& source,
   Buffer<uint64_t> p_recv_buffer;
   Buffer<uint64_t> c1_send_buffer;
   Buffer<uint64_t> c2_send_buffer;
-  Buffer<uint64_t> p_send_buffer;
+  Buffer<uint64_t> p_send_buffer; 
 
   //Get adjacent processor map (off_rank_id -> adjacent_proc_number)
   map<uint32_t, uint32_t> adjacent_procs = mesh->get_proc_adjacency_list();
   uint32_t n_adjacent = adjacent_procs.size();
   //Messsage requests for photon sends and receives
-  mpi::request *phtn_recv_request   = new mpi::request[n_adjacent];
-  mpi::request *phtn_send_request   = new mpi::request[n_adjacent];
+  MPI_Request *phtn_recv_request   = new MPI_Request[n_adjacent];
+  MPI_Request *phtn_send_request   = new MPI_Request[n_adjacent];
   // make a send/receive particle buffer for each adjacent processor
   vector<Buffer<Photon> > phtn_recv_buffer(n_adjacent);
   vector<Buffer<Photon> > phtn_send_buffer(n_adjacent);
@@ -238,19 +267,26 @@ std::vector<Photon> transport_particle_pass(Source& source,
   // or received an updated particle complete count from its child
   // Messages are sent down the tree only after completion and starting at the 
   // root node. 
-  // Post receives for photon counts from children and parent now
+  // Post receives for photon counts from children and parent now, resize buffers
+  // to size 1
   if (child1!=proc_null) {
-    c1_recv_request = world.irecv(child1, count_tag, c1_recv_buffer.get_object());
+    c1_recv_buffer.resize(1);
+    MPI_Irecv(c1_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1,
+      count_tag, MPI_COMM_WORLD, &c1_recv_request);
     n_receives_posted++;
     c1_recv_buffer.set_awaiting();
   }
   if (child2!=proc_null) {
-    c2_recv_request = world.irecv(child2, count_tag, c2_recv_buffer.get_object());
+    c2_recv_buffer.resize(1);
+    MPI_Irecv(c2_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child2,
+      count_tag, MPI_COMM_WORLD, &c2_recv_request);
     n_receives_posted++;
     c2_recv_buffer.set_awaiting();
   }
   if (parent != proc_null) {
-    p_recv_request = world.irecv(parent, count_tag, p_recv_buffer.get_object() );
+    p_recv_buffer.resize(1);
+    MPI_Irecv(p_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
+      count_tag, MPI_COMM_WORLD, &p_recv_request);
     n_receives_posted++;
     p_recv_buffer.set_awaiting();
   }
@@ -266,8 +302,15 @@ std::vector<Photon> transport_particle_pass(Source& source,
       //push back send and receive lists
       vector<Photon> empty_phtn_vec;
       send_list.push_back(empty_phtn_vec);
-      phtn_recv_request[i_b] = 
-        world.irecv(adj_rank, photon_tag, phtn_recv_buffer[i_b].get_object());
+      //make receive buffer the appropriate size
+      phtn_recv_buffer[i_b].resize(max_buffer_size);
+      MPI_Irecv(phtn_recv_buffer[i_b].get_buffer(),
+        max_buffer_size,
+        MPI_Particle,
+        adj_rank,
+        photon_tag,
+        MPI_COMM_WORLD,
+        &phtn_recv_request[i_b]);
       n_receives_posted++;
       phtn_recv_buffer[i_b].set_awaiting();
     } // end loop over adjacent processors
@@ -292,11 +335,6 @@ std::vector<Photon> transport_particle_pass(Source& source,
   Photon phtn;
   event_type event;
 
-  // Number of particles to run between MPI communication 
-  const uint32_t batch_size = imc_parameters->get_batch_size();
-  // Preferred size of MPI message
-  const uint32_t max_buffer_size 
-    = imc_parameters->get_particle_message_size();
 
   while (!finished) {
 
@@ -348,20 +386,28 @@ std::vector<Photon> transport_particle_pass(Source& source,
     // process photon send and receives 
     ////////////////////////////////////////////////////////////////////////////
     {
+      int send_req_flag;
+      int recv_req_flag;
+      int recv_count; // recieve count is 32 bit
+
+      MPI_Status recv_status;
       uint32_t i_b; // buffer index
       int adj_rank; // adjacent rank
       for ( std::map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin(); 
         it != adjacent_procs.end(); ++it) {
         adj_rank = it->first;
         i_b = it->second;
-        // process send buffer
+        // test completion of send buffer
         if (phtn_send_buffer[i_b].sent()) {
-          if (phtn_send_request[i_b].test()) {
+          MPI_Test(&phtn_send_request[i_b], &send_req_flag, MPI_STATUS_IGNORE);
+          if (send_req_flag) {
             phtn_send_buffer[i_b].reset();
             n_sends_completed++;
           } 
         }
 
+        // send full photon buffers if send_buffer is empty and send_list has
+        // some photons in it
         if ( (phtn_send_buffer[i_b].empty() && !send_list[i_b].empty()) &&
           (send_list[i_b].size() >= max_buffer_size || n_local_sourced == n_local) ) {
           uint32_t n_photons_to_send = max_buffer_size;
@@ -373,8 +419,13 @@ std::vector<Photon> transport_particle_pass(Source& source,
           send_list[i_b].erase(copy_start,copy_end); 
           phtn_send_buffer[i_b].fill(send_now_list);
           n_photons_sent += n_photons_to_send;
-          phtn_send_request[i_b] = 
-            world.isend(adj_rank, photon_tag, phtn_send_buffer[i_b].get_object());
+          MPI_Isend(phtn_send_buffer[i_b].get_buffer(), 
+            n_photons_to_send,  
+            MPI_Particle, 
+            adj_rank, 
+            photon_tag, 
+            MPI_COMM_WORLD, 
+            &phtn_send_request[i_b]);
           n_sends_posted++;
           phtn_send_buffer[i_b].set_sent();
           n_photon_messages++;
@@ -383,22 +434,30 @@ std::vector<Photon> transport_particle_pass(Source& source,
         //process receive buffer
         if (phtn_recv_buffer[i_b].awaiting()) {
           n_photon_tests++;
-          if (phtn_recv_request[i_b].test()) {
+          MPI_Test(&phtn_recv_request[i_b], &recv_req_flag, &recv_status);
+          if (recv_req_flag) {
             n_receives_completed++;
             vector<Photon> receive_list = phtn_recv_buffer[i_b].get_object();
-            for (uint32_t i=0; i<receive_list.size(); i++) 
+            // only push the number of received photons onto the recv_stack
+            MPI_Get_count(&recv_status, MPI_Particle, &recv_count);
+            for (uint32_t i=0; i<recv_count; i++) 
               phtn_recv_stack.push(receive_list[i]);
             phtn_recv_buffer[i_b].reset();
             //post receive again
-            phtn_recv_request[i_b] = world.irecv(adj_rank, 
-              photon_tag, 
-              phtn_recv_buffer[i_b].get_object());
+            phtn_recv_buffer[i_b].resize(max_buffer_size);
+            MPI_Irecv(phtn_recv_buffer[i_b].get_buffer(),
+              max_buffer_size,
+              MPI_Particle,
+              adj_rank,
+              photon_tag,
+              MPI_COMM_WORLD,
+              &phtn_recv_request[i_b]);
             n_receives_posted++;
             phtn_recv_buffer[i_b].set_awaiting();
           }
         }
       } // end loop over adjacent processors
-    }
+    } //end scope of particle passing
 
     ////////////////////////////////////////////////////////////////////////////
     // binary tree completion communication
@@ -409,8 +468,14 @@ std::vector<Photon> transport_particle_pass(Source& source,
     // never resets the tree count
 
     //test receives from children and add work to tree count
+    int c1_recv_flag;
+    int c2_recv_flag;
+    int p_recv_flag;
+    int p_send_flag; 
+
     if (c1_recv_buffer.awaiting()) {
-      if(c1_recv_request.test()) {
+      MPI_Test(&c1_recv_request, &c1_recv_flag, MPI_STATUS_IGNORE);
+      if(c1_recv_flag) {
         n_receives_completed++;
         c1_recv_buffer.set_received();
         c1_count = c1_recv_buffer.get_object()[0];
@@ -418,14 +483,17 @@ std::vector<Photon> transport_particle_pass(Source& source,
         tree_count+=c1_count;
         //post receive again
         c1_recv_buffer.reset();
-        c1_recv_request = world.irecv(child1, count_tag, c1_recv_buffer.get_object());
+        c1_recv_buffer.resize(1);
+        MPI_Irecv(c1_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1,
+          count_tag, MPI_COMM_WORLD, &c1_recv_request);
         n_receives_posted++;
         c1_recv_buffer.set_awaiting();
       }
     }
 
     if (c2_recv_buffer.awaiting()) {
-      if (c2_recv_request.test()) {
+      MPI_Test(&c2_recv_request, &c2_recv_flag, MPI_STATUS_IGNORE);
+      if (c2_recv_flag) {
         n_receives_completed++;
         c2_recv_buffer.set_received();
         c2_count = c2_recv_buffer.get_object()[0];
@@ -433,7 +501,9 @@ std::vector<Photon> transport_particle_pass(Source& source,
         tree_count+=c2_count;
         //post receive again
         c2_recv_buffer.reset();
-        c2_recv_request = world.irecv(child2, count_tag, c2_recv_buffer.get_object());
+        c2_recv_buffer.resize(1);
+        MPI_Irecv(c2_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child2,
+          count_tag, MPI_COMM_WORLD, &c2_recv_request);
         n_receives_posted++;
         c2_recv_buffer.set_awaiting();
       }
@@ -441,7 +511,8 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
     // test receive from parent, this is always the finished count 
     if (p_recv_buffer.awaiting()) {
-      if (p_recv_request.test()) {
+      MPI_Test(&p_recv_request, &p_recv_flag, MPI_STATUS_IGNORE);
+      if (p_recv_flag) {
         n_receives_completed++;
         p_recv_buffer.set_received();
         parent_count = p_recv_buffer.get_object()[0];
@@ -450,7 +521,8 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
     // test sends to parent
     if (p_send_buffer.sent() ) {
-      if (p_send_request.test()) {
+      MPI_Test(&p_send_request, &p_send_flag, MPI_STATUS_IGNORE);
+      if (p_send_flag) {
         n_sends_completed++;
         p_send_buffer.reset();
       }
@@ -460,14 +532,14 @@ std::vector<Photon> transport_particle_pass(Source& source,
     tree_count+=n_complete;
     n_complete = 0;
 
-
     // If tree count is non-zero, buffers are empty, and local work is done 
     // send message to parent. You may still get more work done and send again.
     // That's OK. To finish transport all particles histories must be completed,
     // meaning that all of the sends will be processed (received)
     if ((parent!=proc_null && tree_count) && (n_local==n_local_sourced && phtn_recv_stack.empty()) && p_send_buffer.empty()) {
       p_send_buffer.fill(vector<uint64_t> (1,tree_count));
-      p_send_request = world.isend(parent, count_tag, p_send_buffer.get_object());
+      MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent, 
+        count_tag, MPI_COMM_WORLD, &p_send_request);
       n_sends_posted++;
       n_complete_messages++;
       p_send_buffer.set_sent();
@@ -479,33 +551,37 @@ std::vector<Photon> transport_particle_pass(Source& source,
     if (tree_count == n_global || parent_count == n_global) finished = true;
   } // end while
 
+
   //send finished count down tree to children and wait for completion
   if (child1 != proc_null) { 
     if (c1_send_buffer.sent()) {
-      c1_send_request.wait();
+      MPI_Wait(&c1_send_request, MPI_STATUS_IGNORE);
       n_sends_completed++;
     }
     c1_send_buffer.fill(vector<uint64_t> (1,n_global));
-    c1_send_request = world.isend(child1, count_tag, c1_send_buffer.get_object());
+    MPI_Isend(c1_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1, 
+      count_tag, MPI_COMM_WORLD, &c1_send_request);
     n_sends_posted++;
-    c1_send_request.wait();
+    MPI_Wait(&c1_send_request, MPI_STATUS_IGNORE);
     n_sends_completed++;
   }
+
   if (child2 != proc_null)  {
     if (c2_send_buffer.sent()) {
-      c2_send_request.wait();
+      MPI_Wait(&c2_send_request, MPI_STATUS_IGNORE);
       n_sends_completed++;
     }
     c2_send_buffer.fill(vector<uint64_t> (1,n_global));
-    c2_send_request = world.isend(child2, count_tag, c2_send_buffer.get_object());
+    MPI_Isend(c2_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child2, 
+      count_tag, MPI_COMM_WORLD, &c2_send_request);
     n_sends_posted++;
-    c2_send_request.wait();
+    MPI_Wait(&c2_send_request, MPI_STATUS_IGNORE);
     n_sends_completed++;
   }
 
   // wait for parent send to complete, if sent
-  if (p_send_buffer.sent()) { 
-    p_send_request.wait();
+  if (p_send_buffer.sent()) {
+    MPI_Wait(&p_send_request, MPI_STATUS_IGNORE);
     n_sends_completed++;
   }
 
@@ -513,29 +589,29 @@ std::vector<Photon> transport_particle_pass(Source& source,
   // Do this because it's possible for a rank to receive the empty message
   // while it's still in the transport loop. In that case, it will post a 
   // receive again, which will never have a matching send
-  world.barrier();
+  MPI_Barrier(MPI_COMM_WORLD);
 
   //finish off parent's receive call with empty send
   if (parent!=proc_null) {
     p_send_buffer.fill(vector<uint64_t> (1,1));
-    p_send_request = world.isend(parent, count_tag, p_send_buffer.get_object());
+    MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
+      count_tag, MPI_COMM_WORLD, &p_send_request);
     n_sends_posted++;
-    p_send_request.wait();
+    MPI_Wait(&p_send_request, MPI_STATUS_IGNORE);
     n_sends_completed++;
   }
   if (child1 != proc_null) {
-    c1_recv_request.wait();
+    MPI_Wait(&c1_recv_request, MPI_STATUS_IGNORE);
     n_receives_completed++; 
   }
   if (child2 != proc_null) {
-    c2_recv_request.wait();
+    MPI_Wait(&c2_recv_request, MPI_STATUS_IGNORE);
     n_receives_completed++; 
   }
-  
-
+ 
   //finish off posted photon receives
   {
-    vector<Photon> empty_buffer;
+    vector<Photon> one_photon(1);
     uint32_t i_b; // buffer index
     int adj_rank; // adjacent rank
     for ( std::map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin(); 
@@ -543,38 +619,42 @@ std::vector<Photon> transport_particle_pass(Source& source,
       adj_rank = it->first;
       i_b = it->second;
       //wait for completion of previous sends
-      if (phtn_send_buffer[i_b].sent()) phtn_send_request[i_b].wait();
-      //send empty buffer to finish off receives
-      phtn_send_request[i_b] = world.isend(adj_rank, photon_tag, empty_buffer);
+      if (phtn_send_buffer[i_b].sent()) 
+        MPI_Wait(&phtn_send_request[i_b], MPI_STATUS_IGNORE);
+      //send one photon vector to finish off receives, these photons will not 
+      //be processed by the receiving ranks (all ranks are out of transport)
+      MPI_Isend(&one_photon[0], 1, MPI_Particle, adj_rank,
+        photon_tag, MPI_COMM_WORLD, &phtn_send_request[i_b]);
       n_sends_posted++;
-      phtn_send_request[i_b].wait();
+      MPI_Wait(&phtn_send_request[i_b], MPI_STATUS_IGNORE);
       n_sends_completed++;
     } // end loop over adjacent processors
   }
 
   // Wait for receive requests
   for (uint32_t i_b=0; i_b<n_adjacent; i_b++) {
-    phtn_recv_request[i_b].wait();
+    MPI_Wait(&phtn_recv_request[i_b], MPI_STATUS_IGNORE);
     n_receives_completed++;
   }
 
-  world.barrier();
+  MPI_Barrier(MPI_COMM_WORLD);
 
+  // Reduce diagnostic quantities
   uint64_t g_complete_messages=0;
   uint64_t g_photon_tests=0;
-  mpi::all_reduce(
-    world, n_complete_messages, g_complete_messages, std::plus<uint64_t>());
-  mpi::all_reduce(
-    world, n_photon_tests, g_photon_tests, std::plus<uint64_t>());
+  MPI_Allreduce(&n_complete_messages, &g_complete_messages, 1, MPI_UNSIGNED_LONG,
+    MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(&n_photon_tests, &g_photon_tests, 1, MPI_UNSIGNED_LONG,
+    MPI_SUM, MPI_COMM_WORLD);
 
   /*  
   if (rank==0) {
     cout<<"Total complete messages sent: "<<g_complete_messages<<endl;
     cout<<"Total photon message tests: "<<g_photon_tests<<endl;
   }
+  cout.flush();
   */
 
-  cout.flush();
   std::sort(census_list.begin(), census_list.end());
   //All ranks have now finished transport
   delete[] phtn_recv_request;

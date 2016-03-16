@@ -11,7 +11,6 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <omp.h>
 
 #include "constants.h"
 
@@ -27,7 +26,7 @@
 class Photon
 {
   public:
-  Photon() {m_census_flag=false;}
+  Photon() {m_census_flag=0;}
   ~Photon(void) {}
 
 /*****************************************************************************/
@@ -88,8 +87,7 @@ class Photon
   void set_E(const double& E) {m_E = E;}
 
   void set_census_flag(const bool& census_flag) {m_census_flag = census_flag;}
-  void set_distance_to_census(const double& dist_remain) 
-  { 
+  void set_distance_to_census(const double& dist_remain) { 
     m_life_dx = dist_remain;
   }
   void set_angle(double *angle) 
@@ -121,15 +119,15 @@ class Photon
 /* member variables and private functions                                    */
 /*****************************************************************************/
   private:
+  uint32_t m_census_flag; //! Flag for census, true if photon reaches census
+  uint32_t m_cell_ID; //! Cell ID
   double m_pos[3]; //! photon position
   double m_angle[3]; //! photon angle array
 
   double m_E; //! current photon energy
   double m_E0; //! photon energy at creation
-
-  uint32_t m_cell_ID; //! Cell ID
-  bool m_census_flag; //! Flag for census, true if photon reaches census
   double m_life_dx; //! Distance remaining this time step
+
 
   //private member functions
   private:

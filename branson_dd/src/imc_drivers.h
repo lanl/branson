@@ -4,7 +4,7 @@
   Name: imc_drivers.h
 */
 
-#include <boost/mpi.hpp>
+#include <mpi.h>
 #include <functional>
 #include <vector>
 
@@ -17,8 +17,6 @@
 #include "transport.h"
 #include "transport_particle_pass.h"
 #include "transport_mesh_pass.h"
-
-namespace mpi = boost::mpi;
 
 void imc_cell_pass_driver(const int& rank, 
                           Mesh *mesh, 
@@ -61,7 +59,7 @@ void imc_cell_pass_driver(const int& rank,
     //cell properties are set in calculate_photon_energy. 
     //make sure everybody gets here together so that windows are not changing 
     //when transport starts
-    world.barrier();
+    MPI_Barrier(MPI_COMM_WORLD);
 
     //transport photons
     census_photons = transport_mesh_pass(source, 
@@ -114,7 +112,8 @@ void imc_particle_pass_driver(const int& rank,
     //all reduce to get total source energy to make correct number of
     //particles on each rank
     double global_source_energy = mesh->get_total_photon_E();
-    global_source_energy = mpi::all_reduce(world, global_source_energy, std::plus<double>());
+    MPI_Allreduce(MPI_IN_PLACE, &global_source_energy, 1, MPI_DOUBLE,
+      MPI_SUM, MPI_COMM_WORLD);
 
     //make initial census photons
     //on subsequent timesteps, this comes from transport
@@ -134,8 +133,7 @@ void imc_particle_pass_driver(const int& rank,
                                               mesh, 
                                               imc_state, 
                                               imc_parameters,
-                                              abs_E, 
-                                              world);
+                                              abs_E);
           
     mesh->update_temperature(abs_E, imc_state);
     //update time for next step
