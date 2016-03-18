@@ -1,8 +1,11 @@
+#include <cmath>
 
-#include <stdlib.h>
+#ifndef testing_functions_h_
+#define testing_functions_h_
 
-template<typename T>
-bool soft_equiv(const T& a, const T& b, double tolerance ) {
-  using std::abs;
-  return  abs( a-b) < tolerance;
+bool soft_equiv(const double& a, const double& b, double tolerance ) {
+  double diff = a-b;
+  return  std::fabs(diff) < tolerance;
 }
+
+#endif // #ifndef testing_functions_h_

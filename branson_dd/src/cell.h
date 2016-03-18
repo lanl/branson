@@ -8,7 +8,7 @@
 #define cell_h_
 
 #include <iostream>
-#include <boost/mpi.hpp>
+#include <mpi.h>
 
 #include "RNG.h"
 #include "constants.h"
@@ -174,25 +174,6 @@ class Cell
   double T_e;   //! Material temperature
   double T_r;   //! Radiation temperature
   double T_s;   //! Source temperature
-
-  // serialization routine
-  friend class boost::serialization::access;
-  template<class Archive>
-  void serialize(Archive &ar, const uint32_t version)
-  {
-    ar & g_ID;
-    ar & e_next;
-    ar & bc;
-    ar & nodes;
-    ar & cV;
-    ar & op_a;
-    ar & op_s;
-    ar & f;
-    ar & rho;
-    ar & T_e;
-    ar & T_r;
-    ar & T_s;
-  }
 
 };
 

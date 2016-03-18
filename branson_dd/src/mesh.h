@@ -15,8 +15,6 @@
 #include "constants.h"
 #include "buffer.h"
 
-namespace mpi = boost::mpi;
-
 class Mesh {
 
   public:
@@ -38,6 +36,13 @@ class Mesh {
     double dx = input->get_dx();
     double dy = input->get_dy();
     double dz = input->get_dz();
+
+    // make off processor map
+    n_off_rank = n_rank -1;
+    for (uint32_t i=0; i<n_off_rank; i++) {
+      int r_index = i + int(i>=rank);
+      proc_map[i] = r_index;
+    }
 
     vector<bc_type> bc(6);
     bc[X_POS] = input->get_bc(X_POS); bc[X_NEG] = input->get_bc(X_NEG);
@@ -124,26 +129,23 @@ class Mesh {
     //define the MPI cell type used for MPI windows
     //make the MPI datatype for my cell class
     // Three type entries in the class
-    {
-      const int entry_count = 3 ; 
-      // 7 uint32_t, 6 int, 13 double
-      int array_of_block_length[4] = {8, 6, 14};
-      // Displacements of each type in the cell
-      MPI_Aint array_of_block_displace[3] = 
-        {0, 8*sizeof(uint32_t),  8*sizeof(uint32_t)+6*sizeof(int)};
-      //Type of each memory block
-      MPI_Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
+    const int entry_count = 3 ; 
+    // 7 uint32_t, 6 int, 13 double
+    int array_of_block_length[4] = {8, 6, 14};
+    // Displacements of each type in the cell
+    MPI_Aint array_of_block_displace[3] = 
+      {0, 8*sizeof(uint32_t),  8*sizeof(uint32_t)+6*sizeof(int)};
+    //Type of each memory block
+    MPI_Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
 
-      MPI_Datatype MPI_Cell;
-      MPI_Type_create_struct(entry_count, array_of_block_length, 
-        array_of_block_displace, array_of_types, &MPI_Cell);
+    MPI_Type_create_struct(entry_count, array_of_block_length, 
+      array_of_block_displace, array_of_types, &MPI_Cell);
+    MPI_Type_commit(&MPI_Cell);
 
-      MPI_Type_commit(&MPI_Cell);
-
-      MPI_Type_size(MPI_Cell, &mpi_cell_size);
-    }
+    MPI_Type_size(MPI_Cell, &mpi_cell_size);
 
     //Make the MPI_Particle type
+    /*
     {
       const int entry_count = 2 ; 
       // 7 uint32_t, 6 int, 13 double
@@ -164,24 +166,26 @@ class Mesh {
       int mpi_particle_size;
       MPI_Type_size(MPI_Particle, &mpi_particle_size);
     }
+    */
 
     //bool flags to say if data is needed
     need_data = vector<bool>(n_rank-1, false);
 
     //allocate mpi requests objects
-    r_cell_reqs = new mpi::request[n_rank-1];
-    r_id_reqs = new mpi::request[n_rank-1];
-    s_cell_reqs = new mpi::request[n_rank-1];
-    s_id_reqs = new mpi::request[n_rank-1];
+    r_cell_reqs = new MPI_Request[n_off_rank];
+    r_id_reqs = new MPI_Request[n_off_rank];
+    s_cell_reqs = new MPI_Request[n_off_rank];
+    s_id_reqs = new MPI_Request[n_off_rank];
    
-    recv_cell_buffer = vector<Buffer<Cell> >(n_rank-1);
-    send_cell_buffer = vector<Buffer<Cell> >(n_rank-1);
-    recv_id_buffer =  vector<Buffer<uint32_t> >(n_rank-1);
-    send_id_buffer =  vector<Buffer<uint32_t> >(n_rank-1);
+    recv_cell_buffer = vector<Buffer<Cell> >(n_off_rank);
+    send_cell_buffer = vector<Buffer<Cell> >(n_off_rank);
+    recv_id_buffer =  vector<Buffer<uint32_t> >(n_off_rank);
+    send_id_buffer =  vector<Buffer<uint32_t> >(n_off_rank);
 
+    n_send_ids = vector<int32_t>(n_off_rank);
     // size the send and receive buffers
-    // they are size n_rank -1
-    for (uint32_t ir=0; ir<n_rank-1; ir++) {
+    // they are size n_off_rank
+    for (uint32_t ir=0; ir<n_off_rank; ir++) {
       vector<uint32_t> empty_vec_ids;
       //ids needed from other ranks
       ids_needed.push_back(empty_vec_ids); 
@@ -216,10 +220,6 @@ class Mesh {
   void post_decomp_print(void) const {
     for (uint32_t i= 0; i<n_cell; i++) 
       cells[i].print();
-  }
-
-  void get_MPI_particle_type(MPI_Datatype& _mpi_particle) {
-    _mpi_particle = MPI_Particle;
   }
 
   std::map<uint32_t, uint32_t> get_map(void) const {
@@ -507,8 +507,7 @@ class Mesh {
 
 
 
-  bool process_mesh_requests(mpi::communicator world,
-                              uint32_t& n_cell_messages,
+  bool process_mesh_requests(uint32_t& n_cell_messages,
                               uint32_t& n_cells_sent,
                               uint32_t& n_sends_posted,
                               uint32_t& n_sends_completed,
@@ -518,197 +517,203 @@ class Mesh {
     using Constants::cell_id_tag;
     using std::vector;
 
+    const uint32_t n_max_id_recv(5000);
     bool new_data = false;
-    for (uint32_t ir=0; ir<n_rank; ir++) {
-      if (ir != rank) {
-        //get correct index into requests and vectors 
-        uint32_t r_index = ir - (ir>rank);
-        
-        ////////////////////////////////////////////////////////////////////////
-        // if you need data from this rank, process request
-        ////////////////////////////////////////////////////////////////////////
-        if (need_data[r_index]) {
-  
-          //test completion of send/receives
-          if (recv_cell_buffer[r_index].awaiting()) {
-            if (r_cell_reqs[r_index].test()) {
-              n_receives_completed++;
-              recv_cell_buffer[r_index].set_received();
-            }
-          }
-          if (send_id_buffer[r_index].sent()) {
-            if (s_id_reqs[r_index].test()) {
-              n_sends_completed++;
-              send_id_buffer[r_index].reset();
-            }
-          }
+    int off_rank;
+    uint32_t n_req_cells;
+    uint32_t n_send_cells;
+    MPI_Status mpi_recv_ids_status;
+    for (uint32_t ir=0; ir<n_off_rank; ir++) {
+      off_rank = proc_map[ir]; 
+      ////////////////////////////////////////////////////////////////////////
+      // if you need data from this rank, process request
+      ////////////////////////////////////////////////////////////////////////
+      if (need_data[ir]) {
 
-          // if receive buffer is empty, all receive processing has completed
-          // a new send id receive cell cycle can begin
-          if (recv_cell_buffer[r_index].empty() ) {
-            //copy needed cells to the send buffer
-            send_id_buffer[r_index].fill(ids_needed[r_index]);
-            //send to ir
-            s_id_reqs[r_index] = 
-              world.isend(ir, cell_id_tag, send_id_buffer[r_index].get_object());
-            n_sends_posted++;
-            send_id_buffer[r_index].set_sent();
-            // clear requested cell ids 
-            // (requested cells will not be requested again)
-            // because they are still stored in requested_ids set
-            ids_needed[r_index].clear();
-            //post receive
-            r_cell_reqs[r_index] = 
-              world.irecv(ir, cell_tag, recv_cell_buffer[r_index].get_object());
-            n_receives_posted++;
-            recv_cell_buffer[r_index].set_awaiting();
-          }
-          // if send id buffer has completed and cell buffer has receieved, 
-          // process received data
-          if (send_id_buffer[r_index].empty() && recv_cell_buffer[r_index].received()) {
-            //reset need_data flag if there is no more data needed
-            if (ids_needed[r_index].empty()) need_data[r_index] = false;
-            new_data = true;
-
-            //add received cells to working mesh
-            vector<Cell> r_cells = recv_cell_buffer[r_index].get_object();
-            for (uint32_t i=0; i<r_cells.size();i++) {
-              uint32_t index = r_cells[i].get_ID();
-              //add this cell to the map, if possible, otherwise manage map
-              if (stored_cells.size() < max_map_size) 
-                stored_cells[index] = r_cells[i];
-              else {
-                //remove from map and from requests so it can be 
-                // reqeusted again if needed
-                uint32_t removed_id = (stored_cells.begin())->first ;
-                ids_requested.erase(removed_id);
-                stored_cells.erase(stored_cells.begin());
-                stored_cells[index] = r_cells[i];
-              }
-            } // for i in r_cells[r_index]
-            recv_cell_buffer[r_index].reset();
-          } // if recv_cell_buffer[r_index].received()
-        } // if need_data[r_index]
-
-
-        ////////////////////////////////////////////////////////////////////////
-        // receiving cell ids needed by other ranks (post receives to all)
-        ////////////////////////////////////////////////////////////////////////
-        // check to see if cell ids received  and send has completed
-        if ( recv_id_buffer[r_index].empty() &&
-             send_cell_buffer[r_index].empty()) {
-          r_id_reqs[r_index] =
-            world.irecv( ir, cell_id_tag, recv_id_buffer[r_index].get_object());
-          n_receives_posted++;
-          recv_id_buffer[r_index].set_awaiting();
-        }
-
-        // add cell ids to requested for a rank
-        if (recv_id_buffer[r_index].received()) {
-          //make cell send list for this rank
-          vector<uint32_t> r_ids = recv_id_buffer[r_index].get_object();
-          vector<Cell> s_cell;
-          for (uint32_t i=0; i<r_ids.size();i++)
-            s_cell.push_back(cells[r_ids[i]]);
-          send_cell_buffer[r_index].fill(s_cell);
-          s_cell_reqs[r_index] = 
-            world.isend( ir, cell_tag, send_cell_buffer[r_index].get_object());
-          n_sends_posted++;
-          n_cell_messages++;
-          n_cells_sent+=s_cell.size();
-          send_cell_buffer[r_index].set_sent();
-          //reset receive buffer
-          recv_id_buffer[r_index].reset();
-        }
-   
-        // test receive id buffer
-        if (recv_id_buffer[r_index].awaiting()) {
-          if (r_id_reqs[r_index].test()) {
+        //test completion of send/receives
+        if (recv_cell_buffer[ir].awaiting()) {
+          MPI_Test(&r_cell_reqs[ir], &r_cell_req_flag, MPI_STATUS_IGNORE);
+          if (r_cell_req_flag) {
             n_receives_completed++;
-            recv_id_buffer[r_index].set_received();
+            recv_cell_buffer[ir].set_received();
           }
         }
-        //test send cell buffer
-        if (send_cell_buffer[r_index].sent()) {
-          if (s_cell_reqs[r_index].test()) {
+        if (send_id_buffer[ir].sent()) {
+          MPI_Test(&s_id_reqs[ir], &s_id_req_flag, MPI_STATUS_IGNORE);
+          if (s_id_req_flag) {
             n_sends_completed++;
-            send_cell_buffer[r_index].reset();
+            send_id_buffer[ir].reset();
           }
         }
-      } //if (ir != rank)
-    } //for ir in rank
+
+        // if receive buffer is empty, all receive processing has completed
+        // a new send id receive cell cycle can begin
+        if (recv_cell_buffer[ir].empty() ) {
+          //copy needed cells to the send buffer
+          send_id_buffer[ir].fill(ids_needed[ir]);
+          // get the number of cells for proper receiving
+          n_req_cells = ids_needed[ir].size();
+          //send to off_rank
+          MPI_Isend(send_id_buffer[ir].get_buffer(), n_req_cells, MPI_UNSIGNED,
+            off_rank, cell_id_tag, MPI_COMM_WORLD, &s_id_reqs[ir]);
+          n_sends_posted++;
+          send_id_buffer[ir].set_sent();
+          // clear requested cell ids 
+          // (requested cells will not be requested again)
+          // because they are still stored in requested_ids set
+          ids_needed[ir].clear();
+          //post receive
+          recv_cell_buffer[ir].resize(n_req_cells);
+          MPI_Irecv(recv_cell_buffer[ir].get_buffer(), n_req_cells, MPI_Cell,
+            off_rank, cell_tag, MPI_COMM_WORLD, &r_cell_reqs[ir]);
+          n_receives_posted++;
+          recv_cell_buffer[ir].set_awaiting();
+        }
+
+        // if send id buffer has completed and cell buffer has receieved, 
+        // process received data
+        if (send_id_buffer[ir].empty() && recv_cell_buffer[ir].received()) {
+          //reset need_data flag if there is no more data needed
+          if (ids_needed[ir].empty()) need_data[ir] = false;
+          new_data = true;
+
+          //add received cells to working mesh
+          vector<Cell> r_cells = recv_cell_buffer[ir].get_object();
+          for (uint32_t i=0; i<r_cells.size();i++) {
+            uint32_t index = r_cells[i].get_ID();
+            //add this cell to the map, if possible, otherwise manage map
+            if (stored_cells.size() < max_map_size) 
+              stored_cells[index] = r_cells[i];
+            else {
+              //remove from map and from requests so it can be 
+              // reqeusted again if needed
+              uint32_t removed_id = (stored_cells.begin())->first ;
+              ids_requested.erase(removed_id);
+              stored_cells.erase(stored_cells.begin());
+              stored_cells[index] = r_cells[i];
+            }
+          } // for i in r_cells[ir]
+          recv_cell_buffer[ir].reset();
+        } // if recv_cell_buffer[ir].received()
+      } // if need_data[ir]
+
+
+      ////////////////////////////////////////////////////////////////////////
+      // receiving cell ids needed by other ranks (post receives to all)
+      ////////////////////////////////////////////////////////////////////////
+      // check to see if cell ids received  and send has completed
+      if ( recv_id_buffer[ir].empty() &&
+           send_cell_buffer[ir].empty()) {
+        recv_id_buffer[ir].resize(n_max_id_recv);
+        MPI_Irecv(recv_id_buffer[ir].get_buffer(), n_max_id_recv, MPI_UNSIGNED,
+          off_rank, cell_id_tag, MPI_COMM_WORLD, &r_id_reqs[ir]);
+        n_receives_posted++;
+        recv_id_buffer[ir].set_awaiting();
+      }
+
+      // add cell ids to requested for a rank
+      if (recv_id_buffer[ir].received()) {
+        n_send_cells = n_send_ids[ir];
+        //make cell send list for this rank
+        vector<uint32_t> r_ids = recv_id_buffer[ir].get_object();
+        vector<Cell> s_cell;
+        for (uint32_t i=0; i<n_send_cells;i++)
+          s_cell.push_back(cells[r_ids[i]]);
+        send_cell_buffer[ir].fill(s_cell);
+        MPI_Isend(send_cell_buffer[ir].get_buffer(), n_send_cells, MPI_Cell,
+          off_rank, cell_tag, MPI_COMM_WORLD, &s_cell_reqs[ir]);
+        n_sends_posted++;
+        n_cell_messages++;
+        n_cells_sent+=s_cell.size();
+        send_cell_buffer[ir].set_sent();
+        //reset receive buffer
+        recv_id_buffer[ir].reset();
+      }
+ 
+      // test receive id buffer
+      if (recv_id_buffer[ir].awaiting()) {
+        MPI_Test(&r_id_reqs[ir], &r_id_req_flag, &mpi_recv_ids_status);
+        if (r_id_req_flag) {
+          MPI_Get_count(&mpi_recv_ids_status, MPI_UNSIGNED, &n_send_ids[ir]);
+          n_receives_completed++;
+          recv_id_buffer[ir].set_received();
+        }
+      }
+      //test send cell buffer
+      if (send_cell_buffer[ir].sent()) {
+        MPI_Test(&s_cell_reqs[ir], &s_cell_req_flag, MPI_STATUS_IGNORE);
+        if (s_cell_req_flag) {
+          n_sends_completed++;
+          send_cell_buffer[ir].reset();
+        }
+      }
+    } //for ir in n_off_rank
     return new_data;
   }
-
 
   void purge_working_mesh(void) {
     stored_cells.clear(); ghost_cells.clear();
     ids_requested.clear();  
   }
 
-  void finish_mesh_pass_messages(mpi::communicator world,
-                                uint32_t& n_sends_posted,
+  void finish_mesh_pass_messages(uint32_t& n_sends_posted,
                                 uint32_t& n_sends_completed,
                                 uint32_t& n_receives_posted,
                                 uint32_t& n_receives_completed) {
     using Constants::cell_id_tag;
     using std::vector;
     //post receives for ids to all ranks
-    for (uint32_t ir=0; ir<n_rank; ir++) {
-      if (ir != rank) {
-        //get correct index into requests and vectors 
-        uint32_t r_index = ir - (ir>rank);
-        //if receive buffer is not awaiting, post receive
-        if (!recv_id_buffer[r_index].awaiting()) {
-          recv_id_buffer[r_index].reset();
-          r_id_reqs[r_index] = 
-              world.irecv(ir, cell_id_tag, recv_id_buffer[r_index].get_object());
-          recv_id_buffer[r_index].set_awaiting();
-          n_receives_posted++;
-        }
+    for (uint32_t ir=0; ir<n_off_rank; ir++) {
+      //get correct index into requests and vectors 
+      int off_rank = proc_map[ir];
+      //if receive buffer is not awaiting, post receive
+      if (!recv_id_buffer[ir].awaiting()) {
+        recv_id_buffer[ir].reset();
+        recv_id_buffer[ir].resize(1);
+        MPI_Irecv(recv_id_buffer[ir].get_buffer(), 1, MPI_UNSIGNED,
+          off_rank, cell_id_tag, MPI_COMM_WORLD, &r_id_reqs[ir]);
+        recv_id_buffer[ir].set_awaiting();
+        n_receives_posted++;
       }
     }
     
     //send empty cell id vector to all ranks 
-    for (uint32_t ir=0; ir<n_rank; ir++) {
-      if (ir != rank) {
-        //get correct index into requests and vectors 
-        uint32_t r_index = ir - (ir>rank);
-        //make sure sent cell id messages have completed
-        if (send_cell_buffer[r_index].sent()) {
-          s_cell_reqs[r_index].wait();
-          n_sends_completed++;
-        }
-        send_cell_buffer[r_index].reset();
-        //make sure sent id messages have completed
-        if (send_id_buffer[r_index].sent()) {
-          s_id_reqs[r_index].wait();
-          n_sends_completed++;
-        }
-        //send empty id message to finish awaiting receives
-        vector<uint32_t> empty_id_vector;
-        send_id_buffer[r_index].fill(empty_id_vector);
-        s_id_reqs[r_index] = 
-          world.isend(ir, cell_id_tag, send_id_buffer[r_index].get_object());
-        n_sends_posted++;
-        //wait for message to send
-        s_id_reqs[r_index].wait();
+    for (uint32_t ir=0; ir<n_off_rank; ir++) {
+      //get correct index into requests and vectors 
+      int off_rank = proc_map[ir];
+      //make sure sent cell id messages have completed
+      if (send_cell_buffer[ir].sent()) {
+        MPI_Wait(&s_cell_reqs[ir], MPI_STATUS_IGNORE);
         n_sends_completed++;
-        //reset send if buffer
-        send_id_buffer[r_index].reset();
       }
+      send_cell_buffer[ir].reset();
+      //make sure sent id messages have completed
+      if (send_id_buffer[ir].sent()) {
+        MPI_Wait(&s_id_reqs[ir], MPI_STATUS_IGNORE);
+        n_sends_completed++;
+      }
+      //send empty id message to finish awaiting receives
+      vector<uint32_t> empty_id_vector;
+      send_id_buffer[ir].fill(empty_id_vector);
+      MPI_Isend(send_id_buffer[ir].get_buffer(), 1, MPI_UNSIGNED,
+        off_rank, cell_id_tag, MPI_COMM_WORLD, &s_id_reqs[ir]);
+      n_sends_posted++;
+      //wait for message to send
+      MPI_Wait(&s_id_reqs[ir], MPI_STATUS_IGNORE);
+      n_sends_completed++;
+      //reset send if buffer
+      send_id_buffer[ir].reset();
     }
 
     //wait for id receives to complete 
-    for (uint32_t ir=0; ir<n_rank; ir++) {
-      if (ir != rank) {
-        //get correct index into requests and vectors 
-        uint32_t r_index = ir - (ir>rank);
-        //wait for receives to complete
-        r_id_reqs[r_index].wait();
-        n_receives_completed++;
-        recv_id_buffer[r_index].reset();
-      }
+    for (uint32_t ir=0; ir<n_off_rank; ir++) {
+      //get correct index into requests and vectors 
+      int off_rank = proc_map[ir];
+      //make sure sent cell id messages have completed
+      //wait for receives to complete
+      MPI_Wait(&r_id_reqs[ir], MPI_STATUS_IGNORE);
+      n_receives_completed++;
+      recv_id_buffer[ir].reset();
     }
   }
 
@@ -732,6 +737,7 @@ class Mesh {
   uint32_t ngz; //! Number of global z sizes
   uint32_t rank; //! MPI rank of this mesh
   uint32_t n_rank; //! Number of global ranks
+  uint32_t n_off_rank; //! Number of other ranks
 
   uint32_t n_cell; //! Number of local cells
   uint32_t n_global; //! Nuber of global cells
@@ -760,7 +766,6 @@ class Mesh {
   double total_photon_E; //! Total photon energy on the mesh
 
   MPI_Datatype MPI_Cell; //! MPI type, allows simpler parallel communication
-  MPI_Datatype MPI_Particle; //! MPI type, allows simpler parallel communication
   int32_t mpi_cell_size; //! Size of custom MPI_Cell type
   int32_t mpi_particle_size; //! Size of custom MPI_Particle type
 
@@ -777,15 +782,24 @@ class Mesh {
   std::vector<bool> need_data; //! Vector of size nrank-1, flag for needed data from rank
 
   // MPI requests for non-blocking cell communication
-  mpi::request* r_cell_reqs; //! Received cell requests
-  mpi::request* s_cell_reqs; //! Send cell requests
-  mpi::request* r_id_reqs; //! Received cell ID requests
-  mpi::request* s_id_reqs; //! Send cell ID requests
+  MPI_Request *r_cell_reqs; //! Received cell requests
+  MPI_Request *s_cell_reqs; //! Send cell requests
+  MPI_Request *r_id_reqs; //! Received cell ID requests
+  MPI_Request *s_id_reqs; //! Send cell ID requests
+
+  //flags for MPI request testing
+  int r_cell_req_flag; //! Flag for received cell communications
+  int s_cell_req_flag; //! Flag for sent cell communications
+  int r_id_req_flag;  //! Flag for received cell indices
+  int s_id_req_flag; //! Flag for send cell indices
 
   std::map<uint32_t, Cell> stored_cells; //! Cells that have been accessed off rank
   std::map<uint32_t, Cell> ghost_cells; //! Static list of off-rank cells next to boundary
 
-  std::vector<std::vector<uint32_t> > ids_needed ; //! Cell needed by this rank
+  std::map<int,int> proc_map; //! Maps number of off-rank processor to global rank
+
+  std::vector<std::vector<uint32_t> > ids_needed; //! Cell needed by this rank
+  std::vector<int32_t > n_send_ids; //! Number of IDs to send
   std::set<uint32_t> ids_requested; //! IDs that have been requested
 
 };

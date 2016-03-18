@@ -10,19 +10,18 @@
 #include "../input.h"
 #include "testing_functions.h"
 
-namespace mpi = boost::mpi;
-
 using std::cout;
 using std::endl;
 using std::string;
 
-
 int main (int argc, char *argv[]) {
 
-  mpi::environment env(argc, argv);
-  mpi::communicator world;
+  MPI_Init(&argc, &argv);
+  
+  int rank, n_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
-  int rank = world.rank();
   int nfail = 0;
   
   // test get functions
@@ -137,7 +136,7 @@ int main (int argc, char *argv[]) {
 
     imc_state.set_step_particles_sent(big_32_bit_number);
     
-    imc_state.print_conservation(0, world);
+    imc_state.print_conservation(0);
     
     if (imc_state.get_total_particles_sent() != combined_64_bit_number)
       large_reduction_pass = false;
@@ -149,6 +148,8 @@ int main (int argc, char *argv[]) {
     }
     delete input;
   }
+
+  MPI_Finalize();
 
   return nfail;
 }

@@ -11,14 +11,12 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <boost/mpi.hpp>
+#include <mpi.h>
 
 #include "input.h"
 #include "photon.h"
 #include "constants.h"
 #include "RNG.h"
-
-namespace mpi = boost::mpi;
 
 class IMC_State
 {
@@ -108,7 +106,7 @@ class IMC_State
 /*****************************************************************************/
 /* non-const functions                                                       */
 /*****************************************************************************/
-  void print_conservation(uint32_t dd_type, mpi::communicator world ) {
+  void print_conservation(uint32_t dd_type) {
     using std::cout;
     using std::endl;
     using std::plus;
@@ -138,29 +136,29 @@ class IMC_State
     uint32_t g_step_receives_completed=0;
 
     //reduce energy conservation values (double)
-    mpi::all_reduce(world,absorbed_E, g_absorbed_E, plus<double>() );
-    mpi::all_reduce(world,emission_E, g_emission_E, plus<double>() );
-    mpi::all_reduce(world,pre_census_E, g_pre_census_E, plus<double>() );
-    mpi::all_reduce(world,pre_mat_E, g_pre_mat_E, plus<double>());
-    mpi::all_reduce(world,post_census_E, g_post_census_E, plus<double>());
-    mpi::all_reduce(world,post_mat_E, g_post_mat_E, plus<double>());
-    mpi::all_reduce(world,exit_E, g_exit_E, plus<double>());
+    MPI_Allreduce(&absorbed_E, &g_absorbed_E, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD); 
+    MPI_Allreduce(&emission_E, &g_emission_E, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD); 
+    MPI_Allreduce(&pre_census_E, &g_pre_census_E, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&pre_mat_E, &g_pre_mat_E, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&post_census_E, &g_post_census_E, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&post_mat_E, &g_post_mat_E, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&exit_E, &g_exit_E, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     // reduce diagnostic values
     // 64 bit integer reductions
-    mpi::all_reduce(world, trans_particles, g_trans_particles, plus<uint64_t>());
-    mpi::all_reduce(world, step_particles_sent, g_step_particles_sent, plus<uint64_t>());
-    mpi::all_reduce(world, census_size, g_census_size, plus<uint64_t>());
+    MPI_Allreduce(&trans_particles, &g_trans_particles, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&step_particles_sent, &g_step_particles_sent, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&census_size, &g_census_size, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
 
     // 32 bit integer reductions
-    mpi::all_reduce(world, step_cells_requested, g_step_cells_requested, plus<uint32_t>());
-    mpi::all_reduce(world, step_particle_messages, g_step_particle_messages, plus<uint32_t>());
-    mpi::all_reduce(world, step_cell_messages, g_step_cell_messages, plus<uint32_t>());
-    mpi::all_reduce(world, step_cells_sent, g_step_cells_sent, plus<uint32_t>());
-    mpi::all_reduce(world, step_sends_posted, g_step_sends_posted, plus<uint32_t>());
-    mpi::all_reduce(world, step_sends_completed, g_step_sends_completed, plus<uint32_t>());
-    mpi::all_reduce(world, step_receives_posted, g_step_receives_posted, plus<uint32_t>());
-    mpi::all_reduce(world, step_receives_completed, g_step_receives_completed, plus<uint32_t>());
+    MPI_Allreduce(&step_cells_requested, &g_step_cells_requested, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&step_particle_messages, &g_step_particle_messages, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&step_cell_messages, &g_step_cell_messages, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&step_cells_sent, &g_step_cells_sent, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&step_sends_posted, &g_step_sends_posted, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&step_sends_completed, &g_step_sends_completed, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&step_receives_posted, &g_step_receives_posted, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&step_receives_completed, &g_step_receives_completed, 1, MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
     
     double rad_conservation = (g_absorbed_E + g_post_census_E + g_exit_E) - 
       (g_pre_census_E + g_emission_E + source_E);

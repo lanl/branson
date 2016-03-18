@@ -19,7 +19,6 @@
 #include "RNG.h"
 #include "sampling_functions.h"
 
-namespace mpi = boost::mpi;
 
 Constants::event_type transport_photon_mesh_pass(Photon& phtn,
                               Mesh* mesh,
@@ -135,8 +134,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
                                         Mesh* mesh,
                                         IMC_State* imc_state,
                                         IMC_Parameters* imc_parameters,
-                                        std::vector<double>& rank_abs_E,
-                                        mpi::communicator world)
+                                        std::vector<double>& rank_abs_E)
 {
   using Constants::finish_tag;
   using std::queue;
@@ -159,8 +157,9 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   RNG *rng = imc_state->get_rng();
   Photon phtn;
 
-  int n_rank =world.size();
-  int rank   =world.rank();
+  int rank, n_rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
   // parallel event counters
   uint32_t n_cell_messages=0; //! Number of cell messages
@@ -194,39 +193,45 @@ std::vector<Photon> transport_mesh_pass(Source& source,
 
 
   //Message requests for finished flags
-  mpi::request c1_recv_request;
-  mpi::request c2_recv_request;
-  mpi::request p_recv_request;
-  mpi::request c1_send_request;
-  mpi::request c2_send_request; 
-  mpi::request p_send_request;
+  MPI_Request c1_recv_request;
+  MPI_Request c2_recv_request;
+  MPI_Request p_recv_request;
+  MPI_Request c1_send_request;
+  MPI_Request c2_send_request; 
+  MPI_Request p_send_request;
 
   //Buffers for finished flags
-  Buffer<bool> c1_recv_buffer;
-  Buffer<bool> c2_recv_buffer;
-  Buffer<bool> p_recv_buffer;
-  Buffer<bool> c1_send_buffer;
-  Buffer<bool> c2_send_buffer;
-  Buffer<bool> p_send_buffer;
+  Buffer<int> c1_recv_buffer;
+  Buffer<int> c2_recv_buffer;
+  Buffer<int> p_recv_buffer;
+  Buffer<int> c1_send_buffer;
+  Buffer<int> c2_send_buffer;
+  Buffer<int> p_send_buffer;
 
   // finished message propagates from children to parent, then back down the
   // tree
 
-  //post finish message receives from children and parents
-  if (parent != proc_null) {
-    p_recv_request = world.irecv(parent, finish_tag, p_recv_buffer.get_object() );
-    n_receives_posted++;
-    p_recv_buffer.set_awaiting();
-  }
-  if (child1 != proc_null) {
-    c1_recv_request = world.irecv(child1, finish_tag, c1_recv_buffer.get_object() );
+  //post receives for finish message receives from children and parents
+  if (child1!=proc_null) {
+    c1_recv_buffer.resize(1);
+    MPI_Irecv(c1_recv_buffer.get_buffer(), 1, MPI_INT, child1,
+      finish_tag, MPI_COMM_WORLD, &c1_recv_request);
     n_receives_posted++;
     c1_recv_buffer.set_awaiting();
   }
-  if (child2 != proc_null) {
-    c2_recv_request = world.irecv(child2, finish_tag, c2_recv_buffer.get_object() );
+  if (child2!=proc_null) {
+    c2_recv_buffer.resize(1);
+    MPI_Irecv(c2_recv_buffer.get_buffer(), 1, MPI_INT, child2,
+      finish_tag, MPI_COMM_WORLD, &c2_recv_request);
     n_receives_posted++;
     c2_recv_buffer.set_awaiting();
+  }
+  if (parent != proc_null) {
+    p_recv_buffer.resize(1);
+    MPI_Irecv(p_recv_buffer.get_buffer(), 1, MPI_INT, parent,
+      finish_tag, MPI_COMM_WORLD, &p_recv_request);
+    n_receives_posted++;
+    p_recv_buffer.set_awaiting();
   }
 
   // New data flag is initially false
@@ -276,9 +281,9 @@ std::vector<Photon> transport_mesh_pass(Source& source,
     } // end batch transport
 
     //process mesh requests
-    new_data = mesh->process_mesh_requests(world, n_cell_messages, n_cells_sent,
-                                            n_sends_posted, n_sends_completed,
-                                            n_receives_posted, n_receives_completed);
+    new_data = mesh->process_mesh_requests(n_cell_messages, n_cells_sent,
+      n_sends_posted, n_sends_completed,
+      n_receives_posted, n_receives_completed);
     // if data was received, try to transport photons on waiting list
     if (new_data) {
       wait_list_size = wait_list.size();
@@ -309,9 +314,9 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   // Main transport loop finished, transport photons waiting for data
   ////////////////////////////////////////////////////////////////////////
   while (!wait_list.empty()) {
-    new_data = mesh->process_mesh_requests(world, n_cell_messages, n_cells_sent,
-                                            n_sends_posted, n_sends_completed,
-                                            n_receives_posted, n_receives_completed);
+    new_data = mesh->process_mesh_requests(n_cell_messages, n_cells_sent,
+      n_sends_posted, n_sends_completed,
+      n_receives_posted, n_receives_completed);
     // if new data received, transport waiting list 
     if (new_data) {
       wait_list_size = wait_list.size();
@@ -340,32 +345,36 @@ std::vector<Photon> transport_mesh_pass(Source& source,
     }
   } //end while wait_list not empty
 
-  vector<bool> s_bool(1,true);
+  vector<int> s_finished(1,true);
 
   ////////////////////////////////////////////////////////////////////////
   // While waiting for other ranks to finish, check for other messages
   ////////////////////////////////////////////////////////////////////////
+  int c1_recv_flag, c2_recv_flag, p_recv_flag;
   bool c1_finished = false || child1==proc_null;
   bool c2_finished = false || child2==proc_null;
   bool p_finished  = false || parent==proc_null;
 
   while (!((c1_finished && c2_finished) && p_finished)) {
     if (c1_recv_buffer.awaiting()) {
-      if (c1_recv_request.test()) {
+      MPI_Test(&c1_recv_request, &c1_recv_flag, MPI_STATUS_IGNORE); 
+      if (c1_recv_flag) {
         n_receives_completed++;
         c1_recv_buffer.set_received();
         c1_finished = c1_recv_buffer.get_object()[0];
       }
     }
     if (c2_recv_buffer.awaiting()) {
-      if (c2_recv_request.test()) {
+      MPI_Test(&c2_recv_request, &c2_recv_flag, MPI_STATUS_IGNORE);
+      if (c2_recv_flag) {
         n_receives_completed++;
         c2_recv_buffer.set_received();
         c2_finished = c2_recv_buffer.get_object()[0];
       }
     }
     if (p_recv_buffer.awaiting()) {
-      if (p_recv_request.test()) {
+      MPI_Test(&p_recv_request, &p_recv_flag, MPI_STATUS_IGNORE);
+      if (p_recv_flag) {
         n_receives_completed++;
         p_recv_buffer.set_received();
         p_finished = p_recv_buffer.get_object()[0];
@@ -375,46 +384,50 @@ std::vector<Photon> transport_mesh_pass(Source& source,
     // if children complete or terminating branch, send to parent (only once)
     if ((c1_finished && c2_finished) && 
         (parent != proc_null && !p_send_buffer.sent()) ) {
-      p_send_buffer.fill(s_bool);
-      p_send_request = world.isend(parent, finish_tag, p_send_buffer.get_object());
+      p_send_buffer.fill(s_finished);
+      MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_INT, parent, finish_tag, 
+        MPI_COMM_WORLD, &p_send_request);
       n_sends_posted++;
       p_send_buffer.set_sent();
     }
     
-    mesh->process_mesh_requests(world, n_cell_messages, n_cells_sent,
+    mesh->process_mesh_requests(n_cell_messages, n_cells_sent,
                                 n_sends_posted, n_sends_completed,
                                 n_receives_posted, n_receives_completed);
   } //end while
 
   // wait for completion of send
   if (p_send_buffer.sent()) {
-    p_send_request.wait();
+    MPI_Wait(&p_send_request, MPI_STATUS_IGNORE);
     n_sends_completed++;
   }
 
   //send complete message down the tree
   if (child1 != proc_null) { 
-    c1_send_buffer.fill(s_bool);
-    c1_send_request = world.isend(child1, finish_tag, c1_send_buffer.get_object());
+    c1_send_buffer.fill(s_finished);
+    MPI_Isend(c1_send_buffer.get_buffer(), 1, MPI_INT, child1, finish_tag, 
+      MPI_COMM_WORLD, &c1_send_request);
     n_sends_posted++;
-    c1_send_request.wait();
+    MPI_Wait(&c1_send_request, MPI_STATUS_IGNORE);
     n_sends_completed++;
   }
   if (child2 != proc_null)  {
-    c2_send_buffer.fill(s_bool);
-    c2_send_request = world.isend(child2, finish_tag, c2_send_buffer.get_object());
+    c2_send_buffer.fill(s_finished);
+    MPI_Isend(c2_send_buffer.get_buffer(), 1, MPI_INT, child2, finish_tag, 
+      MPI_COMM_WORLD, &c2_send_request);
     n_sends_posted++;
-    c2_send_request.wait();
+    MPI_Wait(&c2_send_request, MPI_STATUS_IGNORE);
     n_sends_completed++;
   }
 
   //wait for all ranks to finish transport to finish off cell and cell id
   //requests and sends
-  world.barrier();
-  mesh->finish_mesh_pass_messages(world, n_sends_posted, n_sends_completed,
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  mesh->finish_mesh_pass_messages(n_sends_posted, n_sends_completed,
                                   n_receives_posted, n_receives_completed);
 
-  world.barrier();
+  MPI_Barrier(MPI_COMM_WORLD);
 
   //All ranks have now finished transport
 

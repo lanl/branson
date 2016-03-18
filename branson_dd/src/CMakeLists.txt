@@ -51,10 +51,10 @@ link_directories($ENV{PARMETIS_LIB_DIR})
 
 message("Boost from: " $ENV{BOOST_ROOT})
 set(Boost_INCLUDE_DIR $ENV{BOOST_ROOT}/include)
-set(Boost_LIBRARY_DIR $ENV{BOOST_ROOT}/lib)
+#set(Boost_LIBRARY_DIR $ENV{BOOST_ROOT}/lib)
 
 include_directories(${Boost_INCLUDE_DIR})
-link_directories(${Boost_LIBRARY_DIR})
+#link_directories(${Boost_LIBRARY_DIR})
 
 ###############################################################################
 # Configure executable
@@ -62,15 +62,14 @@ link_directories(${Boost_LIBRARY_DIR})
 add_executable(BRANSON main.cc)
 target_link_libraries(BRANSON parmetis)
 target_link_libraries(BRANSON metis)
-target_link_libraries(BRANSON boost_mpi-mt)
-target_link_libraries(BRANSON boost_serialization-mt)
-target_link_libraries(BRANSON boost_wserialization-mt)
+#target_link_libraries(BRANSON boost_mpi-mt)
+#target_link_libraries(BRANSON boost_serialization-mt)
+#target_link_libraries(BRANSON boost_wserialization-mt)
 
 enable_testing()
 
 add_subdirectory(test)
 # Define variables needed to compile and link unit test executables
 get_directory_property(Boost_INCLUDE_DIR DIRECTORY test VARIABLES Boost_INCLUDE_DIR)
-get_directory_property(Boost_LIB_DIR DIRECTORY test VARIABLES Boost_LIB_DIR)
 
 #install(TARGETS BRANSON DESTINATION bin)

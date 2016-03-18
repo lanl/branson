@@ -3,6 +3,8 @@
   Date: 12/1/2015
   Name: imc_drivers.h
 */
+#ifndef imc_drivers_h_
+#define imc_drivers_h_
 
 #include <mpi.h>
 #include <functional>
@@ -21,8 +23,7 @@
 void imc_cell_pass_driver(const int& rank, 
                           Mesh *mesh, 
                           IMC_State *imc_state,
-                          IMC_Parameters *imc_parameters,
-                          mpi::communicator world) {
+                          IMC_Parameters *imc_parameters) {
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
@@ -37,7 +38,8 @@ void imc_cell_pass_driver(const int& rank,
     //all reduce to get total source energy to make correct number of
     //particles on each rank
     double global_source_energy = mesh->get_total_photon_E();
-    global_source_energy = mpi::all_reduce(world, global_source_energy, std::plus<double>());
+    MPI_Allreduce(MPI_IN_PLACE, &global_source_energy, 1, MPI_DOUBLE,
+      MPI_SUM, MPI_COMM_WORLD);
 
     //make initial census photons
     //on subsequent timesteps, this comes from transport
@@ -66,8 +68,7 @@ void imc_cell_pass_driver(const int& rank,
                                           mesh, 
                                           imc_state, 
                                           imc_parameters, 
-                                          abs_E, 
-                                          world);
+                                          abs_E);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
     MPI_Allreduce(MPI_IN_PLACE, 
@@ -80,7 +81,7 @@ void imc_cell_pass_driver(const int& rank,
     //cout<<"updating temperature..."<<endl;
     mesh->update_temperature(abs_E, imc_state);
 
-    imc_state->print_conservation(imc_parameters->get_dd_mode(), world);
+    imc_state->print_conservation(imc_parameters->get_dd_mode());
 
     //purge the working mesh, it will be updated by other ranks and is now 
     //invalid
@@ -95,8 +96,7 @@ void imc_cell_pass_driver(const int& rank,
 void imc_particle_pass_driver(const int& rank, 
                               Mesh *mesh, 
                               IMC_State *imc_state,
-                              IMC_Parameters *imc_parameters,
-                              mpi::communicator world) {
+                              IMC_Parameters *imc_parameters) {
 
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
@@ -138,7 +138,9 @@ void imc_particle_pass_driver(const int& rank,
     mesh->update_temperature(abs_E, imc_state);
     //update time for next step
     
-    imc_state->print_conservation(imc_parameters->get_dd_mode(), world);
+    imc_state->print_conservation(imc_parameters->get_dd_mode());
     imc_state->next_time_step();
   }
 }
+
+#endif // imc_drivers_h_

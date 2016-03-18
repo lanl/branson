@@ -128,23 +128,8 @@ class Photon
   double m_E0; //! photon energy at creation
   double m_life_dx; //! Distance remaining this time step
 
-
   //private member functions
   private:
-
-  //! serialization routine
-  friend class boost::serialization::access;
-  template<class Archive>
-  void serialize(Archive &ar, const uint32_t version)
-  {
-    ar & m_pos;
-    ar & m_angle;
-    ar & m_E;
-    ar & m_E0;
-    ar & m_cell_ID;
-    ar & m_census_flag;
-    ar & m_life_dx;
-  }
 
 };
 
