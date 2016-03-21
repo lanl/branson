@@ -1,0 +1,194 @@
+/*
+  binary_tree_rma.h
+  by Alex Long
+  3/10/2016
+*/
+
+#include <iostream>
+#include <mpi.h>
+
+#include "constants.h"
+
+class Completion 
+{
+
+  public:
+  Completion(uint32_t _child1, 
+    uint32_t _child2,
+    uint32_t _parent) 
+    : child1(_child1),
+      child2(_child2),
+      parent(_parent),
+      n_complete_tree(0),
+      n_complete_c1(0),
+      n_complete_c2(0),
+      n_complete_p(0),
+      buffer_c1(0),
+      buffer_c2(0),
+      buffer_p(0),
+      c1_req_flag(false),
+      c2_req_flag(false),
+      p_req_flag(false),
+      n_particle_global(0)
+  {
+    // Get the size of MPI_UNSIGNED_LONG
+    int size_mpi_uint64;
+    MPI_Type_size(MPI_UNSIGNED_LONG, &size_mpi_uint64);
+    
+    //MPI_Win_set_attr(completion_window, MPI_WIN_MODEL, MPI_WIN_UNIFIED);
+
+    // Make the MPI window for the number of particles completed on this
+    // sub-tree, which includes this ranks completed particles
+    //MPI_Win_create(&n_complete_tree, size_mpi_uint64, size_mpi_uint64, MPI_INFO_NULL,
+    //  MPI_COMM_WORLD, &completion_window);
+
+    MPI_Win_allocate(size_mpi_uint64, size_mpi_uint64, MPI_INFO_NULL,
+      MPI_COMM_WORLD, &n_complete_tree, &completion_window);
+
+    int memory_model;
+    int flag;
+    MPI_Win_get_attr(completion_window, MPI_WIN_MODEL, &memory_model, &flag);
+
+    std::cout<<"MPI_WIN_MODEL = "<<MPI_WIN_MODEL<<std::endl;
+
+    if(memory_model == MPI_WIN_SEPARATE) {
+      std::cout<<"Memory model is separate"<<std::endl;
+    }
+    else if(memory_model == MPI_WIN_UNIFIED) {
+      std::cout<<"Memory model is unified"<<std::endl;
+    }
+  }
+  ~Completion() {
+    MPI_Win_free(&completion_window);
+  }
+
+
+  //const functions
+  uint64_t get_n_complete_tree(void) const {return *n_complete_tree;}
+
+  //non-const functions
+
+  void set_timestep_global_particles(uint64_t _n_particle_global) {
+    n_particle_global = _n_particle_global;
+  }
+
+  void end_timestep(void) {
+    //reset tree counts
+    *n_complete_tree = 0;
+    n_complete_c1 = 0;
+    n_complete_c2 = 0;
+    n_complete_p = 0;
+    buffer_c1 = 0;
+    buffer_c2 = 0;
+    buffer_p = 0;
+    //wait on outstanding requests, parent has already completed
+    if (c1_req_flag) {
+      MPI_Wait(&req_c1, MPI_STATUS_IGNORE);
+      c1_req_flag = false;
+    }
+    if (c2_req_flag) {
+      MPI_Wait(&req_c2, MPI_STATUS_IGNORE);
+      c2_req_flag = false;
+    }
+  }
+
+  void start_access(void) {
+    int assert =0;
+    MPI_Win_lock_all(assert,completion_window);
+  }
+
+  void end_access(void) {
+    MPI_Win_unlock_all(completion_window);
+  }
+
+  bool binary_tree_rma(const uint64_t& n_complete_rank) {
+    using Constants::proc_null;
+    // Return value
+    bool finished = false;
+    // Test for completion of non-blocking RMA requests
+    // If child requests were completed, add to tree complete count and
+    // make a new request
+
+    // child 1
+    if (child1!= proc_null) {
+      if (c1_req_flag) {
+        MPI_Test(&req_c1, &flag_c1, MPI_STATUS_IGNORE);
+        if (flag_c1) {
+          n_complete_c1 = buffer_c1;
+          c1_req_flag = false;
+        }
+      }
+      if (!c1_req_flag) {
+        MPI_Rget(&buffer_c1, 1, MPI_UNSIGNED_LONG, child1, 0,
+          1, MPI_UNSIGNED_LONG, completion_window, &req_c1);
+        c1_req_flag=true;
+      }
+    }
+
+    // child 2
+    if (child2!= proc_null) {
+      if (c2_req_flag) {
+        MPI_Test(&req_c2, &flag_c2, MPI_STATUS_IGNORE);
+        if (flag_c2) {
+          n_complete_c2 = buffer_c2;
+          c2_req_flag = false;
+        }
+      }
+      if (!c2_req_flag) {
+        MPI_Rget(&buffer_c2, 1, MPI_UNSIGNED_LONG, child2, 0,
+          1, MPI_UNSIGNED_LONG, completion_window, &req_c2);
+        c2_req_flag=true;
+      }
+    }
+
+    // If parent is complete, test for overall completion
+    if (parent != proc_null) {
+      if (p_req_flag) { 
+        MPI_Test(&req_p, &flag_p, MPI_STATUS_IGNORE);
+        if (flag_p) {
+          n_complete_p = buffer_p;
+          if (n_complete_p == n_particle_global) {
+            finished=true;
+            *n_complete_tree = n_complete_p;
+          }
+          p_req_flag =false;
+        }
+      }
+      if (!p_req_flag && !finished) {
+        MPI_Rget(&buffer_p, 1, MPI_UNSIGNED_LONG, parent, 0,
+          1, MPI_UNSIGNED_LONG, completion_window, &req_p);
+        p_req_flag=true;
+      }
+    }
+    else {
+      if (*n_complete_tree == n_particle_global) finished=true;
+    }
+    // Update tree count
+    if (!finished) *n_complete_tree = n_complete_rank + n_complete_c1 + n_complete_c2;
+    //MPI_Win_sync(completion_window);
+    return finished;
+  }
+
+  private:
+  uint64_t child1;
+  uint64_t child2;
+  uint64_t parent;
+  uint64_t *n_complete_tree;
+  uint64_t n_complete_c1;
+  uint64_t n_complete_c2;
+  uint64_t n_complete_p;
+  uint64_t buffer_c1;
+  uint64_t buffer_c2;
+  uint64_t buffer_p;
+  bool c1_req_flag;
+  bool c2_req_flag;
+  bool p_req_flag;
+  uint64_t n_particle_global;
+  MPI_Win completion_window;
+  int flag_c1;
+  int flag_c2;
+  int flag_p;
+  MPI_Request req_c1;
+  MPI_Request req_c2;
+  MPI_Request req_p;
+};

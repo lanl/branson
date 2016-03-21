@@ -30,3 +30,7 @@ add_test(NAME test_input COMMAND test_input_exe)
 # IMC_State class test
 add_executable(test_imc_state_exe test_imc_state.cc)
 add_test(NAME test_imc_state COMMAND mpirun -np 2 test_imc_state_exe)
+
+# RMA Particle Completion class test
+add_executable(test_rma_completion_exe test_rma_completion.cc)
+add_test(NAME test_rma_completion COMMAND mpirun -np 7 test_rma_completion_exe)
