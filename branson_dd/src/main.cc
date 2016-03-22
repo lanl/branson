@@ -69,9 +69,9 @@ int main(int argc, char *argv[])
   /****************************************************************************/
 
   if (input->get_dd_mode() == PARTICLE_PASS)
-    imc_particle_pass_driver(rank, mesh, imc_state, imc_p);
+    imc_particle_pass_driver(rank, n_rank, mesh, imc_state, imc_p);
   else if (input->get_dd_mode() == CELL_PASS)
-    imc_cell_pass_driver(rank, mesh, imc_state, imc_p);
+    imc_cell_pass_driver(rank, n_rank, mesh, imc_state, imc_p);
   
   if (rank==0) {
     cout<<"****************************************";

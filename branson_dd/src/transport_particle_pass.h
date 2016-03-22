@@ -17,6 +17,7 @@
 #include <stack>
 #include <vector>
 
+#include "binary_tree_rma.h"
 #include "constants.h"
 #include "buffer.h"
 #include "mesh.h"
@@ -138,6 +139,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
                                             Mesh* mesh,
                                             IMC_State* imc_state,
                                             IMC_Parameters* imc_parameters,
+                                            Completion* comp,
                                             std::vector<double>& rank_abs_E)
 {
   using Constants::event_type;
@@ -200,11 +202,6 @@ std::vector<Photon> transport_particle_pass(Source& source,
   // Commit the type to MPI so it recognizes it in communication calls
   MPI_Type_commit(&MPI_Particle);
 
-  int mpi_particle_size;
-  MPI_Type_size(MPI_Particle, &mpi_particle_size);
-  //MPI_Datatype MPI_Particle;
-  //mesh->get_MPI_particle_type(MPI_Particle);
-
   //get global photon count
   uint64_t n_local = source.get_n_photon();
   uint64_t n_global;
@@ -212,46 +209,11 @@ std::vector<Photon> transport_particle_pass(Source& source,
   MPI_Allreduce(&n_local, &n_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, 
     MPI_COMM_WORLD);
 
-  int parent = (rank + 1) / 2 - 1;
-  int child1 = rank * 2 + 1;
-  int child2 = child1 + 1;
-
-  // set missing nodes to proc_null
-  { 
-    if (!rank)
-        parent = proc_null;
-
-    // maximum valid node id
-    const int last_node = n_rank - 1;
-
-    if (child1 > last_node)
-    {
-        child1 = proc_null;
-        child2 = proc_null;
-    }
-    else if (child1 == last_node)
-        child2 = proc_null;
-  }
-
+  //set global particle count in completion object
+  comp->set_timestep_global_particles(n_global);
 
   // This flag indicates that send processing is needed for target rank
   vector<vector<Photon> > send_list;
-
-  //Message requests for finished photon counts
-  MPI_Request c1_recv_request;
-  MPI_Request c2_recv_request;
-  MPI_Request p_recv_request;
-  MPI_Request c1_send_request;
-  MPI_Request c2_send_request; 
-  MPI_Request p_send_request;
-
-  //Buffers for photon completed counts
-  Buffer<uint64_t> c1_recv_buffer;
-  Buffer<uint64_t> c2_recv_buffer;
-  Buffer<uint64_t> p_recv_buffer;
-  Buffer<uint64_t> c1_send_buffer;
-  Buffer<uint64_t> c2_send_buffer;
-  Buffer<uint64_t> p_send_buffer; 
 
   //Get adjacent processor map (off_rank_id -> adjacent_proc_number)
   map<uint32_t, uint32_t> adjacent_procs = mesh->get_proc_adjacency_list();
@@ -262,34 +224,6 @@ std::vector<Photon> transport_particle_pass(Source& source,
   // make a send/receive particle buffer for each adjacent processor
   vector<Buffer<Photon> > phtn_recv_buffer(n_adjacent);
   vector<Buffer<Photon> > phtn_send_buffer(n_adjacent);
-
-  // Messages are sent up the tree whenever a rank has completed its local work
-  // or received an updated particle complete count from its child
-  // Messages are sent down the tree only after completion and starting at the 
-  // root node. 
-  // Post receives for photon counts from children and parent now, resize buffers
-  // to size 1
-  if (child1!=proc_null) {
-    c1_recv_buffer.resize(1);
-    MPI_Irecv(c1_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1,
-      count_tag, MPI_COMM_WORLD, &c1_recv_request);
-    n_receives_posted++;
-    c1_recv_buffer.set_awaiting();
-  }
-  if (child2!=proc_null) {
-    c2_recv_buffer.resize(1);
-    MPI_Irecv(c2_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child2,
-      count_tag, MPI_COMM_WORLD, &c2_recv_request);
-    n_receives_posted++;
-    c2_recv_buffer.set_awaiting();
-  }
-  if (parent != proc_null) {
-    p_recv_buffer.resize(1);
-    MPI_Irecv(p_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
-      count_tag, MPI_COMM_WORLD, &p_recv_request);
-    n_receives_posted++;
-    p_recv_buffer.set_awaiting();
-  }
 
   //Post receives for photons from adjacent sub-domains
   {
@@ -324,17 +258,12 @@ std::vector<Photon> transport_particle_pass(Source& source,
   stack<Photon> phtn_recv_stack; //!< Stack of received photons
 
   int send_rank;
-  uint64_t tree_count = 0; //!< Total for this node and all children
-  uint64_t parent_count = 0;//!< Total complete from the parent node
-  uint64_t c1_count = 0; //!< Total complete from child1 subtree
-  uint64_t c2_count = 0; //!< Total complete from child2 subtree
   uint64_t n_complete = 0; //!< Completed histories, regardless of origin
   uint64_t n_local_sourced = 0; //!< Photons pulled from source object
   bool finished = false;
   bool from_receive_stack = false;
   Photon phtn;
   event_type event;
-
 
   while (!finished) {
 
@@ -437,14 +366,13 @@ std::vector<Photon> transport_particle_pass(Source& source,
           MPI_Test(&phtn_recv_request[i_b], &recv_req_flag, &recv_status);
           if (recv_req_flag) {
             n_receives_completed++;
-            vector<Photon> receive_list = phtn_recv_buffer[i_b].get_object();
+            vector<Photon>& receive_list = phtn_recv_buffer[i_b].get_object();
             // only push the number of received photons onto the recv_stack
             MPI_Get_count(&recv_status, MPI_Particle, &recv_count);
             for (uint32_t i=0; i<recv_count; i++) 
               phtn_recv_stack.push(receive_list[i]);
             phtn_recv_buffer[i_b].reset();
-            //post receive again
-            phtn_recv_buffer[i_b].resize(max_buffer_size);
+            //post receive again, don't resize--it's already set to maximum
             MPI_Irecv(phtn_recv_buffer[i_b].get_buffer(),
               max_buffer_size,
               MPI_Particle,
@@ -459,131 +387,14 @@ std::vector<Photon> transport_particle_pass(Source& source,
       } // end loop over adjacent processors
     } //end scope of particle passing
 
+    
     ////////////////////////////////////////////////////////////////////////////
     // binary tree completion communication
     ////////////////////////////////////////////////////////////////////////////
-    // The number of completed particles is sent up the chain and then reset.
-    // This allows us to send the completed count up the tree without
-    // trying to synchronize completion from both children. The root
-    // never resets the tree count
-
-    //test receives from children and add work to tree count
-    int c1_recv_flag;
-    int c2_recv_flag;
-    int p_recv_flag;
-    int p_send_flag; 
-
-    if (c1_recv_buffer.awaiting()) {
-      MPI_Test(&c1_recv_request, &c1_recv_flag, MPI_STATUS_IGNORE);
-      if(c1_recv_flag) {
-        n_receives_completed++;
-        c1_recv_buffer.set_received();
-        c1_count = c1_recv_buffer.get_object()[0];
-        //update tree count 
-        tree_count+=c1_count;
-        //post receive again
-        c1_recv_buffer.reset();
-        c1_recv_buffer.resize(1);
-        MPI_Irecv(c1_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1,
-          count_tag, MPI_COMM_WORLD, &c1_recv_request);
-        n_receives_posted++;
-        c1_recv_buffer.set_awaiting();
-      }
+    if (n_local_sourced == n_local && phtn_recv_stack.empty()) {
+      finished = comp->binary_tree_rma(n_complete);
     }
-
-    if (c2_recv_buffer.awaiting()) {
-      MPI_Test(&c2_recv_request, &c2_recv_flag, MPI_STATUS_IGNORE);
-      if (c2_recv_flag) {
-        n_receives_completed++;
-        c2_recv_buffer.set_received();
-        c2_count = c2_recv_buffer.get_object()[0];
-        //update tree count 
-        tree_count+=c2_count;
-        //post receive again
-        c2_recv_buffer.reset();
-        c2_recv_buffer.resize(1);
-        MPI_Irecv(c2_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child2,
-          count_tag, MPI_COMM_WORLD, &c2_recv_request);
-        n_receives_posted++;
-        c2_recv_buffer.set_awaiting();
-      }
-    }
-
-    // test receive from parent, this is always the finished count 
-    if (p_recv_buffer.awaiting()) {
-      MPI_Test(&p_recv_request, &p_recv_flag, MPI_STATUS_IGNORE);
-      if (p_recv_flag) {
-        n_receives_completed++;
-        p_recv_buffer.set_received();
-        parent_count = p_recv_buffer.get_object()[0];
-      }
-    }
-
-    // test sends to parent
-    if (p_send_buffer.sent() ) {
-      MPI_Test(&p_send_request, &p_send_flag, MPI_STATUS_IGNORE);
-      if (p_send_flag) {
-        n_sends_completed++;
-        p_send_buffer.reset();
-      }
-    }
-
-    // add completed particles from this rank to tree count and reset 
-    tree_count+=n_complete;
-    n_complete = 0;
-
-    // If tree count is non-zero, buffers are empty, and local work is done 
-    // send message to parent. You may still get more work done and send again.
-    // That's OK. To finish transport all particles histories must be completed,
-    // meaning that all of the sends will be processed (received)
-    if ((parent!=proc_null && tree_count) && (n_local==n_local_sourced && phtn_recv_stack.empty()) && p_send_buffer.empty()) {
-      p_send_buffer.fill(vector<uint64_t> (1,tree_count));
-      MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent, 
-        count_tag, MPI_COMM_WORLD, &p_send_request);
-      n_sends_posted++;
-      n_complete_messages++;
-      p_send_buffer.set_sent();
-      //reset tree count so work is not double counted
-      tree_count =0;
-    }
-
-    // If finished, set flag. Otherwise, continue tree messaging
-    if (tree_count == n_global || parent_count == n_global) finished = true;
   } // end while
-
-
-  //send finished count down tree to children and wait for completion
-  if (child1 != proc_null) { 
-    if (c1_send_buffer.sent()) {
-      MPI_Wait(&c1_send_request, MPI_STATUS_IGNORE);
-      n_sends_completed++;
-    }
-    c1_send_buffer.fill(vector<uint64_t> (1,n_global));
-    MPI_Isend(c1_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1, 
-      count_tag, MPI_COMM_WORLD, &c1_send_request);
-    n_sends_posted++;
-    MPI_Wait(&c1_send_request, MPI_STATUS_IGNORE);
-    n_sends_completed++;
-  }
-
-  if (child2 != proc_null)  {
-    if (c2_send_buffer.sent()) {
-      MPI_Wait(&c2_send_request, MPI_STATUS_IGNORE);
-      n_sends_completed++;
-    }
-    c2_send_buffer.fill(vector<uint64_t> (1,n_global));
-    MPI_Isend(c2_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child2, 
-      count_tag, MPI_COMM_WORLD, &c2_send_request);
-    n_sends_posted++;
-    MPI_Wait(&c2_send_request, MPI_STATUS_IGNORE);
-    n_sends_completed++;
-  }
-
-  // wait for parent send to complete, if sent
-  if (p_send_buffer.sent()) {
-    MPI_Wait(&p_send_request, MPI_STATUS_IGNORE);
-    n_sends_completed++;
-  }
 
   // wait for all ranks to finish then send empty photon messages.
   // Do this because it's possible for a rank to receive the empty message
@@ -591,24 +402,6 @@ std::vector<Photon> transport_particle_pass(Source& source,
   // receive again, which will never have a matching send
   MPI_Barrier(MPI_COMM_WORLD);
 
-  //finish off parent's receive call with empty send
-  if (parent!=proc_null) {
-    p_send_buffer.fill(vector<uint64_t> (1,1));
-    MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
-      count_tag, MPI_COMM_WORLD, &p_send_request);
-    n_sends_posted++;
-    MPI_Wait(&p_send_request, MPI_STATUS_IGNORE);
-    n_sends_completed++;
-  }
-  if (child1 != proc_null) {
-    MPI_Wait(&c1_recv_request, MPI_STATUS_IGNORE);
-    n_receives_completed++; 
-  }
-  if (child2 != proc_null) {
-    MPI_Wait(&c2_recv_request, MPI_STATUS_IGNORE);
-    n_receives_completed++; 
-  }
- 
   //finish off posted photon receives
   {
     vector<Photon> one_photon(1);

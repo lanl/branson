@@ -72,7 +72,6 @@ int main (void) {
 
     // clear buffer, buffer should be empty and buffer should have state == EMPTY
     buffer.reset();
-    if (!buffer.get_object().empty()) test_buffer_fill = false;
     if (!buffer.empty() ) test_buffer_fill = false;
     
     if (test_buffer_fill) cout<<"TEST PASSED: Buffer fill"<<endl;

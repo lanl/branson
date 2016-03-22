@@ -30,7 +30,8 @@ class Buffer {
   std::vector<T>& get_object(void) {return object;}
   
   void resize(uint32_t new_size) {object.resize(new_size);}
-  void reset(void) {object.clear(); status=EMPTY;} 
+  void clear(void) {object.clear(); status=EMPTY;} 
+  void reset(void) {status=EMPTY;} 
   void set_sent(void) {status = SENT;}
   void set_received(void) {status = RECEIVED;}
   void set_awaiting(void) {status = AWAITING;}

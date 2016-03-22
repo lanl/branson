@@ -10,7 +10,7 @@
 #include <functional>
 #include <vector>
 
-
+#include "binary_tree_rma.h"
 #include "imc_state.h"
 #include "imc_parameters.h"
 #include "mesh.h"
@@ -21,6 +21,7 @@
 #include "transport_mesh_pass.h"
 
 void imc_cell_pass_driver(const int& rank, 
+                          const int& n_rank,
                           Mesh *mesh, 
                           IMC_State *imc_state,
                           IMC_Parameters *imc_parameters) {
@@ -94,6 +95,7 @@ void imc_cell_pass_driver(const int& rank,
 
 
 void imc_particle_pass_driver(const int& rank, 
+                              const int& n_rank,
                               Mesh *mesh, 
                               IMC_State *imc_state,
                               IMC_Parameters *imc_parameters) {
@@ -101,6 +103,12 @@ void imc_particle_pass_driver(const int& rank,
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
+
+  //make object that handles RMA completion messages, completion
+  //objects set up the binary tree structure
+  Completion *comp = new Completion(rank, n_rank);
+  //open access to MPI windows in completion object
+  comp->start_access();
 
   while (!imc_state->finished())
   {
@@ -133,14 +141,19 @@ void imc_particle_pass_driver(const int& rank,
                                               mesh, 
                                               imc_state, 
                                               imc_parameters,
+                                              comp,
                                               abs_E);
           
     mesh->update_temperature(abs_E, imc_state);
-    //update time for next step
-    
+    //reset completion object for next timestep
+    comp->end_timestep();
+    //update time for next step    
     imc_state->print_conservation(imc_parameters->get_dd_mode());
     imc_state->next_time_step();
   }
+
+  //close access to MPI windows in completion object
+  comp->end_access();
 }
 
 #endif // imc_drivers_h_

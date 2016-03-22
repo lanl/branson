@@ -25,35 +25,13 @@ int main (int argc, char *argv[]) {
 
   int nfail = 0;
   
-  // set up place in binary tree
-  int parent = (rank + 1) / 2 - 1;
-  int child1 = rank * 2 + 1;
-  int child2 = child1 + 1;
-
-  // set missing nodes to proc_null
-  { 
-    if (!rank)
-        parent = proc_null;
-
-    // maximum valid node id
-    const int last_node = n_rank - 1;
-
-    if (child1 > last_node)
-    {
-        child1 = proc_null;
-        child2 = proc_null;
-    }
-    else if (child1 == last_node)
-        child2 = proc_null;
-  }
-  
   // test completion routine
   {
     bool completion_routine_pass = true;
 
     uint64_t rank_particles = 10000;
     uint64_t global_count = n_rank*rank_particles;
-    Completion comp(child1, child2, parent);
+    Completion comp(rank, n_rank);
 
     //begin access epoch
     comp.start_access();

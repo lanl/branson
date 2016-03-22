@@ -4,6 +4,9 @@
   3/10/2016
 */
 
+#ifndef binary_tree_rma_h_
+#define binary_tree_rma_h_
+
 #include <iostream>
 #include <mpi.h>
 
@@ -13,13 +16,9 @@ class Completion
 {
 
   public:
-  Completion(uint32_t _child1, 
-    uint32_t _child2,
-    uint32_t _parent) 
-    : child1(_child1),
-      child2(_child2),
-      parent(_parent),
-      n_complete_tree(0),
+  Completion(const int& rank,
+             const int& n_rank)
+    : n_complete_tree(0),
       n_complete_c1(0),
       n_complete_c2(0),
       n_complete_p(0),
@@ -31,6 +30,23 @@ class Completion
       p_req_flag(false),
       n_particle_global(0)
   {
+    using Constants::proc_null;
+    //set up binary tree rank structure
+    parent = (rank + 1) / 2 - 1;
+    child1 = rank * 2 + 1;
+    child2 = child1 + 1;
+    // set missing nodes to proc_null
+    if (!rank) parent = proc_null;
+
+    // maximum valid node id
+    const int last_node = n_rank - 1;
+
+    if (child1 > last_node) {
+      child1 = proc_null;
+      child2 = proc_null;
+    }
+    else if (child1 == last_node) child2 = proc_null;
+
     // Get the size of MPI_UNSIGNED_LONG
     int size_mpi_uint64;
     MPI_Type_size(MPI_UNSIGNED_LONG, &size_mpi_uint64);
@@ -45,6 +61,7 @@ class Completion
     MPI_Win_allocate(size_mpi_uint64, size_mpi_uint64, MPI_INFO_NULL,
       MPI_COMM_WORLD, &n_complete_tree, &completion_window);
 
+    /*
     int memory_model;
     int flag;
     MPI_Win_get_attr(completion_window, MPI_WIN_MODEL, &memory_model, &flag);
@@ -57,6 +74,7 @@ class Completion
     else if(memory_model == MPI_WIN_UNIFIED) {
       std::cout<<"Memory model is unified"<<std::endl;
     }
+    */
   }
   ~Completion() {
     MPI_Win_free(&completion_window);
@@ -170,9 +188,6 @@ class Completion
   }
 
   private:
-  uint64_t child1;
-  uint64_t child2;
-  uint64_t parent;
   uint64_t *n_complete_tree;
   uint64_t n_complete_c1;
   uint64_t n_complete_c2;
@@ -184,6 +199,9 @@ class Completion
   bool c2_req_flag;
   bool p_req_flag;
   uint64_t n_particle_global;
+  uint64_t child1;
+  uint64_t child2;
+  uint64_t parent;
   MPI_Win completion_window;
   int flag_c1;
   int flag_c2;
@@ -192,3 +210,5 @@ class Completion
   MPI_Request req_c2;
   MPI_Request req_p;
 };
+
+#endif // def transport_particle_pass_h_
