@@ -21,6 +21,7 @@ using std::cout;
 using std::string;
 using Constants::PARTICLE_PASS;
 using Constants::CELL_PASS;
+using Constants::CELL_PASS_RMA;
 
 int main(int argc, char *argv[])
 {
@@ -72,6 +73,8 @@ int main(int argc, char *argv[])
     imc_particle_pass_driver(rank, n_rank, mesh, imc_state, imc_p);
   else if (input->get_dd_mode() == CELL_PASS)
     imc_cell_pass_driver(rank, n_rank, mesh, imc_state, imc_p);
+  else if (input->get_dd_mode() == CELL_PASS_RMA)
+    imc_rma_cell_pass_driver(rank, n_rank, mesh, imc_state, imc_p);
   
   if (rank==0) {
     cout<<"****************************************";

@@ -84,6 +84,13 @@ class Cell
     return in_cell;
   }
 
+  double get_x_low(void) const {return nodes[0];}
+  double get_x_high(void) const {return nodes[1];}
+  double get_y_low(void) const {return nodes[2];}
+  double get_y_high(void) const {return nodes[3];}
+  double get_z_low(void) const {return nodes[4];}
+  double get_z_high(void) const {return nodes[5];}
+
   double get_cV(void) const {return cV;}
   double get_op_a(void) const {return op_a;}
   double get_op_s(void) const {return op_s;}
@@ -97,6 +104,7 @@ class Cell
   double get_T_r(void) const {return T_r;}
   double get_T_s(void) const {return T_s;}
   uint32_t get_ID(void) const {return g_ID;}
+  uint32_t get_region_ID(void) const {return region_ID;}
 
   //override great than operator to sort
   bool operator <(const Cell& compare) const {
@@ -145,6 +153,7 @@ class Cell
   void set_T_r(double _T_r) {T_r = _T_r;}
   void set_T_s(double _T_s) {T_s = _T_s;}
   void set_ID(double _id) {g_ID = _id;}
+  void set_region_ID(uint32_t _region_ID) { region_ID=_region_ID;}
   void set_coor(double x_low, double x_high, double y_low, 
                 double y_high, double z_low, double z_high) 
   {
@@ -162,6 +171,7 @@ class Cell
 /*****************************************************************************/
   private:
   uint32_t g_ID; //! Global ID, valid across all ranks
+  uint32_t region_ID; //! region cell is in (for setting physical properties)
   uint32_t e_next[6]; //! Bordering cell, given as global ID
   Constants::bc_type bc[6];   //! Boundary conditions for each face 
   double nodes[6]; //! x_low, x_high, y_low, y_high, z_low, z_high
@@ -174,7 +184,6 @@ class Cell
   double T_e;   //! Material temperature
   double T_r;   //! Radiation temperature
   double T_s;   //! Source temperature
-
 };
 
 #endif // cell_h_

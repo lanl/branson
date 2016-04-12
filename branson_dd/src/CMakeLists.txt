@@ -11,7 +11,8 @@ message ("Compiler: " ${CMAKE_CXX_COMPILER} )
 # add compiler flags
 set( DEBUG_FLAGS -gdwarf-3)
 set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
-set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
+#set (DEBUG_FLAGS "${DEBUG_FLAGS} -h std=c++11")
+#set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
 set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${DEBUG_FLAGS}" )
 message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
 
@@ -57,14 +58,22 @@ include_directories(${Boost_INCLUDE_DIR})
 #link_directories(${Boost_LIBRARY_DIR})
 
 ###############################################################################
+# Set up libraries for Cray RMA routines
+###############################################################################
+
+SET(DMAPP_DYNAMIC -Wl,--whole-archive,-ldmapp,--no-whole-archive)
+
+###############################################################################
 # Configure executable
 ###############################################################################
 add_executable(BRANSON main.cc)
 target_link_libraries(BRANSON parmetis)
 target_link_libraries(BRANSON metis)
-#target_link_libraries(BRANSON boost_mpi-mt)
-#target_link_libraries(BRANSON boost_serialization-mt)
-#target_link_libraries(BRANSON boost_wserialization-mt)
+
+#first, create the dynamic version of dmapp library
+#target_link_libraries(BRANSON ${DMAPP_DYNAMIC})
+#then link to it dynamically
+#target_link_libraries(BRANSON dmapp)
 
 enable_testing()
 

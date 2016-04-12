@@ -16,8 +16,6 @@
 #include "photon.h"
 
 
-namespace mpi = boost::mpi;
-
 void print_MPI_photons( const std::vector<Photon>& phtn_vec, 
                         const uint32_t& rank, 
                         const uint32_t& size) {

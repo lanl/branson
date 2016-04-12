@@ -11,8 +11,9 @@
 #include <vector>
 #include <numeric>
 #include <queue>
-#include <boost/mpi.hpp>
+#include <mpi.h>
 
+#include "completion_manager_rma.h"
 #include "constants.h"
 #include "decompose_photons.h"
 #include "mesh.h"
@@ -134,6 +135,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
                                         Mesh* mesh,
                                         IMC_State* imc_state,
                                         IMC_Parameters* imc_parameters,
+                                        Completion_Manager_RMA* comp,
                                         std::vector<double>& rank_abs_E)
 {
   using Constants::finish_tag;
@@ -161,6 +163,10 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
+  //set global particles to be n_rank, every rank sets it completed particles
+  //to 1 after finished local work
+  comp->set_timestep_global_particles(n_rank);
+
   // parallel event counters
   uint32_t n_cell_messages=0; //! Number of cell messages
   uint32_t n_cells_sent=0; //! Number of cells passed
@@ -168,71 +174,6 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   uint32_t n_sends_completed=0; //! Number of sent messages completed
   uint32_t n_receives_posted=0; //! Number of received messages completed
   uint32_t n_receives_completed=0; //! Number of received messages completed
-
-  // set parent and children for binary tree communication of finish
-  int parent = (rank + 1) / 2 - 1;
-  int child1 = rank * 2 + 1;
-  int child2 = child1 + 1;
-
-  // set missing nodes to proc_null
-  { 
-    if (!rank)
-        parent = proc_null;
-
-    // maximum valid node id
-    const int last_node = n_rank - 1;
-
-    if (child1 > last_node)
-    {
-        child1 = proc_null;
-        child2 = proc_null;
-    }
-    else if (child1 == last_node)
-        child2 = proc_null;
-  }
-
-
-  //Message requests for finished flags
-  MPI_Request c1_recv_request;
-  MPI_Request c2_recv_request;
-  MPI_Request p_recv_request;
-  MPI_Request c1_send_request;
-  MPI_Request c2_send_request; 
-  MPI_Request p_send_request;
-
-  //Buffers for finished flags
-  Buffer<int> c1_recv_buffer;
-  Buffer<int> c2_recv_buffer;
-  Buffer<int> p_recv_buffer;
-  Buffer<int> c1_send_buffer;
-  Buffer<int> c2_send_buffer;
-  Buffer<int> p_send_buffer;
-
-  // finished message propagates from children to parent, then back down the
-  // tree
-
-  //post receives for finish message receives from children and parents
-  if (child1!=proc_null) {
-    c1_recv_buffer.resize(1);
-    MPI_Irecv(c1_recv_buffer.get_buffer(), 1, MPI_INT, child1,
-      finish_tag, MPI_COMM_WORLD, &c1_recv_request);
-    n_receives_posted++;
-    c1_recv_buffer.set_awaiting();
-  }
-  if (child2!=proc_null) {
-    c2_recv_buffer.resize(1);
-    MPI_Irecv(c2_recv_buffer.get_buffer(), 1, MPI_INT, child2,
-      finish_tag, MPI_COMM_WORLD, &c2_recv_request);
-    n_receives_posted++;
-    c2_recv_buffer.set_awaiting();
-  }
-  if (parent != proc_null) {
-    p_recv_buffer.resize(1);
-    MPI_Irecv(p_recv_buffer.get_buffer(), 1, MPI_INT, parent,
-      finish_tag, MPI_COMM_WORLD, &p_recv_request);
-    n_receives_posted++;
-    p_recv_buffer.set_awaiting();
-  }
 
   // New data flag is initially false
   bool new_data = false;
@@ -345,80 +286,19 @@ std::vector<Photon> transport_mesh_pass(Source& source,
     }
   } //end while wait_list not empty
 
-  vector<int> s_finished(1,true);
-
+  // set complete to be 1 (true) when all ranks set this in the tree,
+  // the root will see n_complete == n_rank and finish
+  const uint64_t complete =1;
   ////////////////////////////////////////////////////////////////////////
   // While waiting for other ranks to finish, check for other messages
   ////////////////////////////////////////////////////////////////////////
-  int c1_recv_flag, c2_recv_flag, p_recv_flag;
-  bool c1_finished = false || child1==proc_null;
-  bool c2_finished = false || child2==proc_null;
-  bool p_finished  = false || parent==proc_null;
-
-  while (!((c1_finished && c2_finished) && p_finished)) {
-    if (c1_recv_buffer.awaiting()) {
-      MPI_Test(&c1_recv_request, &c1_recv_flag, MPI_STATUS_IGNORE); 
-      if (c1_recv_flag) {
-        n_receives_completed++;
-        c1_recv_buffer.set_received();
-        c1_finished = c1_recv_buffer.get_object()[0];
-      }
-    }
-    if (c2_recv_buffer.awaiting()) {
-      MPI_Test(&c2_recv_request, &c2_recv_flag, MPI_STATUS_IGNORE);
-      if (c2_recv_flag) {
-        n_receives_completed++;
-        c2_recv_buffer.set_received();
-        c2_finished = c2_recv_buffer.get_object()[0];
-      }
-    }
-    if (p_recv_buffer.awaiting()) {
-      MPI_Test(&p_recv_request, &p_recv_flag, MPI_STATUS_IGNORE);
-      if (p_recv_flag) {
-        n_receives_completed++;
-        p_recv_buffer.set_received();
-        p_finished = p_recv_buffer.get_object()[0];
-      }
-    }
-    
-    // if children complete or terminating branch, send to parent (only once)
-    if ((c1_finished && c2_finished) && 
-        (parent != proc_null && !p_send_buffer.sent()) ) {
-      p_send_buffer.fill(s_finished);
-      MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_INT, parent, finish_tag, 
-        MPI_COMM_WORLD, &p_send_request);
-      n_sends_posted++;
-      p_send_buffer.set_sent();
-    }
-    
+  bool finished = false;
+  while (!finished) {
+    finished = comp->binary_tree_rma(complete);
     mesh->process_mesh_requests(n_cell_messages, n_cells_sent,
                                 n_sends_posted, n_sends_completed,
                                 n_receives_posted, n_receives_completed);
   } //end while
-
-  // wait for completion of send
-  if (p_send_buffer.sent()) {
-    MPI_Wait(&p_send_request, MPI_STATUS_IGNORE);
-    n_sends_completed++;
-  }
-
-  //send complete message down the tree
-  if (child1 != proc_null) { 
-    c1_send_buffer.fill(s_finished);
-    MPI_Isend(c1_send_buffer.get_buffer(), 1, MPI_INT, child1, finish_tag, 
-      MPI_COMM_WORLD, &c1_send_request);
-    n_sends_posted++;
-    MPI_Wait(&c1_send_request, MPI_STATUS_IGNORE);
-    n_sends_completed++;
-  }
-  if (child2 != proc_null)  {
-    c2_send_buffer.fill(s_finished);
-    MPI_Isend(c2_send_buffer.get_buffer(), 1, MPI_INT, child2, finish_tag, 
-      MPI_COMM_WORLD, &c2_send_request);
-    n_sends_posted++;
-    MPI_Wait(&c2_send_request, MPI_STATUS_IGNORE);
-    n_sends_completed++;
-  }
 
   //wait for all ranks to finish transport to finish off cell and cell id
   //requests and sends

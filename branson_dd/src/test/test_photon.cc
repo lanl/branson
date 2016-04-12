@@ -5,7 +5,6 @@
 */
 
 #include <iostream>
-#include <boost/mpi.hpp>
 
 #include "../photon.h"
 #include "testing_functions.h"

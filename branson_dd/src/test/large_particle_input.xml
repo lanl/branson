@@ -6,8 +6,6 @@
     <dt_start>0.2</dt_start>
     <t_mult>1.5</t_mult>
     <dt_max>2.0</dt_max>
-    <Tm_initial>1.0</Tm_initial>
-    <Tr_initial>1.0</Tr_initial>
     <photons>6000000000</photons>
     <seed>14706</seed>
     <tilt>FALSE</tilt>
@@ -24,14 +22,22 @@
     <print_mesh_info>FALSE</print_mesh_info>
   </debug_options>
 
-  <spatial>
+  <simple_spatial>
+    <x_start>0.0</x_start>
+    <x_end> 1.0</x_end>
     <n_x_cells>10</n_x_cells>
-    <dx>1.0</dx>
-    <n_y_cells>10</n_y_cells>
-    <dy>1.0</dy>
-    <n_z_cells>10</n_z_cells>
-    <dz>1.0</dz>
 
+    <y_start>0.0</y_start>
+    <y_end> 1.0</y_end>
+    <n_y_cells>10</n_y_cells>
+
+    <z_start>0.0</z_start>
+    <z_end>1.0</z_end>
+    <n_z_cells>10</n_z_cells>
+  </simple_spatial>
+
+
+  <boundary>
     <bc_right>REFLECT</bc_right>
     <bc_left>REFLECT</bc_left>
 
@@ -40,19 +46,25 @@
 
     <bc_top>REFLECT</bc_top>
     <bc_bottom>REFLECT</bc_bottom>
-  </spatial>
+  </boundary>
 
   <source>
     <source_element>0</source_element>
     <T_source>0.0</T_source>
   </source>
 
-  <material>
-    <density>1.0</density>
-    <CV>1.0</CV>
-    <opacA>1.0</opacA>
-    <opacB>0.0</opacB>
-    <opacC>0.0</opacC>
-    <opacS>0.0</opacS>
-  </material>
+  <regions>
+    <region>
+      <ID>12</ID>
+      <density>1.0</density>
+      <CV>1.0</CV>
+      <opacA>1.0</opacA>
+      <opacB>0.0</opacB>
+      <opacC>0.0</opacC>
+      <opacS>0.0</opacS>
+      <initial_T_e>1.0</initial_T_e>
+      <initial_T_r>1.0</initial_T_r>
+    </region>
+  </regions>
+
 </prototype>

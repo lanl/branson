@@ -3,34 +3,55 @@ cmake_minimum_required (VERSION 2.8)
 # Set Intel MPI Compiler
 #set(CMAKE_CXX_COMPILER mpiicpc)
 # Set OpenMPI compiler
-set(CMAKE_CXX_COMPILER mpic++)
+#set(CMAKE_CXX_COMPILER mpic++)
+
+set(MPI_EXEC mpirun)
+#set(MPI_EXEC aprun)
 
 include_directories(${Boost_INCLUDE_DIR})
+include_directories($ENV{METIS_INC_DIR})
 
 # Cell class test
 add_executable(test_cell_exe test_cell.cc)
-add_test(NAME test_cell COMMAND test_cell_exe)
+add_test(NAME test_cell COMMAND ${MPI_EXEC} -n 1 ./test_cell_exe)
 
 # Photon class test
 add_executable(test_photon_exe test_photon.cc)
-add_test(NAME test_photon COMMAND test_photon_exe)
+add_test(NAME test_photon COMMAND ${MPI_EXEC} -n 1 ./test_photon_exe)
 
 # Buffer class test
 add_executable(test_buffer_exe test_buffer.cc)
-add_test(NAME test_buffer COMMAND test_buffer_exe)
+add_test(NAME test_buffer COMMAND ${MPI_EXEC} -n 1 ./test_buffer_exe)
 
-# copy these input files for Input and IMC_State class tests
-configure_file(simple_input.xml ${CMAKE_CURRENT_BINARY_DIR}/simple_input.xml COPY_ONLY)
-configure_file(large_particle_input.xml ${CMAKE_CURRENT_BINARY_DIR}/large_particle_input.xml COPY_ONLY)
+# copy these input files for Input, IMC_State and Mesh class tests
+configure_file(simple_input.xml ${CMAKE_CURRENT_BINARY_DIR}/simple_input.xml COPYONLY)
+configure_file(large_particle_input.xml ${CMAKE_CURRENT_BINARY_DIR}/large_particle_input.xml COPYONLY)
+configure_file(three_region_mesh_input.xml ${CMAKE_CURRENT_BINARY_DIR}/three_region_mesh_input.xml COPYONLY)
 
 # Input class test
 add_executable(test_input_exe test_input.cc)
-add_test(NAME test_input COMMAND test_input_exe)
+add_test(NAME test_input COMMAND ${MPI_EXEC} -n 1 ./test_input_exe)
+
+# Mesh class test
+add_executable(test_mesh_exe test_mesh.cc)
+add_test(NAME test_mesh COMMAND ${MPI_EXEC} -n 1 ./test_mesh_exe)
 
 # IMC_State class test
 add_executable(test_imc_state_exe test_imc_state.cc)
-add_test(NAME test_imc_state COMMAND mpirun -np 2 test_imc_state_exe)
+add_test(NAME test_imc_state COMMAND ${MPI_EXEC} -n 2 ./test_imc_state_exe)
 
 # RMA Particle Completion class test
-add_executable(test_rma_completion_exe test_rma_completion.cc)
-add_test(NAME test_rma_completion COMMAND mpirun -np 7 test_rma_completion_exe)
+add_executable(test_completion_manager_rma_exe test_completion_manager_rma.cc)
+add_test(NAME test_completion_manager_rma COMMAND ${MPI_EXEC} -n 7 ./test_completion_manager_rma_exe)
+
+# Parmetis Test with 1 processor
+add_executable(test_parmetis_1_exe test_parmetis.cc)
+target_link_libraries(test_parmetis_1_exe parmetis)
+target_link_libraries(test_parmetis_1_exe metis)
+add_test(NAME test_parmetis_1 COMMAND ${MPI_EXEC} -n 1 ./test_parmetis_1_exe)
+
+# Parmetis Test with 4 processors
+add_executable(test_parmetis_4_exe test_parmetis.cc)
+target_link_libraries(test_parmetis_4_exe parmetis)
+target_link_libraries(test_parmetis_4_exe metis)
+add_test(NAME test_parmetis_4 COMMAND ${MPI_EXEC} -n 4 ./test_parmetis_4_exe)

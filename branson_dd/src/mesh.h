@@ -2,27 +2,27 @@
 #ifndef mesh_h_
 #define mesh_h_
 
-#include <vector>
-#include <string>
 #include <algorithm>
 #include <map>
+#include <mpi.h>
 #include <set>
+#include <string>
+#include <vector>
 
-#include "mpi.h"
-#include "input.h"
-#include "imc_state.h"
+#include "buffer.h"
 #include "cell.h"
 #include "constants.h"
-#include "buffer.h"
+#include "input.h"
+#include "imc_state.h"
 
 class Mesh {
 
   public:
 
   Mesh(Input* input, int _rank, int _n_rank)
-  : ngx(input->get_n_x_cells()),
-    ngy(input->get_n_y_cells()),
-    ngz(input->get_n_z_cells()),
+  : ngx(input->get_global_n_x_cells()),
+    ngy(input->get_global_n_y_cells()),
+    ngz(input->get_global_n_z_cells()),
     rank(_rank),
     n_rank(_n_rank)
   {
@@ -33,9 +33,7 @@ class Mesh {
     using Constants::ELEMENT;
 
     max_map_size = input->get_map_size();
-    double dx = input->get_dx();
-    double dy = input->get_dy();
-    double dz = input->get_dz();
+    double dx,dy,dz;
 
     // make off processor map
     n_off_rank = n_rank -1;
@@ -44,85 +42,151 @@ class Mesh {
       proc_map[i] = r_index;
     }
 
+    regions = input->get_regions();
+    // map region IDs to index in the region
+    for (uint32_t i =0; i<regions.size(); i++) {
+      region_ID_to_index[regions[i].get_ID()] = i;
+    }
+
     vector<bc_type> bc(6);
     bc[X_POS] = input->get_bc(X_POS); bc[X_NEG] = input->get_bc(X_NEG);
     bc[Y_POS] = input->get_bc(Y_POS); bc[Y_NEG] = input->get_bc(Y_NEG);
     bc[Z_POS] = input->get_bc(Z_POS); bc[Z_NEG] = input->get_bc(Z_NEG);
 
-    //initialize number of DMA requests as zero
+    //initialize number of RMA requests as zero
     off_rank_reads=0;
 
-    uint32_t g_count =0; //global count
+    uint32_t global_count =0; //global cell count
 
     //this rank's cells
     n_global = ngx*ngy*ngz;
     uint32_t cell_id_begin = floor(rank*n_global/double(n_rank));
     uint32_t cell_id_end = floor((rank+1)*n_global/double(n_rank));
 
-    uint32_t l_count =0;
-    for (uint32_t k=0; k<ngz; k++) {
-      for (uint32_t j=0; j<ngy; j++) {
-        for (uint32_t i=0; i<ngx; i++) {
-          if (g_count >= cell_id_begin && g_count < cell_id_end) {
-            //global_ID.push_back(count*10 + MPI::COMM_WORLD.Get_rank()  );
-            Cell e;
-            e.set_coor(i*dx, (i+1)*dx, j*dy, (j+1)*dy, k*dz, (k+1)*dz);
-            e.set_ID(g_count);
-            e.set_cV(input->get_CV());
-            e.set_T_e(input->get_initial_Tm()); 
-            e.set_T_r(input->get_initial_Tr());
-            e.set_T_s(0.0);
-            e.set_rho(input->get_rho());
+    uint32_t on_rank_count =0;
 
-            if (i<(ngx-1)) {
-              e.set_neighbor( X_POS, g_count+1); e.set_bc(X_POS, ELEMENT);
-            }
-            else {
-              e.set_neighbor( X_POS, g_count); e.set_bc(X_POS, bc[X_POS]);
-            } 
+    uint32_t n_x_div = input->get_n_x_divisions();
+    uint32_t n_y_div = input->get_n_y_divisions();
+    uint32_t n_z_div = input->get_n_z_divisions();
 
-            if (i>0) {
-              e.set_neighbor( X_NEG, g_count-1); e.set_bc(X_NEG, ELEMENT);
-            }
-            else {
-              e.set_neighbor( X_NEG, g_count); e.set_bc(X_NEG, bc[X_NEG]);
-            }
-            if (j<(ngy-1)) {
-              e.set_neighbor(Y_POS, g_count+ngx); e.set_bc(Y_POS, ELEMENT);
-            }
-            else {
-              e.set_neighbor(Y_POS, g_count); e.set_bc(Y_POS, bc[Y_POS]);
-            }
-            if (j>0) {
-              e.set_neighbor(Y_NEG, g_count-ngx); e.set_bc(Y_NEG, ELEMENT);
-            }
-            else {
-              e.set_neighbor(Y_NEG, g_count); e.set_bc(Y_NEG, bc[Y_NEG]);
-            }
-            if (k<(ngz-1)) {
-              e.set_neighbor(Z_POS, g_count+ngx*ngy); e.set_bc(Z_POS, ELEMENT);
-            }
-            else {
-              e.set_neighbor(Z_POS, g_count); e.set_bc(Z_POS, bc[Z_POS]);
-            }
-            if (k>0) {
-              e.set_neighbor(Z_NEG, g_count-ngx*ngy); e.set_bc(Z_NEG, ELEMENT);
-            }
-            else {
-              e.set_neighbor(Z_NEG, g_count); e.set_bc(Z_NEG, bc[Z_NEG]);
-            }
-            cell_list.push_back(e);
-            l_count++;
-          }
-          g_count++;
-        } //end i loop
-      } // end j loop
-    } // end k loop
-    n_cell = l_count;
-    m_opA = input->get_opacity_A();
-    m_opB = input->get_opacity_B();
-    m_opC = input->get_opacity_C();
-    m_opS = input->get_opacity_S();
+    Region region;
+    uint32_t region_index, nx, ny, nz;
+    double x_start, y_start, z_start;
+    double x_cell_end;
+    double y_cell_end;
+    double z_cell_end;
+
+    for (uint32_t iz_div=0; iz_div<n_z_div; iz_div++) {
+      dz = input->get_dz(iz_div);
+      nz = input->get_z_division_cells(iz_div);
+      z_start = input->get_z_start(iz_div);
+      for (uint32_t k=0; k<nz; k++) {
+        for (uint32_t iy_div=0; iy_div<n_y_div; iy_div++) {
+          dy = input->get_dy(iy_div);
+          ny = input->get_y_division_cells(iy_div);
+          y_start = input->get_y_start(iy_div);
+          for (uint32_t j=0; j<ny; j++) {
+            for (uint32_t ix_div=0; ix_div<n_x_div; ix_div++) {
+              dx = input->get_dx(ix_div);
+              nx = input->get_x_division_cells(ix_div);
+              x_start = input->get_x_start(ix_div);
+              for (uint32_t i=0; i<nx; i++) {
+                if (global_count >= cell_id_begin && global_count < cell_id_end) {
+                  //find the region for this cell
+                  region_index = input->get_region_index(ix_div, iy_div, iz_div);
+                  region = regions[region_index];
+                  Cell e;
+                  // set ending coordinates explicity to match the start of
+                  // the next division to avoid werid roundoff errors
+
+                  if (i == nx-1 && ix_div != n_x_div-1) 
+                    x_cell_end = input->get_x_start(ix_div+1);
+                  else x_cell_end = x_start+(i+1)*dx;
+
+                  if (i == nx-1 && ix_div != n_x_div-1) 
+                    x_cell_end = input->get_x_start(ix_div+1);
+                  else x_cell_end = x_start+(i+1)*dx;
+
+                  e.set_coor(x_start+i*dx, x_start+(i+1)*dx, 
+                             y_start+j*dy, y_start+(j+1)*dy, 
+                             z_start+k*dz, z_start+(k+1)*dz);
+                  e.set_ID(global_count);
+                  e.set_region_ID(region.get_ID());
+
+                  // set cell physical properties using region
+                  e.set_cV(region.get_cV());
+                  e.set_T_e(region.get_T_e()); 
+                  e.set_T_r(region.get_T_r());
+                  e.set_T_s(region.get_T_s());
+                  e.set_rho(region.get_rho());
+
+                  // set neighbors in x direction
+                  if (i<(ngx-1)) {
+                    e.set_neighbor( X_POS, global_count+1); 
+                    e.set_bc(X_POS, ELEMENT);
+                  }
+                  else {
+                    e.set_neighbor( X_POS, global_count); 
+                    e.set_bc(X_POS, bc[X_POS]);
+                  } 
+                  if (i>0) {
+                    e.set_neighbor( X_NEG, global_count-1); 
+                    e.set_bc(X_NEG, ELEMENT);
+                  }
+                  else {
+                    e.set_neighbor( X_NEG, global_count); 
+                    e.set_bc(X_NEG, bc[X_NEG]);
+                  }
+
+                  // set neighbors in y direction
+                  if (j<(ngy-1)) {
+                    e.set_neighbor(Y_POS, global_count+ngx); 
+                    e.set_bc(Y_POS, ELEMENT);
+                  }
+                  else {
+                    e.set_neighbor(Y_POS, global_count); 
+                    e.set_bc(Y_POS, bc[Y_POS]);
+                  }
+                  if (j>0) {
+                    e.set_neighbor(Y_NEG, global_count-ngx);
+                    e.set_bc(Y_NEG, ELEMENT);
+                  }
+                  else {
+                    e.set_neighbor(Y_NEG, global_count);
+                    e.set_bc(Y_NEG, bc[Y_NEG]);
+                  }
+
+                  // set neighbors in z direction
+                  if (k<(ngz-1)) {
+                    e.set_neighbor(Z_POS, global_count+ngx*ngy); 
+                    e.set_bc(Z_POS, ELEMENT);
+                  }
+                  else {
+                    e.set_neighbor(Z_POS, global_count); 
+                    e.set_bc(Z_POS, bc[Z_POS]);
+                  }
+                  if (k>0) {
+                    e.set_neighbor(Z_NEG, global_count-ngx*ngy); 
+                    e.set_bc(Z_NEG, ELEMENT);
+                  }
+                  else {
+                    e.set_neighbor(Z_NEG, global_count);
+                    e.set_bc(Z_NEG, bc[Z_NEG]);
+                  }
+
+                  // add cell to mesh
+                  cell_list.push_back(e);
+                  //increment on rank count
+                  on_rank_count++;
+                } // end if on processor check
+                global_count++;
+              } // end i loop
+            } // end x division loop
+          } // end j loop
+        } // end y division loop
+      } // end k loop
+    } // end z division loop
+    n_cell = on_rank_count;
 
     total_photon_E = 0.0;
 
@@ -143,30 +207,6 @@ class Mesh {
     MPI_Type_commit(&MPI_Cell);
 
     MPI_Type_size(MPI_Cell, &mpi_cell_size);
-
-    //Make the MPI_Particle type
-    /*
-    {
-      const int entry_count = 2 ; 
-      // 7 uint32_t, 6 int, 13 double
-      int array_of_block_length[3] = { 2, 9};
-      // Displacements of each type in the cell
-      MPI_Aint array_of_block_displace[2] = 
-        {0, 2*sizeof(uint32_t)};
-      //Type of each memory block
-      MPI_Datatype array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
-
-      MPI_Datatype MPI_Particle;
-      MPI_Type_create_struct(entry_count, array_of_block_length, 
-        array_of_block_displace, array_of_types, &MPI_Particle);
-
-      // Commit the type to MPI so it recognizes it in communication calls
-      MPI_Type_commit(&MPI_Particle);
-
-      int mpi_particle_size;
-      MPI_Type_size(MPI_Particle, &mpi_particle_size);
-    }
-    */
 
     //bool flags to say if data is needed
     need_data = vector<bool>(n_rank-1, false);
@@ -211,6 +251,8 @@ class Mesh {
     return adjacent_procs;
   }
   double get_total_photon_E(void) const {return total_photon_E;}
+
+  std::vector<uint32_t> get_off_rank_bounds(void) {return off_rank_bounds;}
 
   void pre_decomp_print(void) const {
     for (uint32_t i= 0; i<n_cell; i++)
@@ -294,6 +336,9 @@ class Mesh {
       return false; 
   } 
 
+  std::vector<double> get_census_E(void) const {return m_census_E;}
+  std::vector<double> get_emission_E(void) const {return m_emission_E;}
+  std::vector<double> get_source_E(void) const {return m_source_E;}
 
 
 /*****************************************************************************/
@@ -323,6 +368,9 @@ class Mesh {
     double tot_emission_E = 0.0;
     double tot_source_E = 0.0;
     double pre_mat_E = 0.0;
+
+    uint32_t region_ID;
+    Region region;
     for (uint32_t i=0; i<n_cell;++i) {
       Cell& e = cells[i];
       vol = e.get_volume();
@@ -331,8 +379,12 @@ class Mesh {
       Tr = e.get_T_r();
       Ts = e.get_T_s();
       rho = e.get_rho();
-      op_a = m_opA + m_opB*pow(T, m_opC);
-      op_s = m_opS;
+
+      region_ID = e.get_region_ID();
+      region =  regions[region_ID];
+          
+      op_a = region.get_absorption_opacity(T);
+      op_s = region.get_scattering_opacity();
       f =1.0/(1.0 + dt*op_a*c*(4.0*a*pow(T,3)/(cV*rho)));
       e.set_op_a(op_a);
       e.set_op_s(op_s);
@@ -455,10 +507,13 @@ class Mesh {
 
   void make_MPI_window(void) {
     //make the MPI window with the sorted cell list
-    MPI_Aint num_bytes(n_cell*mpi_cell_size);
-    MPI_Alloc_mem(num_bytes, MPI_INFO_NULL, &cells);
-    memcpy(cells,&cell_list[0], num_bytes);
-    
+    MPI_Aint n_bytes(n_cell*mpi_cell_size);
+    //MPI_Alloc_mem(n_bytes, MPI_INFO_NULL, &cells);
+    MPI_Win_allocate(n_bytes, mpi_cell_size, MPI_INFO_NULL,
+      MPI_COMM_WORLD, &cells, &mesh_window);
+    //copy the cells list data into the cells array
+    memcpy(cells,&cell_list[0], n_bytes);
+
     cell_list.clear();
   }
 
@@ -467,12 +522,16 @@ class Mesh {
     double total_abs_E = 0.0;
     double total_post_mat_E = 0.0;
     double vol,cV,rho,T, T_new;
+    uint32_t region_ID;
+    Region region;
     for (uint32_t i=0; i<n_cell;++i) {
+      region_ID = cells[i].get_region_ID();
+      region = regions[region_ID];
+      cV = region.get_cV();
+      rho = region.get_rho();
       Cell& e = cells[i];
       vol = e.get_volume();
-      cV = e.get_cV();
       T = e.get_T_e();
-      rho = e.get_rho();
       T_new = T + (abs_E[i+on_rank_start] - m_emission_E[i])/(cV*vol*rho);
       e.set_T_e(T_new);
       total_abs_E+=abs_E[i+on_rank_start];
@@ -487,6 +546,8 @@ class Mesh {
     imc_s->set_step_cells_requested(off_rank_reads);
     off_rank_reads = 0;
   }
+
+  MPI_Win& get_mesh_window_ref(void) {return mesh_window;}
 
   void request_cell(const uint32_t& index) {
     //get local index of global index
@@ -505,14 +566,27 @@ class Mesh {
     }
   }
 
+  void add_non_local_mesh_cells(std::vector<Cell> new_recv_cells) {
+    for (uint32_t i=0; i<new_recv_cells.size();i++) {
+      uint32_t index = new_recv_cells[i].get_ID();
 
+      //add this cell to the map, if possible, otherwise manage map
+      if (stored_cells.size() < max_map_size) 
+        stored_cells[index] = new_recv_cells[i];
+      else {
+        //remove first cell from map, it will naturally be requested again
+        stored_cells.erase(stored_cells.begin());
+      }
+    } // for i in new_recv_cells[ir] 
+  }
 
   bool process_mesh_requests(uint32_t& n_cell_messages,
                               uint32_t& n_cells_sent,
                               uint32_t& n_sends_posted,
                               uint32_t& n_sends_completed,
                               uint32_t& n_receives_posted,
-                              uint32_t& n_receives_completed) {
+                              uint32_t& n_receives_completed) 
+  {
     using Constants::cell_tag;
     using Constants::cell_id_tag;
     using std::vector;
@@ -659,7 +733,8 @@ class Mesh {
   void finish_mesh_pass_messages(uint32_t& n_sends_posted,
                                 uint32_t& n_sends_completed,
                                 uint32_t& n_receives_posted,
-                                uint32_t& n_receives_completed) {
+                                uint32_t& n_receives_completed) 
+  {
     using Constants::cell_id_tag;
     using std::vector;
     //post receives for ids to all ranks
@@ -723,13 +798,10 @@ class Mesh {
   std::vector<double>& get_census_E_ref(void) {return m_census_E;}
   std::vector<double>& get_emission_E_ref(void) {return m_emission_E;}
   std::vector<double>& get_source_E_ref(void) {return m_source_E;}
-  std::vector<double> get_census_E(void) const {return m_census_E;}
-  std::vector<double> get_emission_E(void) const {return m_emission_E;}
-  std::vector<double> get_source_E(void) const {return m_source_E;}
 
-/*****************************************************************************/
+  //////////////////////////////////////////////////////////////////////////////
   //member variables
-/*****************************************************************************/
+  //////////////////////////////////////////////////////////////////////////////
   private:
 
   uint32_t ngx; //! Number of global x sizes
@@ -758,10 +830,8 @@ class Mesh {
  
   std::map<uint32_t, uint32_t> adjacent_procs; //! List of adjacent processors
 
-  double m_opA; //! Opacity coefficient A in A + B^C
-  double m_opB; //! Opacity coefficient B in A + B^C
-  double m_opC; //! Opacity coefficient C in A + B^C
-  double m_opS; //! Scattering opacity constant
+  std::vector<Region> regions; //! Vector of regions in the problem
+  std::map<uint32_t, uint32_t> region_ID_to_index; //! Maps region ID to index
 
   double total_photon_E; //! Total photon energy on the mesh
 
@@ -771,6 +841,8 @@ class Mesh {
 
   uint32_t max_map_size; //! Maximum size of map object
   uint32_t off_rank_reads; //! Number of off rank reads
+
+  MPI_Win mesh_window;
 
   //send and receive buffers
   std::vector<Buffer<Cell> > recv_cell_buffer; //! Receive buffer for cells

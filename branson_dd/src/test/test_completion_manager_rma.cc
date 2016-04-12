@@ -1,14 +1,14 @@
 /*
   Author: Alex Long
   Date: 3/18/2016
-  Name: test_rma_completion.cc
+  Name: test_completion_manager_rma.cc
 */
 
 #include <iostream>
 #include <mpi.h>
 
 #include "../constants.h"
-#include "../binary_tree_rma.h"
+#include "../completion_manager_rma.h"
 #include "testing_functions.h"
 
 using std::cout;
@@ -24,14 +24,33 @@ int main (int argc, char *argv[]) {
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
   int nfail = 0;
-  
+
+
+  // test construction and MPI window type
+  {
+    bool construction_pass = true;
+
+    uint64_t rank_particles = 10000;
+    uint64_t global_count = n_rank*rank_particles;
+    Completion_Manager_RMA comp(rank, n_rank);
+
+    if (comp.get_mpi_window_memory_type() != MPI_WIN_UNIFIED) construction_pass = false;
+
+    if (construction_pass) cout<<"TEST PASSED: Construction and MPI window type "
+      <<n_rank<<" ranks"<<endl;
+    else {
+      cout<<"TEST FAILED: Construction and MPI window type with"<<n_rank<<" ranks"<<endl;
+      nfail++;
+    }
+  }
+
   // test completion routine
   {
     bool completion_routine_pass = true;
 
     uint64_t rank_particles = 10000;
     uint64_t global_count = n_rank*rank_particles;
-    Completion comp(rank, n_rank);
+    Completion_Manager_RMA comp(rank, n_rank);
 
     //begin access epoch
     comp.start_access();
@@ -40,7 +59,7 @@ int main (int argc, char *argv[]) {
     comp.set_timestep_global_particles(global_count);
 
     uint64_t rank_complete = 0;
-    double work;
+    double work = 0.0;
     bool finished = false;
 
     while(!finished ) {
@@ -61,10 +80,10 @@ int main (int argc, char *argv[]) {
     //end access epoch 
     comp.end_access();
 
-    if (completion_routine_pass) cout<<"TEST PASSED: Completion routine with "
+    if (completion_routine_pass) cout<<"TEST PASSED: Completion_Manager_RMA routine with "
       <<n_rank<<" ranks"<<endl;
     else {
-      cout<<"TEST FAILED: Completion routine with "<<n_rank<<" ranks"<<endl;
+      cout<<"TEST FAILED: Completion_Manager_RMA routine with "<<n_rank<<" ranks"<<endl;
       nfail++;
     }
   }

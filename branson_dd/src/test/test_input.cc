@@ -6,7 +6,10 @@
 
 #include <iostream>
 #include <string>
+#include <vector>
+
 #include "../input.h"
+#include "../region.h"
 #include "../constants.h"
 #include "testing_functions.h"
 
@@ -32,63 +35,192 @@ int main (void) {
   // file (reader is working correctly) and that the get functions are working 
   // these values are hardcoded in simple_input.xml
   {
-    // test simple input file
+    // test simple input file (one division in each dimension and one region)
     string filename("simple_input.xml");
     Input input(filename);
 
-    bool get_functions_pass = true;
-    if (input.get_n_x_cells() != 10) get_functions_pass =false;
-    if (input.get_n_y_cells() != 20) get_functions_pass =false;
-    if (input.get_n_z_cells() != 30) get_functions_pass =false;
-    if (input.get_dx() != 1.0) get_functions_pass =false;
-    if (input.get_dy() != 2.0) get_functions_pass =false;
-    if (input.get_dz() != 3.0) get_functions_pass =false;
-
-    if (input.get_initial_Tm() != 1.0) get_functions_pass =false;
-    if (input.get_initial_Tr() != 1.1) get_functions_pass =false;
+    bool simple_input_pass = true;
+    if (input.get_global_n_x_cells() != 10) simple_input_pass =false;
+    if (input.get_global_n_y_cells() != 20) simple_input_pass =false;
+    if (input.get_global_n_z_cells() != 30) simple_input_pass =false;
+    if (input.get_dx(0) != 1.0) simple_input_pass =false;
+    if (input.get_dy(0) != 2.0) simple_input_pass =false;
+    if (input.get_dz(0) != 3.0) simple_input_pass =false;
 
 
-    if (input.get_tilt_bool() != false) get_functions_pass =false;
-    if (input.get_comb_bool() != true) get_functions_pass =false;
-    if (input.get_stratified_bool() != false) get_functions_pass =false;
-    if (input.get_ghost_cell_bool() != false) get_functions_pass =false;
-    if (input.get_verbose_print_bool() != false) get_functions_pass =false;
-    if (input.get_print_mesh_info_bool() != false) get_functions_pass =false;
-    if (input.get_output_freq() != 1) get_functions_pass =false;
+    if (input.get_tilt_bool() != false) simple_input_pass =false;
+    if (input.get_comb_bool() != true) simple_input_pass =false;
+    if (input.get_stratified_bool() != false) simple_input_pass =false;
+    if (input.get_ghost_cell_bool() != false) simple_input_pass =false;
+    if (input.get_verbose_print_bool() != false) simple_input_pass =false;
+    if (input.get_print_mesh_info_bool() != false) simple_input_pass =false;
+    if (input.get_output_freq() != 1) simple_input_pass =false;
 
-    if (input.get_dt() != 0.01) get_functions_pass =false;
-    if (input.get_time_start() != 0.0 ) get_functions_pass =false;
-    if (input.get_time_finish() != 0.1 ) get_functions_pass =false;
-    if (input.get_time_mult() != 1.0 ) get_functions_pass =false;
-    if (input.get_time_mult() != 1.0 ) get_functions_pass =false;
-    if (input.get_rng_seed() != 14706) get_functions_pass =false;
-    if (input.get_number_photons() != 10000) get_functions_pass =false;
-    if (input.get_batch_size() != 10000) get_functions_pass=false; 
-    if (input.get_particle_message_size() != 1000) get_functions_pass=false; 
-    if (input.get_map_size() != 50000) get_functions_pass=false; 
-    if (input.get_dd_mode() != PARTICLE_PASS) get_functions_pass=false; 
+    if (input.get_dt() != 0.01) simple_input_pass =false;
+    if (input.get_time_start() != 0.0 ) simple_input_pass =false;
+    if (input.get_time_finish() != 0.1 ) simple_input_pass =false;
+    if (input.get_time_mult() != 1.0 ) simple_input_pass =false;
+    if (input.get_time_mult() != 1.0 ) simple_input_pass =false;
+    if (input.get_rng_seed() != 14706) simple_input_pass =false;
+    if (input.get_number_photons() != 10000) simple_input_pass =false;
+    if (input.get_batch_size() != 10000) simple_input_pass=false; 
+    if (input.get_particle_message_size() != 1000) simple_input_pass=false; 
+    if (input.get_map_size() != 50000) simple_input_pass=false; 
+    if (input.get_dd_mode() != PARTICLE_PASS) simple_input_pass=false; 
 
-    if (input.get_source_T() != 0.0) get_functions_pass=false; 
-    if (input.get_CV() != 2.0) get_functions_pass=false; 
-    if (input.get_rho() != 1.0) get_functions_pass=false; 
-    if (input.get_opacity_A() != 3.0) get_functions_pass=false; 
-    if (input.get_opacity_B() != 0.0) get_functions_pass=false; 
-    if (input.get_opacity_C() != 0.0) get_functions_pass=false; 
-    if (input.get_opacity_S() != 5.0) get_functions_pass=false; 
+    if (input.get_bc(X_NEG) != REFLECT) simple_input_pass=false;
+    if (input.get_bc(X_POS) != REFLECT) simple_input_pass=false;
+    if (input.get_bc(Y_NEG) != VACUUM) simple_input_pass=false;
+    if (input.get_bc(Y_POS) != VACUUM) simple_input_pass=false;
+    if (input.get_bc(Z_NEG) != VACUUM) simple_input_pass=false;
+    if (input.get_bc(Z_POS) != REFLECT) simple_input_pass=false;
 
-    if (input.get_bc(X_NEG) != REFLECT) get_functions_pass=false;
-    if (input.get_bc(X_POS) != REFLECT) get_functions_pass=false;
-    if (input.get_bc(Y_NEG) != VACUUM) get_functions_pass=false;
-    if (input.get_bc(Y_POS) != VACUUM) get_functions_pass=false;
-    if (input.get_bc(Z_NEG) != VACUUM) get_functions_pass=false;
-    if (input.get_bc(Z_POS) != REFLECT) get_functions_pass=false;
+    //test region functionality
+    uint32_t region_index = input.get_region_index(0,0,0);
+    std::vector<Region> regions = input.get_regions();
+    Region region = regions[region_index];
 
-    if (get_functions_pass) cout<<"TEST PASSED: get functions"<<endl;
+    if (input.get_n_regions() != 1) simple_input_pass=false;
+    if ( region_index != 0) simple_input_pass=false; 
+    
+    if (region.get_ID() != 6) simple_input_pass=false; 
+    if (region.get_cV() != 2.0) simple_input_pass=false; 
+    if (region.get_rho() != 1.0) simple_input_pass=false; 
+    if (region.get_opac_A() != 3.0) simple_input_pass=false; 
+    if (region.get_opac_B() != 1.5) simple_input_pass=false; 
+    if (region.get_opac_C() != 0.1) simple_input_pass=false; 
+    if (region.get_scattering_opacity() != 5.0) simple_input_pass=false;
+    if (region.get_T_e() != 1.0) simple_input_pass =false;
+    if (region.get_T_r() != 1.1) simple_input_pass =false;
+    if (region.get_T_s() != 0.0) simple_input_pass=false; 
+
+
+    if (simple_input_pass) cout<<"TEST PASSED: simple input get functions"<<endl;
     else { 
-      cout<<"TEST FAILED: get functions"<<endl; 
+      cout<<"TEST FAILED: simple input get functions"<<endl; 
       nfail++;
     }
   }
+
+
+  // test the get functions to make sure correct values are set from the input
+  // file with a more complicated mesh (reader is working correctly) these 
+  // values are hardcoded in three_region_mesh_input.xml
+  {
+    // test simple input file (one division in each dimension and one region)
+    string filename("three_region_mesh_input.xml");
+    Input input(filename);
+
+    bool three_region_pass = true;
+    if (input.get_global_n_x_cells() != 21) three_region_pass =false;
+    if (input.get_global_n_y_cells() != 10) three_region_pass =false;
+    if (input.get_global_n_z_cells() != 1) three_region_pass =false;
+
+    if (input.get_n_x_divisions() != 3) three_region_pass =false;
+    if (input.get_dx(0) != 1.0) three_region_pass =false;
+    if (input.get_x_division_cells(0) != 4) three_region_pass =false;
+    if (input.get_dx(1) != 2.0) three_region_pass =false;
+    if (input.get_x_division_cells(1) != 2) three_region_pass =false;
+    if (input.get_dx(2) != 2.0/15.0) three_region_pass =false;
+    if (input.get_x_division_cells(2) != 15) three_region_pass =false;
+
+    if (input.get_n_y_divisions() != 1) three_region_pass =false;
+    if (input.get_dy(0) != 3.0) three_region_pass =false;
+    if (input.get_y_division_cells(0) != 10) three_region_pass =false;
+
+    if (input.get_n_z_divisions() != 1) three_region_pass =false;
+    if (input.get_dz(0) != 1.0) three_region_pass =false;
+    if (input.get_z_division_cells(0) != 1) three_region_pass =false;
+
+    if (input.get_tilt_bool() != false) three_region_pass =false;
+    if (input.get_comb_bool() != true) three_region_pass =false;
+    if (input.get_stratified_bool() != false) three_region_pass =false;
+    if (input.get_ghost_cell_bool() != false) three_region_pass =false;
+    if (input.get_verbose_print_bool() != false) three_region_pass =false;
+    if (input.get_print_mesh_info_bool() != false) three_region_pass =false;
+    if (input.get_output_freq() != 1) three_region_pass =false;
+
+    if (input.get_dt() != 0.01) three_region_pass =false;
+    if (input.get_time_start() != 0.0 ) three_region_pass =false;
+    if (input.get_time_finish() != 0.1 ) three_region_pass =false;
+    if (input.get_time_mult() != 1.0 ) three_region_pass =false;
+    if (input.get_time_mult() != 1.0 ) three_region_pass =false;
+    if (input.get_rng_seed() != 14706) three_region_pass =false;
+    if (input.get_number_photons() != 10000) three_region_pass =false;
+    if (input.get_batch_size() != 10000) three_region_pass=false; 
+    if (input.get_particle_message_size() != 1000) three_region_pass=false; 
+    if (input.get_map_size() != 50000) three_region_pass=false; 
+    if (input.get_dd_mode() != PARTICLE_PASS) three_region_pass=false; 
+
+    if (input.get_bc(X_NEG) != REFLECT) three_region_pass=false;
+    if (input.get_bc(X_POS) != REFLECT) three_region_pass=false;
+    if (input.get_bc(Y_NEG) != VACUUM) three_region_pass=false;
+    if (input.get_bc(Y_POS) != VACUUM) three_region_pass=false;
+    if (input.get_bc(Z_NEG) != VACUUM) three_region_pass=false;
+    if (input.get_bc(Z_POS) != REFLECT) three_region_pass=false;
+
+    //test region functionality
+    uint32_t region_index;
+    Region region;
+    std::vector<Region> regions = input.get_regions();
+
+    if (input.get_n_regions() != 3) three_region_pass=false;
+
+    region_index = input.get_region_index(0,0,0); 
+    if ( region_index != 0) three_region_pass=false; 
+    region_index = input.get_region_index(1,0,0); 
+    if ( region_index != 1) three_region_pass=false; 
+    region_index = input.get_region_index(2,0,0); 
+    if ( region_index != 2) three_region_pass=false; 
+
+    //region 230    
+    region = regions[0];
+    if (region.get_ID() != 230) three_region_pass=false; 
+    if (region.get_cV() != 2.0) three_region_pass=false; 
+    if (region.get_rho() != 1.0) three_region_pass=false; 
+    if (region.get_opac_A() != 3.0) three_region_pass=false; 
+    if (region.get_opac_B() != 1.5) three_region_pass=false; 
+    if (region.get_opac_C() != 0.1) three_region_pass=false; 
+    if (region.get_scattering_opacity() != 5.0) three_region_pass=false;
+    if (region.get_T_e() != 1.0) three_region_pass =false;
+    if (region.get_T_r() != 1.1) three_region_pass =false;
+    if (region.get_T_s() != 0.0) three_region_pass=false; 
+
+    //region 177
+    region = regions[1];
+    if (region.get_ID() != 177) three_region_pass=false; 
+    if (region.get_cV() != 0.99) three_region_pass=false; 
+    if (region.get_rho() != 5.0) three_region_pass=false; 
+    if (region.get_opac_A() != 101.0) three_region_pass=false; 
+    if (region.get_opac_B() != 10.5) three_region_pass=false; 
+    if (region.get_opac_C() != 0.3) three_region_pass=false; 
+    if (region.get_scattering_opacity() != 0.01) three_region_pass=false;
+    if (region.get_T_e() != 0.01) three_region_pass =false;
+    if (region.get_T_r() != 0.1) three_region_pass =false;
+    if (region.get_T_s() != 0.0) three_region_pass=false; 
+
+    //region 11
+    region = regions[2];
+    if (region.get_ID() != 11) three_region_pass=false; 
+    if (region.get_cV() != 5.0) three_region_pass=false; 
+    if (region.get_rho() != 100.0) three_region_pass=false; 
+    if (region.get_opac_A() != 0.001) three_region_pass=false; 
+    if (region.get_opac_B() != 0.01) three_region_pass=false; 
+    if (region.get_opac_C() != 4.8) three_region_pass=false; 
+    if (region.get_scattering_opacity() != 100.0) three_region_pass=false;
+    if (region.get_T_e() != 1.2) three_region_pass =false;
+    if (region.get_T_r() != 0.0) three_region_pass =false;
+    if (region.get_T_s() != 0.0) three_region_pass=false; 
+
+
+    if (three_region_pass) cout<<"TEST PASSED: three region input"<<endl;
+    else { 
+      cout<<"TEST FAILED: three region input"<<endl; 
+      nfail++;
+    }
+  }
+
+
 
   // test assigning a larger number than uint32_t to the number of photons and
   // make sure it's recognized

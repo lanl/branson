@@ -1,5 +1,5 @@
 /*
-  binary_tree_rma.h
+  completion_manager_rma.h
   by Alex Long
   3/10/2016
 */
@@ -12,23 +12,22 @@
 
 #include "constants.h"
 
-class Completion 
+class Completion_Manager_RMA
 {
 
   public:
-  Completion(const int& rank,
-             const int& n_rank)
+  Completion_Manager_RMA(const int& rank, const int& n_rank)
     : n_complete_tree(0),
       n_complete_c1(0),
       n_complete_c2(0),
       n_complete_p(0),
+      n_particle_global(0),
       buffer_c1(0),
       buffer_c2(0),
       buffer_p(0),
       c1_req_flag(false),
       c2_req_flag(false),
-      p_req_flag(false),
-      n_particle_global(0)
+      p_req_flag(false)
   {
     using Constants::proc_null;
     //set up binary tree rank structure
@@ -61,29 +60,18 @@ class Completion
     MPI_Win_allocate(size_mpi_uint64, size_mpi_uint64, MPI_INFO_NULL,
       MPI_COMM_WORLD, &n_complete_tree, &completion_window);
 
-    /*
-    int memory_model;
     int flag;
-    MPI_Win_get_attr(completion_window, MPI_WIN_MODEL, &memory_model, &flag);
-
-    std::cout<<"MPI_WIN_MODEL = "<<MPI_WIN_MODEL<<std::endl;
-
-    if(memory_model == MPI_WIN_SEPARATE) {
-      std::cout<<"Memory model is separate"<<std::endl;
-    }
-    else if(memory_model == MPI_WIN_UNIFIED) {
-      std::cout<<"Memory model is unified"<<std::endl;
-    }
-    */
+    MPI_Win_get_attr(completion_window, MPI_WIN_MODEL, &memory_model, &flag); 
   }
-  ~Completion() {
-    MPI_Win_free(&completion_window);
-  }
+  ~Completion_Manager_RMA() {MPI_Win_free(&completion_window);}
 
 
   //const functions
   uint64_t get_n_complete_tree(void) const {return *n_complete_tree;}
 
+  int get_mpi_window_memory_type(void) const {
+    return *memory_model;
+  }
   //non-const functions
 
   void set_timestep_global_particles(uint64_t _n_particle_global) {
@@ -192,13 +180,13 @@ class Completion
   uint64_t n_complete_c1;
   uint64_t n_complete_c2;
   uint64_t n_complete_p;
+  uint64_t n_particle_global;
   uint64_t buffer_c1;
   uint64_t buffer_c2;
   uint64_t buffer_p;
   bool c1_req_flag;
   bool c2_req_flag;
   bool p_req_flag;
-  uint64_t n_particle_global;
   uint64_t child1;
   uint64_t child2;
   uint64_t parent;
@@ -209,6 +197,7 @@ class Completion
   MPI_Request req_c1;
   MPI_Request req_c2;
   MPI_Request req_p;
+  int *memory_model;
 };
 
 #endif // def transport_particle_pass_h_

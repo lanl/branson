@@ -4,8 +4,8 @@
   Name: transport_mesh_pass.h
 */
 
-#ifndef transport_particle_pass_h_
-#define transport_particle_pass_h_
+#ifndef transport_particle_pass_jay_comp_h_
+#define transport_particle_pass_jay_comp_h_
 
 #include <algorithm>
 #include <mpi.h>
@@ -17,130 +17,22 @@
 #include <stack>
 #include <vector>
 
-#include "completion_manager_rma.h"
+#include "completion_manager.h"
 #include "constants.h"
 #include "buffer.h"
 #include "mesh.h"
 #include "sampling_functions.h"
+#include "transport_particle_pass.h"
 #include "RNG.h"
 #include "photon.h"
 
-Constants::event_type transport_photon_particle_pass(Photon& phtn,
+
+std::vector<Photon> jay_comp_transport_particle_pass(Source& source,
                                                       Mesh* mesh,
-                                                      RNG* rng,
-                                                      double& next_dt,
-                                                      double& exit_E,
-                                                      double& census_E,
+                                                      IMC_State* imc_state,
+                                                      IMC_Parameters* imc_parameters,
+                                                      Completion_Manager* comp,
                                                       std::vector<double>& rank_abs_E)
-{
-  using Constants::VACUUM; using Constants::REFLECT; 
-  using Constants::ELEMENT; using Constants::PROCESSOR;
-  using Constants::PASS; using Constants::CENSUS;
-  using Constants::KILL; using Constants::EXIT;
-  using Constants::bc_type;
-  using Constants::event_type;
-  using Constants::c;
-  using std::min;
-
-  uint32_t cell_id, next_cell;
-  bc_type boundary_event;
-  event_type event;
-  double dist_to_scatter, dist_to_boundary, dist_to_census, dist_to_event;
-  double sigma_a, sigma_s, f, absorbed_E;
-  double angle[3];
-  Cell cell;
-
-  uint32_t surface_cross = 0;
-  double cutoff_fraction = 0.01; //note: get this from IMC_state
-
-  cell_id=phtn.get_cell();
-  cell = mesh->get_on_rank_cell(cell_id);
-  bool active = true;
-
-  //transport this photon
-  while(active) {
-    sigma_a = cell.get_op_a();
-    sigma_s = cell.get_op_s();
-    f = cell.get_f();
-
-    //get distance to event
-    dist_to_scatter = -log(rng->generate_random_number())/((1.0-f)*sigma_a + sigma_s);
-    dist_to_boundary = cell.get_distance_to_boundary(phtn.get_position(),
-                                                      phtn.get_angle(),
-                                                      surface_cross);
-    dist_to_census = phtn.get_distance_remaining();
-
-    //select minimum distance event
-    dist_to_event = min(dist_to_scatter, min(dist_to_boundary, dist_to_census));
-
-    //Calculate energy absorbed by material, update photon and material energy
-    absorbed_E = phtn.get_E()*(1.0 - exp(-sigma_a*f*dist_to_event));
-    phtn.set_E(phtn.get_E() - absorbed_E);
-
-    rank_abs_E[cell_id] += absorbed_E;
-    
-    //update position
-    phtn.move(dist_to_event);
-
-    //Apply variance/runtime reduction
-    if (phtn.below_cutoff(cutoff_fraction)) {
-      rank_abs_E[cell_id] += phtn.get_E();
-      phtn.set_dead();
-      active=false;
-      event=KILL;
-    }
-    // or apply event
-    else {
-      //Apply event
-      //EVENT TYPE: SCATTER
-      if(dist_to_event == dist_to_scatter) {
-        get_uniform_angle(angle, rng);
-        phtn.set_angle(angle);
-      }
-      //EVENT TYPE: BOUNDARY CROSS
-      else if(dist_to_event == dist_to_boundary) {
-        boundary_event = cell.get_bc(surface_cross);
-        if(boundary_event == ELEMENT ) {
-          next_cell = cell.get_next_cell(surface_cross);
-          phtn.set_cell(next_cell);
-          cell_id=next_cell;
-          cell = mesh->get_on_rank_cell(cell_id);
-        }
-        else if(boundary_event == PROCESSOR) {
-          active=false;
-          //set correct cell index with global cell ID
-          next_cell = cell.get_next_cell(surface_cross);
-          phtn.set_cell(next_cell);
-          event=PASS;
-        }
-        else if(boundary_event == VACUUM) {
-          exit_E+=phtn.get_E();
-          active=false; 
-          event = EXIT;
-        }
-        else phtn.reflect(surface_cross); 
-      }
-      //EVENT TYPE: REACH CENSUS
-      else if(dist_to_event == dist_to_census) {
-        phtn.set_census_flag(1);
-        phtn.set_distance_to_census(c*next_dt);
-        active=false;
-        event=CENSUS;
-        census_E+=phtn.get_E();
-      }
-    } //end event loop
-  } // end while alive
-  return event;
-}
-
-
-
-std::vector<Photon> transport_particle_pass(Source& source,
-                                            Mesh* mesh,
-                                            IMC_State* imc_state,
-                                            IMC_Parameters* imc_parameters,
-                                            Completion_Manager_RMA* comp,
-                                            std::vector<double>& rank_abs_E)
 {
   using Constants::event_type;
   using Constants::PASS; using Constants::CENSUS;
@@ -387,14 +279,20 @@ std::vector<Photon> transport_particle_pass(Source& source,
       } // end loop over adjacent processors
     } //end scope of particle passing
 
-    
     ////////////////////////////////////////////////////////////////////////////
     // binary tree completion communication
     ////////////////////////////////////////////////////////////////////////////
-    if (n_local_sourced == n_local && phtn_recv_stack.empty()) {
-      finished = comp->binary_tree_rma(n_complete);
+    comp->check_messages(n_complete, n_receives_posted, n_receives_completed, 
+      n_sends_posted);
+    if ( n_complete  &&  (n_local==n_local_sourced && 
+      phtn_recv_stack.empty()) ) {
+      comp->send_parent_n_tree_complete(n_complete, n_sends_posted);
     }
+    finished = comp->is_finished(n_complete);
   } // end while
+
+  comp->end_timestep(n_sends_posted, n_sends_completed, n_receives_posted,
+    n_receives_completed);
 
   // wait for all ranks to finish then send empty photon messages.
   // Do this because it's possible for a rank to receive the empty message
@@ -440,14 +338,6 @@ std::vector<Photon> transport_particle_pass(Source& source,
   MPI_Allreduce(&n_photon_tests, &g_photon_tests, 1, MPI_UNSIGNED_LONG,
     MPI_SUM, MPI_COMM_WORLD);
 
-  /*  
-  if (rank==0) {
-    cout<<"Total complete messages sent: "<<g_complete_messages<<endl;
-    cout<<"Total photon message tests: "<<g_photon_tests<<endl;
-  }
-  cout.flush();
-  */
-
   std::sort(census_list.begin(), census_list.end());
   //All ranks have now finished transport
   delete[] phtn_recv_request;
@@ -467,4 +357,5 @@ std::vector<Photon> transport_particle_pass(Source& source,
   return census_list;
 }
 
-#endif // def transport_particle_pass_h_
+#endif // def transport_particle_pass_jay_comp_h_
+
