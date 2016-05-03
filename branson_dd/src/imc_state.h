@@ -69,6 +69,7 @@ class IMC_State
 /*****************************************************************************/
 /* const functions                                                           */
 /*****************************************************************************/
+  double get_time(void) const {return m_time;}
   double get_dt(void) const {return m_dt;}
   uint32_t get_step(void) const {return m_step;}
   uint64_t get_transported_particles(void) const {return trans_particles;}

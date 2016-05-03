@@ -2,21 +2,20 @@
   <common>
     <method>IMC</method>
     <t_start>0.0</t_start>
-    <t_stop>0.1</t_stop>
+    <t_stop>0.01</t_stop>
     <dt_start>0.01</dt_start>
     <t_mult>1.0</t_mult>
     <dt_max>1.0</dt_max>
-    <Tm_initial>1.0</Tm_initial>
-    <Tr_initial>1.0</Tr_initial>
     <photons>1000000</photons>
     <seed>14706</seed>
     <map_size>50000</map_size>
     <tilt>FALSE</tilt>
     <stratified_sampling>FALSE</stratified_sampling>
     <output_frequency>1</output_frequency>
+    <dd_transport_type>CELL_PASS_RMA</dd_transport_type>
+    <map_size>50000</map_size>
     <batch_size>10000</batch_size>
     <particle_message_size>20000</particle_message_size>
-    <dd_transport_type>CELL_PASS</dd_transport_type>
   </common>
 
   <debug_options>
@@ -24,15 +23,23 @@
     <print_mesh_info>FALSE</print_mesh_info>
   </debug_options>
 
+  <simple_spatial>
+    <x_start>0.0</x_start>
+    <x_end> 1.0</x_end>
+    <n_x_cells>100</n_x_cells>
 
-  <spatial>
-    <n_x_cells>20</n_x_cells>
-    <dx>1.0</dx>
-    <n_y_cells>20</n_y_cells>
-    <dy>1.0</dy>
-    <n_z_cells>20</n_z_cells>
-    <dz>1.0</dz>
+    <y_start>0.0</y_start>
+    <y_end> 1.0</y_end>
+    <n_y_cells>100</n_y_cells>
 
+    <z_start>0.0</z_start>
+    <z_end>1.0</z_end>
+    <n_z_cells>1</n_z_cells>
+
+    <region_ID>6</region_ID>
+  </simple_spatial>
+
+  <boundary>
     <bc_right>REFLECT</bc_right>
     <bc_left>REFLECT</bc_left>
 
@@ -41,20 +48,20 @@
 
     <bc_top>REFLECT</bc_top>
     <bc_bottom>REFLECT</bc_bottom>
-  </spatial>
+  </boundary>
 
-  <source>
-    <source_element>0</source_element>
-    <T_source>1.0</T_source>
-  </source>
-
-  <material>
-    <density>1.0</density>
-    <CV>1.0</CV>
-    <opacA>10.0</opacA>
-    <opacB>0.0</opacB>
-    <opacC>0.0</opacC>
-    <opacS>0.0</opacS>
-  </material>
+  <regions>
+    <region>
+      <ID>6</ID>
+      <density>1.0</density>
+      <CV>1.0</CV>
+      <opacA>500.0</opacA>
+      <opacB>0.0</opacB>
+      <opacC>0.0</opacC>
+      <opacS>0.0</opacS>
+      <initial_T_e>1.0</initial_T_e>
+      <initial_T_r>1.0</initial_T_r>
+    </region>
+  </regions>
 
 </prototype>

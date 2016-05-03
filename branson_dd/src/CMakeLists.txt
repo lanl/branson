@@ -35,11 +35,15 @@ set(BRANSON_VERSION_MINOR 1)
 #set(PARMETIS_LIBRARY_DIR /usr/projects/draco/vendors/ParMetis-4.0.3/moonlight-openmpi-1.6.5-intel-15.0.3/lib)
 
 message("ParMetis from: " $ENV{ParMETIS_ROOT_DIR})
-include_directories( $ENV{METIS_INC_DIR})
+include_directories( $ENV{PARMETIS_INC_DIR})
 link_directories($ENV{PARMETIS_LIB_DIR})
 
+message("Metis from: " $ENV{METIS_ROOT_DIR})
+include_directories( $ENV{METIS_INC_DIR})
+link_directories($ENV{METIS_LIB_DIR})
+
 ###############################################################################
-# Add Boost library
+# Add Boost Include Directory
 ###############################################################################
 #set(BOOST_ROOT /projects/opt/boost/1.58.0/draco/vendors/boost-1.58.0)
 
@@ -57,6 +61,19 @@ set(Boost_INCLUDE_DIR $ENV{BOOST_ROOT}/include)
 include_directories(${Boost_INCLUDE_DIR})
 #link_directories(${Boost_LIBRARY_DIR})
 
+
+###############################################################################
+# Add Silo header path and HDF5 library
+###############################################################################
+
+set(SILO_ROOT /users/along/installs/)
+message("Silo from: $ENV{SILO_ROOT} " )
+include_directories($ENV{SILO_ROOT}/include)
+link_directories($ENV{SILO_ROOT}/lib)
+
+set(HDF_ROOT /usr/projects/draco/vendors/hdf5-1.10.0/openmpi-1.6.5-intel-15.0.5/ )
+message("HDF from: $ENV{HDF5_ROOT} ")
+link_directories($ENV{HDF5_ROOT}/lib)
 ###############################################################################
 # Set up libraries for Cray RMA routines
 ###############################################################################
@@ -69,7 +86,8 @@ SET(DMAPP_DYNAMIC -Wl,--whole-archive,-ldmapp,--no-whole-archive)
 add_executable(BRANSON main.cc)
 target_link_libraries(BRANSON parmetis)
 target_link_libraries(BRANSON metis)
-
+target_link_libraries(BRANSON hdf5)
+target_link_libraries(BRANSON siloh5)
 #first, create the dynamic version of dmapp library
 #target_link_libraries(BRANSON ${DMAPP_DYNAMIC})
 #then link to it dynamically

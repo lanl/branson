@@ -34,6 +34,8 @@
     <z_start>0.0</z_start>
     <z_end>1.0</z_end>
     <n_z_cells>10</n_z_cells>
+
+    <region_ID>12</region_ID>
   </simple_spatial>
 
 

@@ -100,6 +100,9 @@ std::vector<Photon> jay_comp_transport_particle_pass(Source& source,
 
   MPI_Allreduce(&n_local, &n_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, 
     MPI_COMM_WORLD);
+ 
+  // post receives to children and parent for completion messages 
+  comp->start_timestep(n_receives_posted);
 
   //set global particle count in completion object
   comp->set_timestep_global_particles(n_global);

@@ -4,8 +4,8 @@
   3/10/2016
 */
 
-#ifndef binary_tree_rma_h_
-#define binary_tree_rma_h_
+#ifndef completion_manager_rma_h_
+#define completion_manager_rma_h_
 
 #include <iostream>
 #include <mpi.h>
@@ -200,4 +200,4 @@ class Completion_Manager_RMA
   int *memory_model;
 };
 
-#endif // def transport_particle_pass_h_
+#endif // def completion_manager_rma_h_

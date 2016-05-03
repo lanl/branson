@@ -91,6 +91,8 @@ class Cell
   double get_z_low(void) const {return nodes[4];}
   double get_z_high(void) const {return nodes[5];}
 
+  uint32_t get_silo_index(void) const {return silo_index;}
+
   double get_cV(void) const {return cV;}
   double get_op_a(void) const {return op_a;}
   double get_op_s(void) const {return op_s;}
@@ -105,6 +107,13 @@ class Cell
   double get_T_s(void) const {return T_s;}
   uint32_t get_ID(void) const {return g_ID;}
   uint32_t get_region_ID(void) const {return region_ID;}
+
+  //for mesh decomposition only
+  void get_center(float xyz[3]) {
+    xyz[0] = 0.5*(nodes[0] + nodes[1]);
+    xyz[1] = 0.5*(nodes[2] + nodes[3]);
+    xyz[2] = 0.5*(nodes[4] + nodes[5]);
+  }
 
   //override great than operator to sort
   bool operator <(const Cell& compare) const {
@@ -164,7 +173,7 @@ class Cell
     nodes[4] = z_low;
     nodes[5] = z_high;
   }
-
+  void set_silo_index(uint32_t _silo_index) {silo_index = _silo_index;}
 
 /*****************************************************************************/
 /* member variables and private functions                                    */
@@ -173,6 +182,7 @@ class Cell
   uint32_t g_ID; //! Global ID, valid across all ranks
   uint32_t region_ID; //! region cell is in (for setting physical properties)
   uint32_t e_next[6]; //! Bordering cell, given as global ID
+  uint32_t silo_index; //! Global index not remappated, for SILO plotting
   Constants::bc_type bc[6];   //! Boundary conditions for each face 
   double nodes[6]; //! x_low, x_high, y_low, y_high, z_low, z_high
   

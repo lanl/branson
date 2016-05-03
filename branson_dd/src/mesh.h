@@ -24,7 +24,11 @@ class Mesh {
     ngy(input->get_global_n_y_cells()),
     ngz(input->get_global_n_z_cells()),
     rank(_rank),
-    n_rank(_n_rank)
+    n_rank(_n_rank),
+    n_off_rank(n_rank-1),
+    silo_x(input->get_silo_x_ptr()),
+    silo_y(input->get_silo_y_ptr()),
+    silo_z(input->get_silo_z_ptr())
   {
     using std::vector;
     using Constants::bc_type;
@@ -36,7 +40,6 @@ class Mesh {
     double dx,dy,dz;
 
     // make off processor map
-    n_off_rank = n_rank -1;
     for (uint32_t i=0; i<n_off_rank; i++) {
       int r_index = i + int(i>=rank);
       proc_map[i] = r_index;
@@ -120,6 +123,9 @@ class Mesh {
                   e.set_T_s(region.get_T_s());
                   e.set_rho(region.get_rho());
 
+                  //set the global index for SILO plotting
+                  e.set_silo_index(i + j*ngx + k*(ngy*ngx));
+
                   // set neighbors in x direction
                   if (i<(ngx-1)) {
                     e.set_neighbor( X_POS, global_count+1); 
@@ -195,10 +201,10 @@ class Mesh {
     // Three type entries in the class
     const int entry_count = 3 ; 
     // 7 uint32_t, 6 int, 13 double
-    int array_of_block_length[4] = {8, 6, 14};
+    int array_of_block_length[4] = {10, 6, 14};
     // Displacements of each type in the cell
     MPI_Aint array_of_block_displace[3] = 
-      {0, 8*sizeof(uint32_t),  8*sizeof(uint32_t)+6*sizeof(int)};
+      {0, 10*sizeof(uint32_t),  10*sizeof(uint32_t)+6*sizeof(int)};
     //Type of each memory block
     MPI_Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
 
@@ -207,6 +213,8 @@ class Mesh {
     MPI_Type_commit(&MPI_Cell);
 
     MPI_Type_size(MPI_Cell, &mpi_cell_size);
+
+    uint32_t cell_size = sizeof(Cell); 
 
     //bool flags to say if data is needed
     need_data = vector<bool>(n_rank-1, false);
@@ -340,6 +348,13 @@ class Mesh {
   std::vector<double> get_emission_E(void) const {return m_emission_E;}
   std::vector<double> get_source_E(void) const {return m_source_E;}
 
+  uint32_t get_global_n_x_faces(void) const {return ngx+1;}
+  uint32_t get_global_n_y_faces(void) const {return ngy+1;}
+  uint32_t get_global_n_z_faces(void) const {return ngz+1;}
+
+  float * get_silo_x(void) const {return silo_x;}
+  float * get_silo_y(void) const {return silo_y;}
+  float * get_silo_z(void) const {return silo_z;}
 
 /*****************************************************************************/
   //non-const functions
@@ -381,7 +396,7 @@ class Mesh {
       rho = e.get_rho();
 
       region_ID = e.get_region_ID();
-      region =  regions[region_ID];
+      region =  regions[region_ID_to_index[region_ID]];
           
       op_a = region.get_absorption_opacity(T);
       op_s = region.get_scattering_opacity();
@@ -526,7 +541,7 @@ class Mesh {
     Region region;
     for (uint32_t i=0; i<n_cell;++i) {
       region_ID = cells[i].get_region_ID();
-      region = regions[region_ID];
+      region = regions[region_ID_to_index[ region_ID]];
       cV = region.get_cV();
       rho = region.get_rho();
       Cell& e = cells[i];
@@ -810,12 +825,16 @@ class Mesh {
   uint32_t rank; //! MPI rank of this mesh
   uint32_t n_rank; //! Number of global ranks
   uint32_t n_off_rank; //! Number of other ranks
+  float *silo_x; //! Global array of x face locations for SILO
+  float *silo_y; //! Global array of y face locations for SILO
+  float *silo_z; //! Global array of z face locations for SILO
 
   uint32_t n_cell; //! Number of local cells
   uint32_t n_global; //! Nuber of global cells
   
   uint32_t on_rank_start; //! Start of global index on rank
   uint32_t on_rank_end; //! End of global index on rank
+
 
   std::vector<double> m_census_E; //! Census energy vector
   std::vector<double> m_emission_E; //! Emission energy vector

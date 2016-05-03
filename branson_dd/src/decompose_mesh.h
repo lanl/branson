@@ -77,10 +77,10 @@ void decompose_mesh(Mesh* mesh) {
   // remake the MPI cell datatype from mesh
   const int entry_count = 3 ; 
   // 7 uint32_t, 6 int, 13 double
-  int array_of_block_length[4] = {8, 6, 14};
+  int array_of_block_length[4] = {10, 6, 14};
   // Displacements of each type in the cell
   MPI_Aint array_of_block_displace[3] = 
-    {0, 8*sizeof(uint32_t),  8*sizeof(uint32_t)+6*sizeof(int)};
+    {0, 10*sizeof(uint32_t),  10*sizeof(uint32_t)+6*sizeof(int)};
   //Type of each memory block
   MPI_Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
 
@@ -111,7 +111,9 @@ void decompose_mesh(Mesh* mesh) {
               vtxdist.begin());
   vtxdist.insert(vtxdist.begin(), 0); 
 
-  //build adjacency list needed for ParMetis call for each rank
+  // build adjacency list needed for ParMetis call for each rank
+  // also get coordinates of cell centers for geometry based partitioning
+  float *xyz = new float[ncell_on_rank*3];
   vector<int> xadj;
   vector<int> adjncy;
   int adjncy_ctr = 0;
@@ -120,6 +122,7 @@ void decompose_mesh(Mesh* mesh) {
   for (uint32_t i=0; i<mesh->get_n_local_cells();i++) {
     cell = mesh->get_pre_renumber_cell(i);
     g_ID = cell.get_ID();
+    cell.get_center(&xyz[i*3]);
     uint32_t xm_neighbor =cell.get_next_cell(X_NEG);
     uint32_t xp_neighbor =cell.get_next_cell(X_POS);
     uint32_t ym_neighbor =cell.get_next_cell(Y_NEG);
@@ -137,13 +140,15 @@ void decompose_mesh(Mesh* mesh) {
   }
   xadj.push_back(adjncy_ctr);  
 
+
+  int ndim = 3;
   int wgtflag = 0; //no weights for cells
   int numflag = 0; //C-style numbering
   int ncon = 1; 
   int nparts = nrank; //sub-domains = nrank
 
   float *tpwgts = new float[nparts];
-  for (int i=0; i<nparts; i++) tpwgts[i]=1.0/nparts;
+  for (int i=0; i<nparts; i++) tpwgts[i]=1.0/float(nparts);
 
   float *ubvec = new float[ncon];
   for (int i=0; i<ncon; i++) ubvec[i]=1.05;
@@ -155,14 +160,16 @@ void decompose_mesh(Mesh* mesh) {
   
   int edgecut =0; 
   int *part = new int[ncell_on_rank];
-
-  ParMETIS_V3_PartKway( &vtxdist[0],   // array describing how cells are distributed
+ 
+  ParMETIS_V3_PartGeomKway( &vtxdist[0],   // array describing how cells are distributed
                         &xadj[0],   // how cells are stored locally
                         &adjncy[0], // how cells are stored loccaly
                         NULL,       // weight of vertices
                         NULL,       // weight of edges
                         &wgtflag,   // 0 means no weights for node or edges
                         &numflag,   // numbering style, 0 for C-style
+                        &ndim,      // n dimensions
+                        xyz,        // coorindates of vertices
                         &ncon,      // weights per vertex
                         &nparts,    // number of sub-domains
                         tpwgts,     // weight per sub-domain

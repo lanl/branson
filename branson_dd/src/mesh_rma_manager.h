@@ -21,6 +21,7 @@ class RMA_Manager
   public:
   RMA_Manager(const int& _rank, 
     const std::vector<uint32_t>& _rank_bounds,
+    const uint32_t n_global_cell,
     MPI_Win& _mesh_window)
   : rank(_rank),
     rank_bounds(_rank_bounds),
@@ -34,14 +35,16 @@ class RMA_Manager
     cells_buffer = vector<Cell> (n_max_requests);
     complete_indices = vector<int> (n_max_requests);
 
+    n_requests= std::vector<uint32_t> (n_global_cell,0);
+
     // Make MPI_Cell datatype
     // Three type entries in the class
     const int entry_count = 3 ; 
     // 7 uint32_t, 6 int, 13 double
-    int array_of_block_length[4] = {8, 6, 14};
+    int array_of_block_length[4] = {10, 6, 14};
     // Displacements of each type in the cell
     MPI_Aint array_of_block_displace[3] = 
-      {0, 8*sizeof(uint32_t),  8*sizeof(uint32_t)+6*sizeof(int)};
+      {0, 10*sizeof(uint32_t),  10*sizeof(uint32_t)+6*sizeof(int)};
     //Type of each memory block
     MPI_Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
 
@@ -118,6 +121,7 @@ class RMA_Manager
         MPI_STATUSES_IGNORE);
 
       int comp_index;
+      uint32_t g_index;
       //pull completed requests out and return them (they are then passed to 
       // the mesh)
 
@@ -127,10 +131,13 @@ class RMA_Manager
       for (int i = 0;i<n_req_complete;i++){
         comp_index = complete_indices[i];
         new_cells[i] = cells_buffer[comp_index];
-        //remove request index from index_in_use set
+        g_index =cells_buffer[comp_index].get_ID();
+        // remove request index from index_in_use set
         index_in_use.erase(comp_index);
-        //remove global cell ID from mseh_requesed set
-        mesh_requested.erase(cells_buffer[comp_index].get_ID());
+        // remove global cell ID from mseh_requesed set
+        mesh_requested.erase(g_index);
+        // increment request count (for plotting)
+        n_requests[g_index]++;
       }
       if (new_cells.size() != n_req_complete) std::cout<<"This is bad"<<std::endl;
     }
@@ -140,6 +147,7 @@ class RMA_Manager
 
   void end_timestep(void) {
     max_active_index=0;
+    for(uint32_t i=0; i<n_requests.size();i++) n_requests[i]=0;
   }
 
   bool mesh_is_requested(uint32_t g_index) {
@@ -150,9 +158,12 @@ class RMA_Manager
     return index_in_use.empty();
   }
 
+  std::vector<uint32_t> get_n_request_vec(void) {return n_requests;}
+
   private:
   int rank;
   std::vector<uint32_t> rank_bounds;
+  std::vector<uint32_t> n_requests;
   MPI_Win mesh_window;
   uint32_t n_max_requests;
   uint32_t max_active_index;

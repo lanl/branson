@@ -44,8 +44,9 @@ class Input
     using Constants::PARTICLE_PASS;
     using Constants::CELL_PASS;
     using Constants::CELL_PASS_RMA;
-    using std::cout;  
+    using std::cout;
     using std::endl;
+    using std::vector;
 
     double rho; //!< Density (g/cc)
     double CV; //!< Heat capacity (jk/keV/g)
@@ -56,6 +57,10 @@ class Input
 
     uint32_t x_key, y_key, z_key, key;
     uint32_t region_ID;
+
+    vector<float> x;
+    vector<float> y;
+    vector<float> z;
 
     ptree pt;
     read_xml(fileName, pt);
@@ -128,32 +133,52 @@ class Input
       // read in detailed spatial information
       else if(v.first == "spatial") {
         using_detailed_mesh = true;
+        double d_x_start, d_x_end, d_y_start, d_y_end, d_z_start, d_z_end;
+        uint32_t d_x_cells, d_y_cells, d_z_cells;
         BOOST_FOREACH( ptree::value_type const& g, v.second ) 
         {
-          if(g.first == "x_division")
-          {
+          if(g.first == "x_division") {
             //x information for this region
-            x_start.push_back(g.second.get<double>("x_start")); 
-            x_end.push_back( g.second.get<double>("x_end"));
-            n_x_cells.push_back(g.second.get<uint32_t>("n_x_cells"));
+            d_x_start =g.second.get<double>("x_start");
+            d_x_end = g.second.get<double>("x_end");
+            d_x_cells = g.second.get<uint32_t>("n_x_cells");
+            x_start.push_back(d_x_start); 
+            x_end.push_back(d_x_end);
+            n_x_cells.push_back(d_x_cells);
             n_divisions++;
+            // push back the master x points for silo
+            for (uint32_t i=0;i<d_x_cells;i++)
+              x.push_back(d_x_start+i*(d_x_end-d_x_start)/d_x_cells);
           }
-          if(g.first == "y_division")
-          {
+
+          if(g.first == "y_division") {
             //y information for this region
-            y_start.push_back(g.second.get<double>("y_start")); 
-            y_end.push_back(g.second.get<double>("y_end"));
-            n_y_cells.push_back(g.second.get<uint32_t>("n_y_cells"));
+            d_y_start =g.second.get<double>("y_start");
+            d_y_end = g.second.get<double>("y_end");
+            d_y_cells = g.second.get<uint32_t>("n_y_cells");
+            y_start.push_back(d_y_start); 
+            y_end.push_back(d_y_end);
+            n_y_cells.push_back(d_y_cells);
             n_divisions++;
+            // push back the master y points for silo
+            for (uint32_t i=0;i<d_y_cells;i++)
+              y.push_back(d_y_start+i*(d_y_end-d_y_start)/d_y_cells);
           }
-          if(g.first == "z_division")
-          {
+
+          if(g.first == "z_division") {
             //z information for this region
-            z_start.push_back(g.second.get<double>("z_start")); 
-            z_end.push_back(g.second.get<double>("z_end"));
-            n_z_cells.push_back(g.second.get<uint32_t>("n_z_cells"));
+            d_z_start =g.second.get<double>("z_start");
+            d_z_end = g.second.get<double>("z_end");
+            d_z_cells = g.second.get<uint32_t>("n_z_cells");
+            z_start.push_back(d_z_start); 
+            z_end.push_back(d_z_end);
+            n_z_cells.push_back(d_z_cells);
             n_divisions++;
+            // push back the master z points for silo
+            for (uint32_t i=0;i<d_z_cells;i++)
+              z.push_back(d_z_start+i*(d_z_end-d_z_start)/d_z_cells);
           }
+
           if(g.first == "region_map") {
             x_key = (g.second.get<uint32_t>("x_div_ID"));
             y_key = (g.second.get<uint32_t>("y_div_ID"));
@@ -185,10 +210,20 @@ class Input
         z_end.push_back(v.second.get<double>("z_end"));
         n_z_cells.push_back(v.second.get<uint32_t>("n_z_cells"));
 
+        region_ID = (v.second.get<uint32_t>("region_ID",0));
         // only one division  
         n_divisions=1;
-        // map zero key to zero
-        region_map[0] = 0;
+
+        // add spatial information to SILO information
+        for (uint32_t i=0;i<n_x_cells[0];i++)
+          x.push_back(x_start[0]+i*(x_end[0]-x_start[0])/n_x_cells[0]);
+        for (uint32_t i=0;i<n_y_cells[0];i++)
+          y.push_back(y_start[0]+i*(y_end[0]-y_start[0])/n_y_cells[0]);
+        for (uint32_t i=0;i<n_z_cells[0];i++)
+          z.push_back(z_start[0]+i*(z_end[0]-z_start[0])/n_z_cells[0]);
+
+        // map zero key to region_ID 
+        region_map[0] = region_ID;
       }
 
 
@@ -255,17 +290,11 @@ class Input
         }
       }
 
-      //read in source data
-      else if(v.first == "source")
-      {
-        T_source = v.second.get<double>("T_source", 0.0);
-      }
-
       // if both simple_spatial and detailed_spatial are true, exit with an
       // error message
       if ( using_detailed_mesh && using_simple_mesh) {
         cout<<"ERROR: Spatial information cannot be specified in both";
-        cout<<" simple and detailed XML regions. Exiting...";
+        cout<<" simple and detailed XML regions. Exiting...\n";
         exit(EXIT_FAILURE); 
       }
     } //end xml parse
@@ -277,14 +306,36 @@ class Input
 
     //make sure at least one region is specified
     if (!regions.size()) {
-      cout<<"No regions were specified. Exiting...";
+      cout<<"ERROR: No regions were specified. Exiting...\n";
       exit(EXIT_FAILURE);
     }
+
     // only one region can be specified in simple mesh mode
     if (using_simple_mesh && regions.size() != 1) {
-      cout<<"Only one region may be specified in simple mesh mode. Exiting...";
+      cout<<"ERROR: Only one region may be specified in simple mesh mode. ";
+      cout<<" Exiting...\n";
       exit(EXIT_FAILURE); 
     }
+
+    // for simple spatial input, region ID must match region ID in region map
+    if (using_simple_mesh) {
+      if(regions[0].get_ID() != region_map[0]) {
+        cout<<"ERROR: Region ID in simple spatial blocl must match region ID ";
+        cout<<"in region block. Exiting...\n";
+        exit(EXIT_FAILURE); 
+      }
+    }
+
+    // append the last point values and allocate SILO array
+    x.push_back(x_end.back());
+    y.push_back(y_end.back());
+    z.push_back(z_end.back());
+    silo_x = new float[x.size()];
+    silo_y = new float[y.size()];
+    silo_z = new float[z.size()];
+    for (uint32_t i=0;i<x.size();i++) silo_x[i] = x[i];
+    for (uint32_t j=0;j<y.size();j++) silo_y[j] = y[j];
+    for (uint32_t k=0;k<z.size();k++) silo_z[k] = z[k];
   }
   
   ~Input() {};
@@ -382,6 +433,10 @@ class Input
   uint32_t get_z_division_cells(const uint32_t& div) const {
     return n_z_cells[div];
   }
+  
+  float* get_silo_x_ptr(void) {return silo_x;}
+  float* get_silo_y_ptr(void) {return silo_y;}
+  float* get_silo_z_ptr(void) {return silo_z;}
 
   uint32_t get_n_x_divisions(void) const {return n_x_cells.size();}
   uint32_t get_n_y_divisions(void) const {return n_y_cells.size();}
@@ -504,6 +559,11 @@ class Input
   uint32_t n_global_x_cells;
   uint32_t n_global_y_cells;
   uint32_t n_global_z_cells;
+
+  // arrays for silo
+  float *silo_x;
+  float *silo_y;
+  float *silo_z;
 };
 
 #endif // inpu2t_h_

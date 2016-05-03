@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
   MPI_Barrier(MPI_COMM_WORLD);
   //print_MPI_out(mesh, rank, n_rank);
 
-  /****************************************************************************/ 
+  /****************************************************************************/
   // TRT PHYSICS CALCULATION
   /****************************************************************************/
 
@@ -85,7 +85,6 @@ int main(int argc, char *argv[])
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
-  delete mesh;
   delete imc_state;
   delete imc_p;
 
