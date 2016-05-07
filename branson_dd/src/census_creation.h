@@ -4,8 +4,8 @@
   Name: transport.h
 */
 
-#ifndef transport_h_
-#define transport_h_
+#ifndef census_creation_h_
+#define census_creation_h_
 
 #include <vector>
 
@@ -48,7 +48,7 @@ std::vector<Photon> make_initial_census_photons(Mesh* mesh,
     g_ID = cell.get_ID();
 
     //Census photons scope
-    if (census_E[icell] > 0.0) { 
+    if (census_E[icell] > 0.0) {
       uint32_t t_num_census = int(n_user_photon*census_E[icell]/total_E);
       if (t_num_census == 0) t_num_census =1;
       double census_phtn_E = census_E[icell] / t_num_census;
@@ -69,4 +69,4 @@ std::vector<Photon> make_initial_census_photons(Mesh* mesh,
   return census_photons;
 }
 
-#endif // def transport_h_
+#endif // def census_creation_h_

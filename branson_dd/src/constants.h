@@ -25,6 +25,7 @@ const int cell_id_tag(2);
 const int finish_tag(3);
 const int count_tag(4);
 const int photon_tag(5);
+const int work_tag(6);
 const int proc_null(1000000000); //!< High number unlikely to be used
 };
 

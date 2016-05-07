@@ -6,6 +6,7 @@
 #ifndef imc_drivers_h_
 #define imc_drivers_h_
 
+#include <iostream>
 #include <mpi.h>
 #include <functional>
 #include <vector>
@@ -65,6 +66,9 @@ void imc_cell_pass_driver(const int& rank,
     imc_state->set_pre_census_E(get_photon_list_E(census_photons));
 
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
+    // load_balance(source);
+    // get new particle count after load balance. Group particle work by cell
+    source.post_lb_prepare_source();
 
     imc_state->set_transported_particles(source.get_n_photon());
     //cout<<"Rank: "<<rank<<" about to transport ";
@@ -153,6 +157,9 @@ void imc_rma_cell_pass_driver(const int& rank,
     imc_state->set_pre_census_E(get_photon_list_E(census_photons));
 
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
+    // load_balance(source);
+    // get new particle count after load balance. Group particle work by cell
+    source.post_lb_prepare_source();
 
     imc_state->set_transported_particles(source.get_n_photon());
     //cout<<"Rank: "<<rank<<" about to transport ";
@@ -244,6 +251,9 @@ void imc_particle_pass_driver(const int& rank,
     imc_state->set_pre_census_E(get_photon_list_E(census_photons)); 
 
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
+    // no load balancing in particle passing method, just call the method
+    // to get accurate count
+    source.post_lb_prepare_source();
 
     imc_state->set_transported_particles(source.get_n_photon());
 
@@ -306,6 +316,9 @@ void imc_particle_pass_driver_jay_comp(const int& rank,
     imc_state->set_pre_census_E(get_photon_list_E(census_photons)); 
 
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
+    // no load balancing in particle passing method, just call the method
+    // to get accurate count
+    source.post_lb_prepare_source();
 
     imc_state->set_transported_particles(source.get_n_photon());
 

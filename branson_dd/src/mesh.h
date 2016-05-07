@@ -291,6 +291,10 @@ class Mesh {
     return cells[local_ID];
   }
 
+  const Cell* get_cell_ptr(const uint32_t& local_ID) const {
+    return &cells[local_ID];
+  }
+
   uint32_t get_off_rank_id(const uint32_t& index) const {
     //find rank of index
     bool found = false;
@@ -315,6 +319,10 @@ class Mesh {
 
   uint32_t get_local_ID(const uint32_t& index) const {
     return index-on_rank_start;
+  }
+
+  uint32_t get_global_ID(const uint32_t& local_index) const {
+    return on_rank_start+local_index;
   }
 
   Cell get_on_rank_cell(const uint32_t& index) {

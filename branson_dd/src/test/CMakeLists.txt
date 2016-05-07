@@ -26,6 +26,10 @@ add_test(NAME test_photon COMMAND ${MPI_EXEC} -n 1 ./test_photon_exe)
 add_executable(test_buffer_exe test_buffer.cc)
 add_test(NAME test_buffer COMMAND ${MPI_EXEC} -n 1 ./test_buffer_exe)
 
+# Work_Packet class test
+add_executable(test_work_packet_exe test_work_packet.cc)
+add_test(NAME test_work_packet COMMAND ${MPI_EXEC} -n 1 ./test_work_packet_exe)
+
 # RMA Particle Completion class test
 add_executable(test_completion_manager_rma_exe test_completion_manager_rma.cc)
 add_test(NAME test_completion_manager_rma COMMAND ${MPI_EXEC} -n 7 ./test_completion_manager_rma_exe)

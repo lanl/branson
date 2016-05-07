@@ -121,8 +121,10 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
 
   for (uint32_t ir=0; ir<n_off_rank; ir++) {
     int off_rank = proc_map[ir];
-    MPI_Isend(&rank_count[off_rank], 1,  MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD, &reqs[ir]);
-    MPI_Irecv(&recv_from_rank[ir], 1, MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD, &reqs[ir+n_off_rank]);
+    MPI_Isend(&rank_count[off_rank], 1,  MPI_UNSIGNED, off_rank, 0, 
+      MPI_COMM_WORLD, &reqs[ir]);
+    MPI_Irecv(&recv_from_rank[ir], 1, MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD,
+      &reqs[ir+n_off_rank]);
   }
   
   MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE); 
@@ -132,21 +134,11 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
   for (uint32_t ir=0; ir<n_off_rank; ir++) {
     int off_rank = proc_map[ir];
     int start_copy = rank_start[off_rank];
-    MPI_Isend(&off_rank_census[start_copy], 
-              rank_count[off_rank],
-              MPI_Particle,
-              off_rank, 
-              0, 
-              MPI_COMM_WORLD, 
-              &reqs[ir]);
+    MPI_Isend(&off_rank_census[start_copy], rank_count[off_rank], MPI_Particle,
+      off_rank, 0, MPI_COMM_WORLD, &reqs[ir]);
     recv_photons[ir].resize(recv_from_rank[ir]);
-    MPI_Irecv(&recv_photons[ir][0],
-              recv_from_rank[ir], 
-              MPI_Particle, 
-              off_rank, 
-              0, 
-              MPI_COMM_WORLD, 
-              &reqs[ir+n_off_rank]);
+    MPI_Irecv(&recv_photons[ir][0], recv_from_rank[ir], MPI_Particle, off_rank, 
+      0, MPI_COMM_WORLD, &reqs[ir+n_off_rank]);
   }
 
   MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE); 
@@ -158,8 +150,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
   vector<Photon> new_on_rank_census;
   for (uint32_t ir=0; ir<n_rank-1; ir++) {
     new_on_rank_census.insert(new_on_rank_census.end(), 
-      recv_photons[ir].begin(), 
-      recv_photons[ir].end());
+      recv_photons[ir].begin(), recv_photons[ir].end());
   }
 
   //Explicitly delete the MPI requests

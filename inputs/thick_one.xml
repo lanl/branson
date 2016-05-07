@@ -2,11 +2,11 @@
   <common>
     <method>IMC</method>
     <t_start>0.0</t_start>
-    <t_stop>0.01</t_stop>
+    <t_stop>0.1</t_stop>
     <dt_start>0.01</dt_start>
     <t_mult>1.0</t_mult>
     <dt_max>1.0</dt_max>
-    <photons>1000000</photons>
+    <photons>100</photons>
     <seed>14706</seed>
     <map_size>50000</map_size>
     <tilt>FALSE</tilt>

@@ -91,6 +91,8 @@ class Cell
   double get_z_low(void) const {return nodes[4];}
   double get_z_high(void) const {return nodes[5];}
 
+  const double* get_node_array(void) const {return nodes;}
+
   uint32_t get_silo_index(void) const {return silo_index;}
 
   double get_cV(void) const {return cV;}
