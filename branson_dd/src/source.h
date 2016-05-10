@@ -102,51 +102,54 @@ class Source {
     }
 
     Work_Packet temp_packet;
-    uint32_t last_g_ID = census_photons.front().get_cell();
-    uint32_t current_g_ID=last_g_ID;
-    uint32_t census_in_cell=0;
-    uint32_t i=0; //! Used to mark the loop index
-    uint32_t start_index = 0;
-    for (vector<Photon>::iterator iphtn =census_photons.begin(); 
-      iphtn!=census_photons.end();iphtn++) 
-    {
-      current_g_ID = iphtn->get_cell();
-      // if new global ID, try to attach to work packet to the last global index
-      if (last_g_ID != current_g_ID) {
-        // if work_packet exists for the last cell, attach
-        if (work_map.find(last_g_ID) != work_map.end())
-          work_map[last_g_ID]->attach_census_work(start_index, census_in_cell);
-        // otherwise make a work packet and append it
-        else {
-          temp_packet.set_global_cell_ID(last_g_ID);
-          temp_packet.attach_census_work(start_index, census_in_cell);
-          // add this work to the total work vector
-          work.push_back(temp_packet);
-        }
-        // update indices, reset count
-        last_g_ID = current_g_ID;
-        start_index = i;
-        n_photon+=census_in_cell;
-        census_in_cell = 0;
-      }
-      //increment counters
-      census_in_cell++;
-      i++;
-    }
 
-    //process work from last group of census particles
-    if (work_map.find(current_g_ID) != work_map.end())
-      work_map[last_g_ID]->attach_census_work(start_index, census_in_cell);
-    // otherwise make a work packet and append it
-    else {
-      temp_packet.set_global_cell_ID(last_g_ID);
-      temp_packet.attach_census_work(start_index, census_in_cell);
-      // add this work to the total work vector
-      work.push_back(temp_packet);
-    }
-    // add last group of census particles to count
-    n_photon+=census_in_cell;
-    
+    if (!census_photons.empty()) {
+      uint32_t last_g_ID = census_photons.front().get_cell();
+      uint32_t current_g_ID=last_g_ID;
+      uint32_t census_in_cell=0;
+      uint32_t i=0; //! Used to mark the loop index
+      uint32_t start_index = 0;
+      for (vector<Photon>::iterator iphtn =census_photons.begin(); 
+        iphtn!=census_photons.end();iphtn++) 
+      {
+        current_g_ID = iphtn->get_cell();
+        // if new global ID, try to attach to work packet to the last global index
+        if (last_g_ID != current_g_ID) {
+          // if work_packet exists for the last cell, attach
+          if (work_map.find(last_g_ID) != work_map.end())
+            work_map[last_g_ID]->attach_census_work(start_index, census_in_cell);
+          // otherwise make a work packet and append it
+          else {
+            temp_packet.set_global_cell_ID(last_g_ID);
+            temp_packet.attach_census_work(start_index, census_in_cell);
+            // add this work to the total work vector
+            work.push_back(temp_packet);
+          }
+          // update indices, reset count
+          last_g_ID = current_g_ID;
+          start_index = i;
+          n_photon+=census_in_cell;
+          census_in_cell = 0;
+        }
+        //increment counters
+        census_in_cell++;
+        i++;
+      }
+
+      //process work from last group of census particles
+      if (work_map.find(current_g_ID) != work_map.end())
+        work_map[last_g_ID]->attach_census_work(start_index, census_in_cell);
+      // otherwise make a work packet and append it
+      else {
+        temp_packet.set_global_cell_ID(last_g_ID);
+        temp_packet.attach_census_work(start_index, census_in_cell);
+        // add this work to the total work vector
+        work.push_back(temp_packet);
+      }
+      // add last group of census particles to count
+      n_photon+=census_in_cell;
+    } // end if census not empty
+
     // set initial parameters and iterators
     iwork = work.begin();
     n_emission = iwork->get_n_particles();
@@ -202,6 +205,8 @@ class Source {
     emission_photon.set_distance_to_census(rng->generate_random_number()*c*dt);
     emission_photon.set_cell(work.get_global_cell_ID());
   }
+
+  std::vector<Work_Packet>& get_work_vector(void) {return work;}
  
   private:
   const Mesh * const mesh; //!< Pointer to mesh (source cannot change Mesh)

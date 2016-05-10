@@ -16,6 +16,7 @@
 #include "mesh_rma_manager.h"
 #include "imc_state.h"
 #include "imc_parameters.h"
+#include "load_balance.h"
 #include "mesh.h"
 #include "RNG.h"
 #include "source.h"
@@ -66,7 +67,7 @@ void imc_cell_pass_driver(const int& rank,
     imc_state->set_pre_census_E(get_photon_list_E(census_photons));
 
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
-    // load_balance(source);
+    //load_balance(source);
     // get new particle count after load balance. Group particle work by cell
     source.post_lb_prepare_source();
 
@@ -157,8 +158,9 @@ void imc_rma_cell_pass_driver(const int& rank,
     imc_state->set_pre_census_E(get_photon_list_E(census_photons));
 
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
-    // load_balance(source);
-    // get new particle count after load balance. Group particle work by cell
+    load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
+      census_photons);
+    // get new particle count after load balance, group particle work by cell
     source.post_lb_prepare_source();
 
     imc_state->set_transported_particles(source.get_n_photon());

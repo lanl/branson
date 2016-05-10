@@ -56,6 +56,10 @@ class Input
     double opacS; //!< Scattering opacity
 
     uint32_t x_key, y_key, z_key, key;
+    // initialize nunmber of divisions in each dimension to zero
+    uint32_t nx_divisions = 0;
+    uint32_t ny_divisions = 0;
+    uint32_t nz_divisions = 0; 
     uint32_t region_ID;
 
     vector<float> x;
@@ -145,7 +149,7 @@ class Input
             x_start.push_back(d_x_start); 
             x_end.push_back(d_x_end);
             n_x_cells.push_back(d_x_cells);
-            n_divisions++;
+            nx_divisions++;
             // push back the master x points for silo
             for (uint32_t i=0;i<d_x_cells;i++)
               x.push_back(d_x_start+i*(d_x_end-d_x_start)/d_x_cells);
@@ -159,7 +163,7 @@ class Input
             y_start.push_back(d_y_start); 
             y_end.push_back(d_y_end);
             n_y_cells.push_back(d_y_cells);
-            n_divisions++;
+            ny_divisions++;
             // push back the master y points for silo
             for (uint32_t i=0;i<d_y_cells;i++)
               y.push_back(d_y_start+i*(d_y_end-d_y_start)/d_y_cells);
@@ -173,7 +177,7 @@ class Input
             z_start.push_back(d_z_start); 
             z_end.push_back(d_z_end);
             n_z_cells.push_back(d_z_cells);
-            n_divisions++;
+            nz_divisions++;
             // push back the master z points for silo
             for (uint32_t i=0;i<d_z_cells;i++)
               z.push_back(d_z_start+i*(d_z_end-d_z_start)/d_z_cells);
@@ -211,8 +215,6 @@ class Input
         n_z_cells.push_back(v.second.get<uint32_t>("n_z_cells"));
 
         region_ID = (v.second.get<uint32_t>("region_ID",0));
-        // only one division  
-        n_divisions=1;
 
         // add spatial information to SILO information
         for (uint32_t i=0;i<n_x_cells[0];i++)
@@ -262,7 +264,7 @@ class Input
         else    b_error = true;
 
         if (b_error) {
-          cout<<"Boundary type not reconginzed"<<endl;
+          cout<<"ERROR: Boundary type not reconginzed. Exiting..."<<endl;
           exit(EXIT_FAILURE);
         }
       }
@@ -304,16 +306,20 @@ class Input
     n_global_y_cells = std::accumulate(n_y_cells.begin(), n_y_cells.end(), 0); 
     n_global_z_cells = std::accumulate(n_z_cells.begin(), n_z_cells.end(), 0);
 
+    // set total number of divisions
+    if (using_simple_mesh) n_divisions=1;
+    else n_divisions = nx_divisions*ny_divisions*nz_divisions;
+  
     //make sure at least one region is specified
     if (!regions.size()) {
-      cout<<"ERROR: No regions were specified. Exiting...\n";
+      cout<<"ERROR: No regions were specified. Exiting..."<<endl;
       exit(EXIT_FAILURE);
     }
 
     // only one region can be specified in simple mesh mode
     if (using_simple_mesh && regions.size() != 1) {
       cout<<"ERROR: Only one region may be specified in simple mesh mode. ";
-      cout<<" Exiting...\n";
+      cout<<" Exiting..."<<endl;
       exit(EXIT_FAILURE); 
     }
 
@@ -321,9 +327,17 @@ class Input
     if (using_simple_mesh) {
       if(regions[0].get_ID() != region_map[0]) {
         cout<<"ERROR: Region ID in simple spatial blocl must match region ID ";
-        cout<<"in region block. Exiting...\n";
+        cout<<"in region block. Exiting..."<<endl;
         exit(EXIT_FAILURE); 
       }
+    }
+
+    // for detailed meshes, the total number of divisions  must equal the 
+    // number of unique region maps
+    if (using_detailed_mesh && n_divisions != region_map.size()) {
+      cout<<"ERROR: Number of total divisions must match the number of ";
+      cout<<"unique region maps. Exiting..."<<endl;
+      exit(EXIT_FAILURE); 
     }
 
     // append the last point values and allocate SILO array

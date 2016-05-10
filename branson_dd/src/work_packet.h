@@ -45,6 +45,11 @@ class Work_Packet {
 
   const double* get_node_array(void) const {return nodes;}
 
+  //override great than operator to sort
+  bool operator <(const Work_Packet& compare) const {
+    return  n_particles <  compare.get_n_particles() ;
+  }
+
   // non-const functions
   void set_global_cell_ID(const uint32_t& _global_cell_ID) {
     g_cell_ID = _global_cell_ID;

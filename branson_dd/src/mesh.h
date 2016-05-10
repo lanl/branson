@@ -79,17 +79,23 @@ class Mesh {
     double y_cell_end;
     double z_cell_end;
 
+    uint32_t g_i=0; //! Global x index
+    uint32_t g_j=0; //! Global y index
+    uint32_t g_k=0; //! Global z index
+
     for (uint32_t iz_div=0; iz_div<n_z_div; iz_div++) {
       dz = input->get_dz(iz_div);
       nz = input->get_z_division_cells(iz_div);
       z_start = input->get_z_start(iz_div);
       for (uint32_t k=0; k<nz; k++) {
+        g_j = 0;
         for (uint32_t iy_div=0; iy_div<n_y_div; iy_div++) {
           dy = input->get_dy(iy_div);
           ny = input->get_y_division_cells(iy_div);
           y_start = input->get_y_start(iy_div);
           for (uint32_t j=0; j<ny; j++) {
-            for (uint32_t ix_div=0; ix_div<n_x_div; ix_div++) {
+            g_i = 0;
+            for (uint32_t ix_div=0; ix_div<n_x_div; ix_div++) { 
               dx = input->get_dx(ix_div);
               nx = input->get_x_division_cells(ix_div);
               x_start = input->get_x_start(ix_div);
@@ -100,7 +106,7 @@ class Mesh {
                   region = regions[region_index];
                   Cell e;
                   // set ending coordinates explicity to match the start of
-                  // the next division to avoid werid roundoff errors
+                  // the next division to avoid weird roundoff errors
 
                   if (i == nx-1 && ix_div != n_x_div-1) 
                     x_cell_end = input->get_x_start(ix_div+1);
@@ -123,11 +129,12 @@ class Mesh {
                   e.set_T_s(region.get_T_s());
                   e.set_rho(region.get_rho());
 
-                  //set the global index for SILO plotting
-                  e.set_silo_index(i + j*ngx + k*(ngy*ngx));
+                  // set the global index for SILO plotting--this will always
+                  // be the current global count (g_i +g_j*ngx + g_k*(ngy_*ngz))
+                  e.set_silo_index(global_count);
 
                   // set neighbors in x direction
-                  if (i<(ngx-1)) {
+                  if (g_i<(ngx-1)) {
                     e.set_neighbor( X_POS, global_count+1); 
                     e.set_bc(X_POS, ELEMENT);
                   }
@@ -135,7 +142,7 @@ class Mesh {
                     e.set_neighbor( X_POS, global_count); 
                     e.set_bc(X_POS, bc[X_POS]);
                   } 
-                  if (i>0) {
+                  if (g_i>0) {
                     e.set_neighbor( X_NEG, global_count-1); 
                     e.set_bc(X_NEG, ELEMENT);
                   }
@@ -145,7 +152,7 @@ class Mesh {
                   }
 
                   // set neighbors in y direction
-                  if (j<(ngy-1)) {
+                  if (g_j<(ngy-1)) {
                     e.set_neighbor(Y_POS, global_count+ngx); 
                     e.set_bc(Y_POS, ELEMENT);
                   }
@@ -153,7 +160,7 @@ class Mesh {
                     e.set_neighbor(Y_POS, global_count); 
                     e.set_bc(Y_POS, bc[Y_POS]);
                   }
-                  if (j>0) {
+                  if (g_j>0) {
                     e.set_neighbor(Y_NEG, global_count-ngx);
                     e.set_bc(Y_NEG, ELEMENT);
                   }
@@ -163,7 +170,7 @@ class Mesh {
                   }
 
                   // set neighbors in z direction
-                  if (k<(ngz-1)) {
+                  if (g_k<(ngz-1)) {
                     e.set_neighbor(Z_POS, global_count+ngx*ngy); 
                     e.set_bc(Z_POS, ELEMENT);
                   }
@@ -171,7 +178,7 @@ class Mesh {
                     e.set_neighbor(Z_POS, global_count); 
                     e.set_bc(Z_POS, bc[Z_POS]);
                   }
-                  if (k>0) {
+                  if (g_k>0) {
                     e.set_neighbor(Z_NEG, global_count-ngx*ngy); 
                     e.set_bc(Z_NEG, ELEMENT);
                   }
@@ -186,10 +193,13 @@ class Mesh {
                   on_rank_count++;
                 } // end if on processor check
                 global_count++;
+                g_i++;
               } // end i loop
             } // end x division loop
+            g_j++;
           } // end j loop
         } // end y division loop
+        g_k++;
       } // end k loop
     } // end z division loop
     n_cell = on_rank_count;

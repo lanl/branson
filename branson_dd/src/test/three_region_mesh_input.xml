@@ -6,8 +6,6 @@
     <dt_start>0.01</dt_start>
     <t_mult>1.0</t_mult>
     <dt_max>1.0</dt_max>
-    <Tm_initial>1.0</Tm_initial>
-    <Tr_initial>1.1</Tr_initial>
     <photons>10000</photons>
     <seed>14706</seed>
     <tilt>FALSE</tilt>

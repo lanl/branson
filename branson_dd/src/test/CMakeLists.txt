@@ -66,8 +66,8 @@ add_test(NAME test_imc_state COMMAND ${MPI_EXEC} -n 2 ./test_imc_state_exe)
 
 # write_silo function test
 add_executable(test_write_silo_exe test_write_silo.cc)
-target_link_libraries(test_write_silo_exe metis)
 target_link_libraries(test_write_silo_exe parmetis)
+target_link_libraries(test_write_silo_exe metis)
 target_link_libraries(test_write_silo_exe hdf5)
 target_link_libraries(test_write_silo_exe siloh5)
 add_test(NAME test_write_silo COMMAND ${MPI_EXEC} -n 1 ./test_write_silo_exe)
