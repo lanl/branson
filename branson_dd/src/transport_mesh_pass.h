@@ -1,8 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 6/29/2014
-  Name: transport_mesh_pass.h
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   transport_mesh_pass.h
+ * \author Alex Long
+ * \date   June 6 2015
+ * \brief  Transport routine using two sided messaging and mesh-passing DD
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #ifndef transport_mesh_pass_h_
 #define transport_mesh_pass_h_
@@ -17,10 +23,12 @@
 #include "constants.h"
 #include "decompose_photons.h"
 #include "mesh.h"
+#include "mpi_types.h"
 #include "RNG.h"
 #include "sampling_functions.h"
 
-
+//! Transport a single photon until it has a terminating event (kill, exit,
+// wait for data, census)
 Constants::event_type transport_photon_mesh_pass(Photon& phtn,
                               Mesh* mesh,
                               RNG* rng,
@@ -61,7 +69,8 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
     f = cell.get_f();
 
     //get distance to event
-    dist_to_scatter = -log(rng->generate_random_number())/((1.0-f)*sigma_a + sigma_s);
+    dist_to_scatter = -log(rng->generate_random_number())/
+      ((1.0-f)*sigma_a + sigma_s);
     dist_to_boundary = cell.get_distance_to_boundary(phtn.get_position(),
                                                       phtn.get_angle(),
                                                       surface_cross);
@@ -131,12 +140,15 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
 
 
 
+//! Transport photons from a source object using the mesh-passing algorithm
+// and two-sided messaging to fulfill requests for mesh data
 std::vector<Photon> transport_mesh_pass(Source& source,
                                         Mesh* mesh,
                                         IMC_State* imc_state,
                                         IMC_Parameters* imc_parameters,
                                         Completion_Manager_RMA* comp,
-                                        std::vector<double>& rank_abs_E)
+                                        std::vector<double>& rank_abs_E,
+                                        MPI_Types *mpi_types)
 {
   using Constants::finish_tag;
   using std::queue;
@@ -186,9 +198,9 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   ////////////////////////////////////////////////////////////////////////
   // main loop over photons
   ////////////////////////////////////////////////////////////////////////
-  vector<Photon> census_list; //!< Local end of timestep census list
-  vector<Photon> off_rank_census_list; //!< Off rank end of timestep census list
-  queue<Photon> wait_list; //!< Photons waiting for mesh data 
+  vector<Photon> census_list; //! Local end of timestep census list
+  vector<Photon> off_rank_census_list; //! Off rank end of timestep census list
+  queue<Photon> wait_list; //! Photons waiting for mesh data 
   while ( n_local_sourced < n_local) {
     
     uint32_t n = batch_size;
@@ -323,7 +335,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   //send the off-rank census back to ranks that own the mesh its on.
   //receive census particles that are on your mesh
   vector<Photon> rebalanced_census = rebalance_census(off_rank_census_list,
-                                                      mesh);
+                                                      mesh, mpi_types);
   census_list.insert(census_list.end(), 
     rebalanced_census.begin(), 
     rebalanced_census.end());
@@ -338,3 +350,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
 }
 
 #endif // def transport_mesh_pass_h_
+
+//---------------------------------------------------------------------------//
+// end of transport_mesh_pass.h
+//---------------------------------------------------------------------------//

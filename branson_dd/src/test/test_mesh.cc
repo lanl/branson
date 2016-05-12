@@ -11,6 +11,7 @@
 #include "../constants.h"
 #include "../input.h"
 #include "../mesh.h"
+#include "../mpi_types.h"
 #include "testing_functions.h"
 
 int main (int argc, char *argv[]) {
@@ -20,6 +21,8 @@ int main (int argc, char *argv[]) {
   int rank, n_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
+
+  MPI_Types *mpi_types = new MPI_Types();
 
   using std::cout;
   using std::endl;
@@ -34,7 +37,7 @@ int main (int argc, char *argv[]) {
     string filename("simple_input.xml");
     Input *input = new Input(filename);
 
-    Mesh mesh(input, rank, n_rank);
+    Mesh mesh(input, mpi_types, rank, n_rank);
 
     bool simple_mesh_pass = true;
 
@@ -64,23 +67,25 @@ int main (int argc, char *argv[]) {
     string three_reg_filename("three_region_mesh_input.xml");
     Input *three_reg_input = new Input(three_reg_filename);
 
-    Mesh mesh(three_reg_input, rank, n_rank);
+    Mesh mesh(three_reg_input, mpi_types, rank, n_rank);
 
     uint32_t n_cell = mesh.get_n_local_cells();
     if (n_cell != 21*10) three_region_mesh_pass =false;
 
     Cell cell;
+    const double *coor;
     double x_low;
     // check the lower x position of the cell to see if the region matches
     // the divisions set in the input file
     for (uint32_t i = 0; i<n_cell; i++) {
       cell = mesh.get_pre_renumber_cell(i);
-      x_low = cell.get_x_low();
+      coor = cell.get_node_array();
+      x_low = coor[0];
       //cells in the first region
       if (x_low < 4.0) {
         if ( cell.get_region_ID() != 230) three_region_mesh_pass =false;
       }
-      else if (x_low >= 4.0 && cell.get_x_low() < 8.0) {
+      else if (x_low >= 4.0 && x_low < 8.0) {
         if ( cell.get_region_ID() != 177) three_region_mesh_pass =false;
       }
       else if (x_low >= 8.0) {
@@ -99,6 +104,8 @@ int main (int argc, char *argv[]) {
     }
     delete three_reg_input;
   }
+
+  delete mpi_types;
 
   MPI_Finalize();
 

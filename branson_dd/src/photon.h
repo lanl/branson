@@ -1,8 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 7/18/2014
-  Name: photon.h
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   photon.h
+ * \author Alex Long
+ * \date   July 18 2014
+ * \brief  Holds values and functions needed for transporting photon
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #ifndef photon_h_
 #define photon_h_
@@ -29,13 +35,9 @@ class Photon
   Photon() {m_census_flag=0;}
   ~Photon(void) {}
 
-/*****************************************************************************/
-/* const functions                                                           */
-/*****************************************************************************/
-  static bool census_flag_compare(const Photon& phtn1, const Photon& phtn2) {
-    //sorts in order from true to false
-    return phtn1.get_census_flag() > phtn2.get_census_flag() ;
-  }
+  //////////////////////////////////////////////////////////////////////////////
+  // const functions                                                          //
+  //////////////////////////////////////////////////////////////////////////////
 
   bool below_cutoff(const double& cutoff_fraction) const {
     return (m_E / m_E0 < cutoff_fraction); 
@@ -59,18 +61,14 @@ class Photon
     cout<<"Cell ID: "<<m_cell_ID<<" , Census Flag: "<<m_census_flag<<endl;
   }
 
-  //override great than operator to sort
+  //! Override great than operator to sort
   bool operator <(const Photon& compare) const {
     return m_cell_ID < compare.get_cell();
   }
-  
-  bool operator()(const Photon& compare1, const Photon& compare2) const {
-    return compare1.get_cell() < compare2.get_cell();
-  }
-
-/*****************************************************************************/
-/* non-const functions (set)                                                 */
-/*****************************************************************************/
+ 
+  //////////////////////////////////////////////////////////////////////////////
+  // non-const functions                                                      //
+  //////////////////////////////////////////////////////////////////////////////
   void move(const double& distance) {
     m_pos[0] += m_angle[0]*distance;
     m_pos[1] += m_angle[1]*distance;
@@ -115,9 +113,9 @@ class Photon
     else m_angle[2] = -m_angle[2]; 
   }
 
-/*****************************************************************************/
-/* member variables and private functions                                    */
-/*****************************************************************************/
+  //////////////////////////////////////////////////////////////////////////////
+  // member data                                                              //
+  //////////////////////////////////////////////////////////////////////////////
   private:
   uint32_t m_census_flag; //! Flag for census, true if photon reaches census
   uint32_t m_cell_ID; //! Cell ID
@@ -133,4 +131,4 @@ class Photon
 
 };
 
-#endif
+#endif // photon_h_

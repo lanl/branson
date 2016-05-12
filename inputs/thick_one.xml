@@ -6,7 +6,7 @@
     <dt_start>0.01</dt_start>
     <t_mult>1.0</t_mult>
     <dt_max>1.0</dt_max>
-    <photons>100</photons>
+    <photons>50000</photons>
     <seed>14706</seed>
     <map_size>50000</map_size>
     <tilt>FALSE</tilt>
@@ -55,7 +55,7 @@
       <ID>6</ID>
       <density>1.0</density>
       <CV>1.0</CV>
-      <opacA>500.0</opacA>
+      <opacA>100.0</opacA>
       <opacB>0.0</opacB>
       <opacC>0.0</opacC>
       <opacS>0.0</opacS>

@@ -1,14 +1,19 @@
-/*
-  Author: Alex Long
-  Date: 4/11/2016
-  Name: write_silo.h
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   write_silo.h
+ * \author Alex Long
+ * \date   April 11 2016
+ * \brief  Writes SILO output file for data visualization
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #ifndef write_silo_h_
 #define write_silo_h_
 
 #include <array>
-#include <iostream>
 #include <silo.h>
 #include <string>
 #include <sstream>
@@ -16,6 +21,8 @@
 
 #include "constants.h"
 
+//! All ranks perform reductions to produce global arrays and rank zero
+// writes the SILO file for visualization
 void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step, 
   const int& rank, const int& n_rank, std::vector<uint32_t>& rank_requests) 
 {
@@ -157,8 +164,8 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     int *rank_ids = new int[n_rank];
     for (uint32_t i=0;i<n_rank;i++) rank_ids[i] = i;
 
-    DBPutMaterial(dbfile, "Rank_ID", "quadmesh", n_rank, rank_ids, &rank_data[0],
-      cell_dims, ndims, 0, 0, 0, 0, 0, DB_INT, NULL);   
+    DBPutMaterial(dbfile, "Rank_ID", "quadmesh", n_rank, rank_ids, 
+      &rank_data[0], cell_dims, ndims, 0, 0, 0, 0, 0, DB_INT, NULL);   
 
     // write the n_requests scalar field
     DBoptlist *req_optlist = DBMakeOptlist(2);
@@ -189,7 +196,6 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     // close file
     DBClose(dbfile);
   } // end rank==0
-
 }
 
   // rank based silo write with polygonal unstructured mesh
@@ -346,4 +352,7 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     DBFreeOptlist(optlist);
   */
 
-#endif // #ifndef write_silo_h_
+#endif // write_silo_h_
+//---------------------------------------------------------------------------//
+// end of write_silo.h
+//---------------------------------------------------------------------------//

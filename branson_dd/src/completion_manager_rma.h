@@ -1,8 +1,18 @@
-/*
-  completion_manager_rma.h
-  by Alex Long
-  3/10/2016
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   completion_manager_rma.h
+ * \author Alex Long
+ * \date   March 3 2016
+ * \brief  One-sided transport completion manager
+ *
+ * Manages completion of domain-decomposed IMC transport with one-sided 
+ * messaging and MPI windows. Uses a binary tree communication pattern
+ *
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #ifndef completion_manager_rma_h_
 #define completion_manager_rma_h_
@@ -12,10 +22,21 @@
 
 #include "constants.h"
 
+//==============================================================================
+/*!
+ * \class Completion_Manager_RMA
+ * \brief Manages completion of partilce transport with one-sided messages
+ *
+ * \example no test yet
+ */
+//==============================================================================
+
 class Completion_Manager_RMA
 {
 
   public:
+
+  //! constructor
   Completion_Manager_RMA(const int& rank, const int& n_rank)
     : n_complete_tree(0),
       n_complete_c1(0),
@@ -54,8 +75,6 @@ class Completion_Manager_RMA
 
     // Make the MPI window for the number of particles completed on this
     // sub-tree, which includes this ranks completed particles
-    //MPI_Win_create(&n_complete_tree, size_mpi_uint64, size_mpi_uint64, MPI_INFO_NULL,
-    //  MPI_COMM_WORLD, &completion_window);
 
     MPI_Win_allocate(size_mpi_uint64, size_mpi_uint64, MPI_INFO_NULL,
       MPI_COMM_WORLD, &n_complete_tree, &completion_window);
@@ -63,21 +82,28 @@ class Completion_Manager_RMA
     int flag;
     MPI_Win_get_attr(completion_window, MPI_WIN_MODEL, &memory_model, &flag); 
   }
+
+  //! destructor
   ~Completion_Manager_RMA() {MPI_Win_free(&completion_window);}
 
+  // const functions
 
-  //const functions
+  //! Get the total number of completed particles in this tree
   uint64_t get_n_complete_tree(void) const {return *n_complete_tree;}
 
+  //! Get the type of memory model used by the MPI implementation on this system
   int get_mpi_window_memory_type(void) const {
     return *memory_model;
   }
-  //non-const functions
 
+  // non-const functions
+
+  //! Set total number of particles that will be transport by all ranks
   void set_timestep_global_particles(uint64_t _n_particle_global) {
     n_particle_global = _n_particle_global;
   }
 
+  //! Resets all particle counts and finishes open requests
   void end_timestep(void) {
     //reset tree counts
     *n_complete_tree = 0;
@@ -87,6 +113,7 @@ class Completion_Manager_RMA
     buffer_c1 = 0;
     buffer_c2 = 0;
     buffer_p = 0;
+
     //wait on outstanding requests, parent has already completed
     if (c1_req_flag) {
       MPI_Wait(&req_c1, MPI_STATUS_IGNORE);
@@ -98,15 +125,17 @@ class Completion_Manager_RMA
     }
   }
 
+  //! Opens MPI window for one-sided messaging
   void start_access(void) {
     int assert =0;
     MPI_Win_lock_all(assert,completion_window);
   }
 
-  void end_access(void) {
-    MPI_Win_unlock_all(completion_window);
-  }
+  //! Closes MPI window for one-sided messaging
+  void end_access(void) {MPI_Win_unlock_all(completion_window);}
 
+  //! Add number of completed particles to this tree count and get the number
+  // of completed particles by your children
   bool binary_tree_rma(const uint64_t& n_complete_rank) {
     using Constants::proc_null;
     // Return value
@@ -170,34 +199,42 @@ class Completion_Manager_RMA
       if (*n_complete_tree == n_particle_global) finished=true;
     }
     // Update tree count
-    if (!finished) *n_complete_tree = n_complete_rank + n_complete_c1 + n_complete_c2;
+    if (!finished) 
+      *n_complete_tree = n_complete_rank + n_complete_c1 + n_complete_c2;
+
     //MPI_Win_sync(completion_window);
     return finished;
   }
 
   private:
-  uint64_t *n_complete_tree;
-  uint64_t n_complete_c1;
-  uint64_t n_complete_c2;
-  uint64_t n_complete_p;
-  uint64_t n_particle_global;
-  uint64_t buffer_c1;
-  uint64_t buffer_c2;
-  uint64_t buffer_p;
-  bool c1_req_flag;
-  bool c2_req_flag;
-  bool p_req_flag;
-  uint64_t child1;
-  uint64_t child2;
-  uint64_t parent;
-  MPI_Win completion_window;
-  int flag_c1;
-  int flag_c2;
-  int flag_p;
-  MPI_Request req_c1;
-  MPI_Request req_c2;
-  MPI_Request req_p;
-  int *memory_model;
+  //! Pointer to complete tree, allocated by MPI_Mem_Alloc with a size of 1
+  uint64_t *n_complete_tree; 
+
+  uint64_t n_complete_c1; //! Completed particles in first child's tree
+  uint64_t n_complete_c2; //! Completed particles in second child's tree
+  uint64_t n_complete_p; //! Completed particles in parent's tree
+  uint64_t n_particle_global; //! Total particles across all ranks
+  uint64_t buffer_c1; //! Buffer to receive first child's tree count
+  uint64_t buffer_c2; //! Buffer to receive second child's tree count
+  uint64_t buffer_p; //! Buffer to receive parent's tree count
+  bool c1_req_flag; //! Active request flag for first child
+  bool c2_req_flag; //! Active request flag for second child
+  bool p_req_flag; //! Active request flag for parent
+  uint64_t child1; //! Rank ID of first child
+  uint64_t child2; //! Rank ID of second child
+  uint64_t parent; //! Rank ID of parent
+  MPI_Win completion_window; //! MPI window to complete count
+  int flag_c1; //! Return flag for MPI test of first child
+  int flag_c2; //! Return flag for MPI test of second child
+  int flag_p; //! Return flag for MPI test of parent
+  MPI_Request req_c1; //! MPI request for first child
+  MPI_Request req_c2; //! MPI request for second child
+  MPI_Request req_p; //!  MPI request for parent
+  int *memory_model; //! Memory model of MPI window (implementation dependent)
 };
 
 #endif // def completion_manager_rma_h_
+
+//---------------------------------------------------------------------------//
+// end of completion_manager_rma.h
+//---------------------------------------------------------------------------//

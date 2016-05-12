@@ -21,17 +21,19 @@
 #include "constants.h"
 #include "buffer.h"
 #include "mesh.h"
+#include "mpi_types.h"
 #include "sampling_functions.h"
 #include "RNG.h"
 #include "photon.h"
 
-Constants::event_type transport_photon_particle_pass(Photon& phtn,
-                                                      Mesh* mesh,
-                                                      RNG* rng,
-                                                      double& next_dt,
-                                                      double& exit_E,
-                                                      double& census_E,
-                                                      std::vector<double>& rank_abs_E)
+Constants::event_type 
+  transport_photon_particle_pass( Photon& phtn,
+                                  Mesh* mesh,
+                                  RNG* rng,
+                                  double& next_dt,
+                                  double& exit_E,
+                                  double& census_E,
+                                  std::vector<double>& rank_abs_E)
 {
   using Constants::VACUUM; using Constants::REFLECT; 
   using Constants::ELEMENT; using Constants::PROCESSOR;
@@ -64,7 +66,9 @@ Constants::event_type transport_photon_particle_pass(Photon& phtn,
     f = cell.get_f();
 
     //get distance to event
-    dist_to_scatter = -log(rng->generate_random_number())/((1.0-f)*sigma_a + sigma_s);
+    dist_to_scatter = 
+      -log(rng->generate_random_number())/((1.0-f)*sigma_a + sigma_s);
+
     dist_to_boundary = cell.get_distance_to_boundary(phtn.get_position(),
                                                       phtn.get_angle(),
                                                       surface_cross);
@@ -139,6 +143,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
                                             Mesh* mesh,
                                             IMC_State* imc_state,
                                             IMC_Parameters* imc_parameters,
+                                            MPI_Types* mpi_types,
                                             Completion_Manager_RMA* comp,
                                             std::vector<double>& rank_abs_E)
 {
@@ -184,23 +189,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
   const uint32_t max_buffer_size 
     = imc_parameters->get_particle_message_size();
 
-  // MPI Particle type
-  //Make the MPI_Particle type
-  const int entry_count = 2 ; 
-  // 7 uint32_t, 6 int, 13 double
-  int array_of_block_length[3] = { 2, 9};
-  // Displacements of each type in the cell
-  MPI_Aint array_of_block_displace[2] = 
-    {0, 2*sizeof(uint32_t)};
-  //Type of each memory block
-  MPI_Datatype array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
-
-  MPI_Datatype MPI_Particle;
-  MPI_Type_create_struct(entry_count, array_of_block_length, 
-    array_of_block_displace, array_of_types, &MPI_Particle);
-
-  // Commit the type to MPI so it recognizes it in communication calls
-  MPI_Type_commit(&MPI_Particle);
+  MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
 
   //get global photon count
   uint64_t n_local = source.get_n_photon();

@@ -12,6 +12,7 @@
 #include "buffer.h"
 #include "cell.h"
 #include "constants.h"
+#include "mpi_types.h"
 #include "input.h"
 #include "imc_state.h"
 
@@ -19,7 +20,7 @@ class Mesh {
 
   public:
 
-  Mesh(Input* input, int _rank, int _n_rank)
+  Mesh(Input* input, MPI_Types *mpi_types, int _rank, int _n_rank)
   : ngx(input->get_global_n_x_cells()),
     ngy(input->get_global_n_y_cells()),
     ngz(input->get_global_n_z_cells()),
@@ -206,25 +207,8 @@ class Mesh {
 
     total_photon_E = 0.0;
 
-    //define the MPI cell type used for MPI windows
-    //make the MPI datatype for my cell class
-    // Three type entries in the class
-    const int entry_count = 3 ; 
-    // 7 uint32_t, 6 int, 13 double
-    int array_of_block_length[4] = {10, 6, 14};
-    // Displacements of each type in the cell
-    MPI_Aint array_of_block_displace[3] = 
-      {0, 10*sizeof(uint32_t),  10*sizeof(uint32_t)+6*sizeof(int)};
-    //Type of each memory block
-    MPI_Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
-
-    MPI_Type_create_struct(entry_count, array_of_block_length, 
-      array_of_block_displace, array_of_types, &MPI_Cell);
-    MPI_Type_commit(&MPI_Cell);
-
-    MPI_Type_size(MPI_Cell, &mpi_cell_size);
-
-    uint32_t cell_size = sizeof(Cell); 
+    MPI_Cell = mpi_types->get_cell_type();
+    mpi_cell_size = mpi_types->get_cell_size();
 
     //bool flags to say if data is needed
     need_data = vector<bool>(n_rank-1, false);
@@ -913,4 +897,4 @@ class Mesh {
 
 };
 
-#endif //mesh_h_
+#endif // mesh_h_

@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "mesh.h"
+#include "mpi_types.h"
 #include "buffer.h"
 
 
@@ -52,7 +53,7 @@ void print_MPI_maps(Mesh *mesh, uint32_t rank, uint32_t size) {
   }
 }
 
-void decompose_mesh(Mesh* mesh) {
+void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types) {
 
   using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
   using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
@@ -74,22 +75,7 @@ void decompose_mesh(Mesh* mesh) {
     proc_map[i] = r_index;
   }
 
-  // remake the MPI cell datatype from mesh
-  const int entry_count = 3 ; 
-  // 7 uint32_t, 6 int, 13 double
-  int array_of_block_length[4] = {10, 6, 14};
-  // Displacements of each type in the cell
-  MPI_Aint array_of_block_displace[3] = 
-    {0, 10*sizeof(uint32_t),  10*sizeof(uint32_t)+6*sizeof(int)};
-  //Type of each memory block
-  MPI_Datatype array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
-
-  MPI_Datatype MPI_Cell;
-  MPI_Type_create_struct(entry_count, array_of_block_length, 
-    array_of_block_displace, array_of_types, &MPI_Cell);
-
-  // Commit the type to MPI so it recognizes it in communication calls
-  MPI_Type_commit(&MPI_Cell);
+  MPI_Datatype MPI_Cell = mpi_types->get_cell_type();
 
   //begin PARMETIS routines
 

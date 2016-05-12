@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <vector>
 
+#include "mpi_types.h"
 #include "photon.h"
 
 
@@ -42,7 +43,7 @@ void print_MPI_photons( const std::vector<Photon>& phtn_vec,
 
 
 std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
-                                     Mesh* mesh)
+                                     Mesh* mesh, MPI_Types* mpi_types)
 {
   using std::map;
   using std::sort;
@@ -53,27 +54,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
   uint32_t n_off_rank = n_rank-1;
 
-  // make the MPI Particle 
-  const int entry_count = 2 ; 
-  // 7 uint32_t, 6 int, 13 double
-  int array_of_block_length[3] = { 2, 9};
-  // Displacements of each type in the cell
-  MPI_Aint array_of_block_displace[2] = 
-    {0, 2*sizeof(uint32_t)};
-  //Type of each memory block
-  MPI_Datatype array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
-
-  MPI_Datatype MPI_Particle;
-  MPI_Type_create_struct(entry_count, array_of_block_length, 
-    array_of_block_displace, array_of_types, &MPI_Particle);
-
-  // Commit the type to MPI so it recognizes it in communication calls
-  MPI_Type_commit(&MPI_Particle);
-
-  int mpi_particle_size;
-  MPI_Type_size(MPI_Particle, &mpi_particle_size);
- 
-  int particle_size = sizeof(Photon); 
+  MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
 
   // make off processor map
   map<int,int> proc_map;
@@ -159,87 +140,4 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
   return new_on_rank_census;
 }
 
-
-/*
-void proto_load_balance_photons(Photon*& photon_vec, 
-                                uint32_t& n_photon,
-                                Mesh *mesh, 
-                                mpi::communicator world) {
-
-  using std::vector;
-
-  uint32_t rank = MPI::COMM_WORLD.Get_rank();
-  uint32_t size = MPI::COMM_WORLD.Get_size();
-
-
-  //sort the census vector by cell ID (global ID)
-  std::sort(photon_vec, photon_vec+n_photon);
-
-  uint32_t g_n_photon = n_photon;
-  MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, &g_n_photon, 1, MPI_UNSIGNED, MPI_SUM);
-  uint32_t lb_photon(double(g_n_photon)/size);
-  uint32_t send_photons = 0;
-  if ( n_photon > lb_photon) send_photons = n_photon - lb_photon;
-  uint32_t send_per_rank(double(send_photons)/(size-1));
-
-  //send photons to other processors
-  mpi::request* reqs = new mpi::request[ (size-1)*2];
-  vector<vector<Photon> > recv_photons;
-  //make size-1 receive lists
-  for (uint32_t ir=0; ir<size-1; ir++) {
-    vector<Photon> empty_vec;
-    recv_photons.push_back(empty_vec);
-  }
-
-  uint32_t icount = 0;
-  for (uint32_t ir=0; ir<size; ir++) {
-    if (rank != ir) {
-      //build send list
-      vector<Photon> send_photons(send_per_rank);
-      //get correct index into received photon vector
-      uint32_t r_index = ir - (ir>rank);
-      uint32_t start_send = r_index*send_per_rank;
-      memcpy(&send_photons[0], photon_vec+start_send, sizeof(Photon)*send_per_rank);
-      reqs[icount] = world.isend(ir, 0, send_photons);
-      icount++;
-      reqs[icount] = world.irecv(ir,0,recv_photons[r_index]);
-      icount++;
-    }
-  }
-
-  mpi::wait_all(reqs, reqs+(size-1)*2);
-
-
-  //make new photon list
-  //first get the size of it
-  uint32_t n_remain = n_photon - send_per_rank*(size-1);
-  uint32_t new_photon_size = 0;
-  new_photon_size +=  n_remain;
-  for (uint32_t ir=0; ir<size-1; ir++) 
-    new_photon_size+=recv_photons[ir].size();
-
-  //now form the total photon list for transport
-  Photon *new_photon_vec = new Photon[new_photon_size];
-
-  //copy received photon vector on to new photon vector
-  uint32_t copy_start = 0; 
-  for (uint32_t ir=0; ir<size-1; ir++) {
-    memcpy(new_photon_vec+copy_start, &recv_photons[ir][0], sizeof(Photon)*recv_photons[ir].size());
-    copy_start+=recv_photons[ir].size();
-    recv_photons[ir].clear();
-  }
-
-  //copy over old photons on to new vector
-  uint32_t start_remain = send_per_rank*(size-1);
-  memcpy(new_photon_vec+copy_start, photon_vec+start_remain, sizeof(Photon)*n_remain);
-  delete[] photon_vec;
-
-  //Explicitly delete the MPI requests
-  delete[] reqs;
-
-  photon_vec = new_photon_vec;
-  n_photon = new_photon_size;
-  //print_MPI_photons(photon_vec, rank, size);
-}
-*/
 #endif // decompose_photons_h

@@ -13,6 +13,7 @@
 #include "imc_parameters.h"
 #include "input.h"
 #include "mesh.h"
+#include "mpi_types.h"
 #include "timing_functions.h"
 
 using std::vector;
@@ -37,22 +38,25 @@ int main(int argc, char *argv[])
     exit(EXIT_FAILURE); 
   }
 
-  //get input object from filename
+  // make MPI types object
+  MPI_Types* mpi_types= new MPI_Types();
+
+  // get input object from filename
   std::string filename( argv[1]);
   Input *input;
   input = new Input(filename);
   if(rank ==0) input->print_problem_info();
 
-  //IMC paramters setup
+  // IMC paramters setup
   IMC_Parameters *imc_p;
   imc_p = new IMC_Parameters(input);
 
-  //IMC state setup
+  // IMC state setup
   IMC_State *imc_state;
   imc_state = new IMC_State(input, rank);
 
   // make mesh from input object
-  Mesh *mesh = new Mesh(input, rank, n_rank);
+  Mesh *mesh = new Mesh(input, mpi_types, rank, n_rank);
 
   //timing 
   struct timeval start,end;
@@ -60,7 +64,7 @@ int main(int argc, char *argv[])
   gettimeofday(&start, &tzp); 
 
   // decompose mesh with ParMETIS
-  decompose_mesh(mesh);
+  decompose_mesh(mesh, mpi_types);
 
   MPI_Barrier(MPI_COMM_WORLD);
   //print_MPI_out(mesh, rank, n_rank);
@@ -70,11 +74,11 @@ int main(int argc, char *argv[])
   /****************************************************************************/
 
   if (input->get_dd_mode() == PARTICLE_PASS)
-    imc_particle_pass_driver(rank, n_rank, mesh, imc_state, imc_p);
+    imc_particle_pass_driver(rank, n_rank, mesh, imc_state, imc_p, mpi_types);
   else if (input->get_dd_mode() == CELL_PASS)
-    imc_cell_pass_driver(rank, n_rank, mesh, imc_state, imc_p);
+    imc_cell_pass_driver(rank, n_rank, mesh, imc_state, imc_p, mpi_types);
   else if (input->get_dd_mode() == CELL_PASS_RMA)
-    imc_rma_cell_pass_driver(rank, n_rank, mesh, imc_state, imc_p);
+    imc_rma_cell_pass_driver(rank, n_rank, mesh, imc_state, imc_p, mpi_types);
   
   if (rank==0) {
     cout<<"****************************************";
@@ -85,6 +89,7 @@ int main(int argc, char *argv[])
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
+  delete mpi_types;
   delete imc_state;
   delete imc_p;
 

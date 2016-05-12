@@ -1,8 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 6/29/2014
-  Name: transport_mesh_pass.h
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   transport_rma_mesh_pass.h
+ * \author Alex Long
+ * \date   March 2 2016
+ * \brief  Transport routine using one sided messaging and mesh-passing DD
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #ifndef transport_rma_mesh_pass_h_
 #define transport_rma_mesh_pass_h_
@@ -17,16 +23,21 @@
 #include "decompose_photons.h"
 #include "mesh.h"
 #include "mesh_rma_manager.h"
+#include "mpi_types.h"
 #include "RNG.h"
 #include "sampling_functions.h"
 #include "transport_mesh_pass.h"
 
+
+//! Transport photons from a source object using the mesh-passing algorithm
+// and one-sided messaging to fulfill requests for mesh data
 std::vector<Photon> transport_rma_mesh_pass(Source& source,
                                             Mesh* mesh,
                                             IMC_State* imc_state,
                                             IMC_Parameters* imc_parameters,
                                             RMA_Manager* rma_manager,
-                                            std::vector<double>& rank_abs_E)
+                                            std::vector<double>& rank_abs_E,
+                                            MPI_Types *mpi_types)
 {
   using Constants::finish_tag;
   using std::queue;
@@ -43,8 +54,8 @@ std::vector<Photon> transport_rma_mesh_pass(Source& source,
   uint32_t cell_id;
   double census_E = 0.0;
   double exit_E = 0.0;
-  double dt = imc_state->get_next_dt(); //<! For making current photons
-  double next_dt = imc_state->get_next_dt(); //<! For census photons
+  double dt = imc_state->get_next_dt(); //! For making current photons
+  double next_dt = imc_state->get_next_dt(); //! For census photons
 
   RNG *rng = imc_state->get_rng();
   Photon phtn;
@@ -73,9 +84,9 @@ std::vector<Photon> transport_rma_mesh_pass(Source& source,
   ////////////////////////////////////////////////////////////////////////
   // main loop over photons
   ////////////////////////////////////////////////////////////////////////
-  vector<Photon> census_list; //!< Local end of timestep census list
-  vector<Photon> off_rank_census_list; //!< Off rank end of timestep census list
-  queue<Photon> wait_list; //!< Photons waiting for mesh data 
+  vector<Photon> census_list; //! Local end of timestep census list
+  vector<Photon> off_rank_census_list; //! Off rank end of timestep census list
+  queue<Photon> wait_list; //! Photons waiting for mesh data 
   while ( n_local_sourced < n_local) {
     
     uint32_t n = batch_size;
@@ -137,7 +148,7 @@ std::vector<Photon> transport_rma_mesh_pass(Source& source,
           wait_list.push(phtn);
         }
       } // end wp in wait_list
-    }
+    } // end if no data
 
   } //end while (n_local_source < n_local)
 
@@ -181,7 +192,7 @@ std::vector<Photon> transport_rma_mesh_pass(Source& source,
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  //All ranks have now finished transport
+  // all ranks have now finished transport
 
   imc_state->set_exit_E(exit_E);
   imc_state->set_post_census_E(census_E);
@@ -192,15 +203,16 @@ std::vector<Photon> transport_rma_mesh_pass(Source& source,
   imc_state->set_step_receives_posted(n_receives_posted);
   imc_state->set_step_receives_completed(n_receives_completed);
 
-  //send the off-rank census back to ranks that own the mesh its on.
-  //receive census particles that are on your mesh
-  vector<Photon> rebalanced_census = rebalance_census(off_rank_census_list,
-                                                      mesh);
-  census_list.insert(census_list.end(), 
+  // send the off-rank census back to ranks that own the mesh its on.
+  // receive census particles that are on your mesh
+  vector<Photon> rebalanced_census = 
+    rebalance_census(off_rank_census_list, mesh, mpi_types);
+
+  census_list.insert(census_list.end(),
     rebalanced_census.begin(), 
     rebalanced_census.end());
 
-  //sort on census vectors by cell ID (global ID)
+  // sort on census vectors by cell ID (global ID)
   sort(census_list.begin(), census_list.end());
 
   // set post census size after sorting and merging
@@ -210,3 +222,7 @@ std::vector<Photon> transport_rma_mesh_pass(Source& source,
 }
 
 #endif // def transport_rma_mesh_pass_h_
+
+//---------------------------------------------------------------------------//
+// end of transport_rma_mesh_pass.h
+//---------------------------------------------------------------------------//

@@ -1,8 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 5/2/201
-  Name: load_balance.h
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   load_balance.h
+ * \author Alex Long
+ * \date   May 2 2016
+ * \brief  Function for determining balance and communicating work
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #ifndef load_balance_h_
 #define load_balance_h_
@@ -15,11 +21,15 @@
 
 #include "buffer.h"
 #include "constants.h"
+#include "mpi_types.h"
 #include "photon.h"
 #include "work_packet.h"
 
-void load_balance(const int& rank, const int& n_rank, const uint64_t n_particle_on_rank,
-  std::vector<Work_Packet>& work, std::vector<Photon>& census_list) 
+//! Load balance the work on all ranks given an array of work packets and 
+// census particles
+void load_balance(const int& rank, const int& n_rank, 
+  const uint64_t n_particle_on_rank, std::vector<Work_Packet>& work, 
+  std::vector<Photon>& census_list, MPI_Types *mpi_types)
 {
   using std::unordered_map;
   using std::unordered_set;
@@ -27,47 +37,10 @@ void load_balance(const int& rank, const int& n_rank, const uint64_t n_particle_
   using Constants::photon_tag;
   using Constants::work_tag;
 
-  //////////////////////////////////////////////////////////////////////////////
-  // Make MPI datatypes 
-  //////////////////////////////////////////////////////////////////////////////
-  
-  // make the MPI Particle 
-  const int p_entry_count = 2 ; 
-  // 7 uint32_t, 6 int, 13 double
-  int p_array_of_block_length[3] = {2, 9};
-  // Displacements of each type in the cell
-  MPI_Aint p_array_of_block_displace[2] = 
-    {0, 2*sizeof(uint32_t)};
-  //Type of each memory block
-  MPI_Datatype p_array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
+  // get MPI datatypes 
+  MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
 
-  MPI_Datatype MPI_Particle;
-  MPI_Type_create_struct(p_entry_count, p_array_of_block_length, 
-    p_array_of_block_displace, p_array_of_types, &MPI_Particle);
-
-  // Commit the type to MPI so it recognizes it in communication calls
-  MPI_Type_commit(&MPI_Particle);
-
-  // make the Work Packet 
-  const int wp_entry_count = 2 ; 
-  // 7 uint32_t, 6 int, 13 double
-  int wp_array_of_block_length[3] = { 4, 7};
-  // Displacements of each type in the cell
-  MPI_Aint wp_array_of_block_displace[2] = 
-    {0, 4*sizeof(uint32_t)};
-  //Type of each memory block
-  MPI_Datatype wp_array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
-
-  MPI_Datatype MPI_WPacket;
-  MPI_Type_create_struct(wp_entry_count, wp_array_of_block_length, 
-    wp_array_of_block_displace, wp_array_of_types, &MPI_WPacket);
-
-  // Commit the type to MPI so it recognizes it in communication calls
-  MPI_Type_commit(&MPI_WPacket);
-
-  int wp_size = sizeof(Work_Packet);
-  int mpi_wp_size;
-  MPI_Type_size(MPI_WPacket, &mpi_wp_size);
+  MPI_Datatype MPI_WPacket = mpi_types->get_work_packet_type();
 
   //////////////////////////////////////////////////////////////////////////////
   // Calculate load imbalance for each rank
@@ -291,4 +264,9 @@ void load_balance(const int& rank, const int& n_rank, const uint64_t n_particle_
   } // end if(n_acceptors)
 
 }  
+
 #endif // load_balance_h_
+
+//---------------------------------------------------------------------------//
+// end of load_balance.h
+//---------------------------------------------------------------------------//

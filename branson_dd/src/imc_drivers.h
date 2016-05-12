@@ -14,6 +14,7 @@
 #include "completion_manager.h"
 #include "completion_manager_rma.h"
 #include "mesh_rma_manager.h"
+#include "mpi_types.h"
 #include "imc_state.h"
 #include "imc_parameters.h"
 #include "load_balance.h"
@@ -31,7 +32,8 @@ void imc_cell_pass_driver(const int& rank,
                           const int& n_rank,
                           Mesh *mesh, 
                           IMC_State *imc_state,
-                          IMC_Parameters *imc_parameters) {
+                          IMC_Parameters *imc_parameters,
+                          MPI_Types *mpi_types) {
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
@@ -86,7 +88,8 @@ void imc_cell_pass_driver(const int& rank,
                                           imc_state, 
                                           imc_parameters,
                                           comp,
-                                          abs_E);
+                                          abs_E,
+                                          mpi_types);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
     MPI_Allreduce(MPI_IN_PLACE, 
@@ -121,7 +124,8 @@ void imc_rma_cell_pass_driver(const int& rank,
                               const int& n_rank,
                               Mesh *mesh, 
                               IMC_State *imc_state,
-                              IMC_Parameters *imc_parameters) {
+                              IMC_Parameters *imc_parameters,
+                              MPI_Types *mpi_types) {
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
@@ -130,6 +134,7 @@ void imc_rma_cell_pass_driver(const int& rank,
   RMA_Manager *rma_manager = new RMA_Manager(rank, 
     mesh->get_off_rank_bounds(),
     mesh->get_global_num_cells(),
+    mpi_types,
     mesh->get_mesh_window_ref());
   rma_manager->start_access();
 
@@ -159,7 +164,7 @@ void imc_rma_cell_pass_driver(const int& rank,
 
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
     load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
-      census_photons);
+      census_photons, mpi_types);
     // get new particle count after load balance, group particle work by cell
     source.post_lb_prepare_source();
 
@@ -178,7 +183,8 @@ void imc_rma_cell_pass_driver(const int& rank,
                                               imc_state, 
                                               imc_parameters,
                                               rma_manager,
-                                              abs_E);
+                                              abs_E,
+                                              mpi_types);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
     MPI_Allreduce(MPI_IN_PLACE, 
@@ -217,7 +223,8 @@ void imc_particle_pass_driver(const int& rank,
                               const int& n_rank,
                               Mesh *mesh, 
                               IMC_State *imc_state,
-                              IMC_Parameters *imc_parameters) {
+                              IMC_Parameters *imc_parameters,
+                              MPI_Types * mpi_types) {
 
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
@@ -263,6 +270,7 @@ void imc_particle_pass_driver(const int& rank,
                                               mesh, 
                                               imc_state, 
                                               imc_parameters,
+                                              mpi_types,
                                               comp,
                                               abs_E);
           
@@ -284,7 +292,8 @@ void imc_particle_pass_driver_jay_comp(const int& rank,
                                         const int& n_rank,
                                         Mesh *mesh, 
                                         IMC_State *imc_state,
-                                        IMC_Parameters *imc_parameters) {
+                                        IMC_Parameters *imc_parameters,
+                                        MPI_Types *mpi_types) {
 
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
@@ -341,3 +350,6 @@ void imc_particle_pass_driver_jay_comp(const int& rank,
 
 
 #endif // imc_drivers_h_
+//---------------------------------------------------------------------------//
+// end of imc_drivers.h
+//---------------------------------------------------------------------------//
