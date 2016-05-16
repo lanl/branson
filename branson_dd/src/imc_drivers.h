@@ -1,8 +1,15 @@
-/*
-  Author: Alex Long
-  Date: 12/1/2015
-  Name: imc_drivers.h
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   imc_drivers.h
+ * \author Alex Long
+ * \date   December 1 2015
+ * \brief  Functions to run each domain decomposed IMC method
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
+
 #ifndef imc_drivers_h_
 #define imc_drivers_h_
 
@@ -24,8 +31,8 @@
 #include "census_creation.h"
 #include "transport_particle_pass.h"
 #include "transport_particle_pass_jay_comp.h"
-#include "transport_rma_mesh_pass.h"
 #include "transport_mesh_pass.h"
+#include "transport_mesh_pass_rma.h"
 #include "write_silo.h"
 
 void imc_cell_pass_driver(const int& rank, 
@@ -178,7 +185,7 @@ void imc_rma_cell_pass_driver(const int& rank,
     MPI_Barrier(MPI_COMM_WORLD);
 
     //transport photons
-    census_photons = transport_rma_mesh_pass( source, 
+    census_photons = transport_mesh_pass_rma( source, 
                                               mesh, 
                                               imc_state, 
                                               imc_parameters,
@@ -339,7 +346,7 @@ void imc_particle_pass_driver_jay_comp(const int& rank,
                                                       imc_parameters,
                                                       comp,
                                                       abs_E);
-          
+
     mesh->update_temperature(abs_E, imc_state);
     //update time for next step    
     imc_state->print_conservation(imc_parameters->get_dd_mode());

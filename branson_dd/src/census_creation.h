@@ -1,8 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 12/1/2015
-  Name: transport.h
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   census_creation.h
+ * \author Alex Long
+ * \date   January 1 2015
+ * \brief  Function for creating initial census particles 
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #ifndef census_creation_h_
 #define census_creation_h_
@@ -70,3 +76,6 @@ std::vector<Photon> make_initial_census_photons(Mesh* mesh,
 }
 
 #endif // def census_creation_h_
+//---------------------------------------------------------------------------//
+// end of census_creation.h
+//---------------------------------------------------------------------------//

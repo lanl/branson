@@ -1,6 +1,6 @@
 //----------------------------------*-C++-*----------------------------------//
 /*!
- * \file   transport_rma_mesh_pass.h
+ * \file   transport_mesh_pass_rma.h
  * \author Alex Long
  * \date   March 2 2016
  * \brief  Transport routine using one sided messaging and mesh-passing DD
@@ -31,7 +31,7 @@
 
 //! Transport photons from a source object using the mesh-passing algorithm
 // and one-sided messaging to fulfill requests for mesh data
-std::vector<Photon> transport_rma_mesh_pass(Source& source,
+std::vector<Photon> transport_mesh_pass_rma(Source& source,
                                             Mesh* mesh,
                                             IMC_State* imc_state,
                                             IMC_Parameters* imc_parameters,
@@ -224,5 +224,5 @@ std::vector<Photon> transport_rma_mesh_pass(Source& source,
 #endif // def transport_rma_mesh_pass_h_
 
 //---------------------------------------------------------------------------//
-// end of transport_rma_mesh_pass.h
+// end of transport_mesh_pass_rma.h
 //---------------------------------------------------------------------------//

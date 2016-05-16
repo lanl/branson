@@ -2,7 +2,7 @@
 /*!
  * \file   imc_parameters.h
  * \author Alex Long
- * \date   December 3 2016
+ * \date   December 3 2015
  * \brief  Holds parameters needed in IMC simulation
  * \note   ***COPYRIGHT_GOES_HERE****
  */
@@ -77,7 +77,6 @@ class IMC_Parameters
 };
 
 #endif // imc_parameters_h_
-
 //---------------------------------------------------------------------------//
 // end of imc_parameters.h
 //---------------------------------------------------------------------------//

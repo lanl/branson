@@ -1,8 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 2/11/2016
-  Name: test_imc_state.cc
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   test_imc_state.cc
+ * \author Alex Long
+ * \date   February 11 2016
+ * \brief  Test IMC state get and set functions and 64 bit reductions
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #include <iostream>
 #include <string>
@@ -153,3 +159,6 @@ int main (int argc, char *argv[]) {
 
   return nfail;
 }
+//---------------------------------------------------------------------------//
+// end of test_imc_state.cc
+//---------------------------------------------------------------------------//

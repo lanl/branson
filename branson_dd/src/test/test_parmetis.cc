@@ -1,10 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 2/11/2016
-  Name: test_parmetis.cc
-  This test is mostly just to make sure ParMetis can be called
-  with a simple graph and doesn't return nonsense
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   test_parmetis.cc
+ * \author Alex Long
+ * \date   February 11 2016
+ * \brief  Make sure ParMetis can be called with a simple graph
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #include <iostream>
 #include <numeric>
@@ -168,3 +172,6 @@ int main (int argc, char *argv[]) {
 
   return nfail;
 }
+//---------------------------------------------------------------------------//
+// end of test_parmetis.cc
+//---------------------------------------------------------------------------//

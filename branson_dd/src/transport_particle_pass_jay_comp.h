@@ -1,8 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 12/1/2015
-  Name: transport_mesh_pass.h
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   transport_particle_pass_jay_comp.h
+ * \author Alex Long
+ * \date   December 1 2015
+ * \brief  Holds parameters needed in IMC simulation
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #ifndef transport_particle_pass_jay_comp_h_
 #define transport_particle_pass_jay_comp_h_
@@ -361,4 +367,6 @@ std::vector<Photon> jay_comp_transport_particle_pass(Source& source,
 }
 
 #endif // def transport_particle_pass_jay_comp_h_
-
+//---------------------------------------------------------------------------//
+// end of transport_particle_pass_jay_comp.h
+//---------------------------------------------------------------------------//

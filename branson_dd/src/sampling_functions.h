@@ -1,8 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 9/17/2014
-  Name: sampling_functions.h
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   sampling_functions.h
+ * \author Alex Long
+ * \date   September 17 2014
+ * \brief  Angle sampling for isotropic and surface sources
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #ifndef sampling_functions_h_
 #define sampling_functions_h_
@@ -12,15 +18,7 @@
 #include "RNG.h"
 #include "constants.h"
 
-
-double get_uniform_angle(RNG* rng) {
-  return rng->generate_random_number()*2.0-1.0;
-}
-
-double get_source_angle(RNG* rng) {
-  return sqrt(rng->generate_random_number());
-}
-
+//! Set angle given input array and RNG
 void get_uniform_angle(double* angle, RNG* rng) {
   using std::sqrt;
   using std::sin;
@@ -34,6 +32,7 @@ void get_uniform_angle(double* angle, RNG* rng) {
   angle[2] = mu;
 }
 
+//! Set angle given input array, RNG and strata
 void get_stratified_angle(double* angle, RNG* rng, uint32_t isample, uint32_t nsample) {
   using std::sqrt;
   using std::sin;
@@ -51,6 +50,7 @@ void get_stratified_angle(double* angle, RNG* rng, uint32_t isample, uint32_t ns
   angle[2] = mu;
 }
 
+//! Set angle from face source given input array, RNG and strata
 void get_source_angle(double* angle, RNG* rng) {
   using std::sqrt;
   using std::sin;
@@ -65,3 +65,6 @@ void get_source_angle(double* angle, RNG* rng) {
 }
 
 #endif
+//---------------------------------------------------------------------------//
+// end of sampling_functions.h
+//---------------------------------------------------------------------------//

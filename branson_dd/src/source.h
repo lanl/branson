@@ -1,8 +1,15 @@
-/*
-  Author: Alex Long
-  Date: 12/2/2015
-  Name: source.h
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   source.h
+ * \author Alex Long
+ * \date   December 2 2015
+ * \brief  Allows transport function to create particles when needed
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
+
 #ifndef source_h_
 #define source_h_
 
@@ -17,9 +24,20 @@
 #include "sampling_functions.h"
 #include "work_packet.h"
 
+
+//==============================================================================
+/*!
+ * \class Source
+ * \brief Describes how to create emssion particles and return census particles
+ * 
+ * \example no test yet
+ */
+//==============================================================================
 class Source {
 
   public:
+
+  //! constructor
   Source( Mesh *_mesh, IMC_Parameters *imc_parameters, const double& total_E,
     std::vector<Photon>& _census_photons)
     : mesh(_mesh),
@@ -78,12 +96,14 @@ class Source {
     } 
     */
   }
+
+  //! destructor
   ~Source() {}
 
-
+  //! Get total photon count
   uint32_t get_n_photon(void) const {return n_photon;}
 
-
+  //! Link work packets to census particles and get new total
   void post_lb_prepare_source(void) {
     using std::vector;
     using std::unordered_map;
@@ -159,7 +179,7 @@ class Source {
     iphoton = 0;
   }
 
-
+  //! Get next particle, create it if it's an emission particle
   Photon get_photon(RNG *rng, const double& dt) {
     Photon return_photon;
     
@@ -188,6 +208,7 @@ class Source {
     return return_photon;
   }
 
+  //! Set input photon to the next emission photon
   void get_emission_photon( Photon& emission_photon,
                               Work_Packet& work, 
                               const double& phtn_E, 
@@ -206,20 +227,24 @@ class Source {
     emission_photon.set_cell(work.get_global_cell_ID());
   }
 
+  //! Return reference to work vector
   std::vector<Work_Packet>& get_work_vector(void) {return work;}
  
   private:
-  const Mesh * const mesh; //!< Pointer to mesh (source cannot change Mesh)
-  std::vector<Photon>& census_photons; //!< Reference to census photons on rank
-  uint32_t n_emission; //!< Number of emission particles created in this packet
-  double phtn_E; //!< Photon emission energy in this packet
-  uint32_t n_in_packet; //!< Number of total particles in this packet
-  uint32_t census_index;
-  uint32_t iphoton;  //!< Local photon counter
-  std::vector<Work_Packet> work; //!< Work packets
-  std::vector<Work_Packet>::iterator iwork; //!< Work iterator
-  uint32_t n_photon;  //!< Total photons in this source
-  std::vector<double> E_cell_emission;
+  const Mesh * const mesh; //! Pointer to mesh (source cannot change Mesh)
+  std::vector<Photon>& census_photons; //! Reference to census photons on rank
+  uint32_t n_emission; //! Number of emission particles created in this packet
+  double phtn_E; //! Photon emission energy in this packet
+  uint32_t n_in_packet; //! Number of total particles in this packet
+  uint32_t census_index; //! Index of next census particle to return
+  uint32_t iphoton;  //! Local photon counter
+  std::vector<Work_Packet> work; //! Work packets
+  std::vector<Work_Packet>::iterator iwork; //! Work iterator
+  uint32_t n_photon;  //! Total photons in this source
+  std::vector<double> E_cell_emission; //! Emission energy in each cell
 };
 
 #endif // source_h_
+//---------------------------------------------------------------------------//
+// end of source.h
+//---------------------------------------------------------------------------//

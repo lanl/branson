@@ -1,8 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 3/18/2016
-  Name: test_completion_manager_rma.cc
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   test_completion_manager_rma.cc
+ * \author Alex Long
+ * \date   March 18 2016
+ * \brief  Test RMA completion manager construction and completion routines
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #include <iostream>
 #include <mpi.h>
@@ -92,3 +98,6 @@ int main (int argc, char *argv[]) {
 
   return nfail;
 }
+//---------------------------------------------------------------------------//
+// end of test_completion_manager_rma.cc
+//---------------------------------------------------------------------------//

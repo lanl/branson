@@ -1,8 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 12/1/2015
-  Name: transport_mesh_pass.h
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   transport_particle_pass.h
+ * \author Alex Long
+ * \date   December 1 2015
+ * \brief  IMC transprot with particle passing method 
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #ifndef transport_particle_pass_h_
 #define transport_particle_pass_h_
@@ -457,3 +463,6 @@ std::vector<Photon> transport_particle_pass(Source& source,
 }
 
 #endif // def transport_particle_pass_h_
+//---------------------------------------------------------------------------//
+// end of work_packet.h
+//---------------------------------------------------------------------------//

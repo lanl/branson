@@ -1,8 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 1/11/2016
-  Name: test_photon.cc
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   test_photon.cc
+ * \author Alex Long
+ * \date   January 11 2016
+ * \brief  Test photon construction and move functionality
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #include <iostream>
 
@@ -96,7 +102,7 @@ int main (void) {
       if ( !soft_equiv(moved_position_2[2],-5.0616985272, tolerance) ) 
         test_photon_move= false;
       //distance remaining is distance to census - move distance
-      if ( !soft_equiv(photon.get_distance_remaining(), 8.998352, tolerance) ) 
+      if ( !soft_equiv(photon.get_distance_remaining(), 8.998352, tolerance) )
         test_photon_move= false;
     }
     
@@ -105,11 +111,10 @@ int main (void) {
       cout<<"TEST FAILED: Photon move function"<<endl; 
       nfail++;
     }
-  }
-
-  
-
+  } 
 
   return nfail;
 }
-
+//---------------------------------------------------------------------------//
+// end of test_photon.cc
+//---------------------------------------------------------------------------//

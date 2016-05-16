@@ -1,8 +1,14 @@
-/*
-  Author: Alex Long
-  Date: 7/18/2014
-  Name: input.h
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   input.h
+ * \author Alex Long
+ * \date   July 18 2014
+ * \brief  Reads data from XML input file and makes mesh skeleton
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #ifndef input_h_
 #define input_h_
@@ -48,12 +54,12 @@ class Input
     using std::endl;
     using std::vector;
 
-    double rho; //!< Density (g/cc)
-    double CV; //!< Heat capacity (jk/keV/g)
-    double opacA; //!< Constant opacity
-    double opacB; //!< Opacity temperature multiplier 
-    double opacC; //!< Opacity temperature power
-    double opacS; //!< Scattering opacity
+    double rho; //! Density (g/cc)
+    double CV; //! Heat capacity (jk/keV/g)
+    double opacA; //! Constant opacity
+    double opacB; //! Opacity temperature multiplier 
+    double opacC; //! Opacity temperature power
+    double opacS; //! Scattering opacity
 
     uint32_t x_key, y_key, z_key, key;
     // initialize nunmber of divisions in each dimension to zero
@@ -517,18 +523,18 @@ class Input
   bool using_simple_mesh;
   bool using_detailed_mesh;
 
-  Constants::bc_type bc[6]; //!< Boundary condition array 
+  Constants::bc_type bc[6]; //! Boundary condition array 
 
   // timing
-  double tStart; //!< Starting time
-  double dt; //!< Timestep size
-  double tFinish; //!< Finish time
-  double tMult; //!< Timestep multiplier
-  double dtMax; //!< Maximum timestep size
+  double tStart; //! Starting time
+  double dt; //! Timestep size
+  double tFinish; //! Finish time
+  double tMult; //! Timestep multiplier
+  double dtMax; //! Maximum timestep size
 
   // initial conditions
-  double Tm_initial; //!< Initial material temperature 
-  double Tr_initial; //!< Initial radiation temperature
+  double Tm_initial; //! Initial material temperature 
+  double Tr_initial; //! Initial radiation temperature
 
   //material
   std::vector<Region> regions;
@@ -536,28 +542,28 @@ class Input
   std::map<uint32_t, uint32_t> region_ID_to_index;
 
   //source
-  double T_source; //!< Temperature of source
+  double T_source; //! Temperature of source
 
   // Monte Carlo parameters
-  uint64_t n_photons; //!< Photons to source each timestep
-  uint32_t seed; //!< Random number seed
+  uint64_t n_photons; //! Photons to source each timestep
+  uint32_t seed; //! Random number seed
 
   // Method parameters
-  bool use_tilt; //!< Use tilting for emission sampling
-  bool use_comb; //!< Comb census photons
-  bool use_strat; //!< Use strafifed sampling
+  bool use_tilt; //! Use tilting for emission sampling
+  bool use_comb; //! Comb census photons
+  bool use_strat; //! Use strafifed sampling
 
   // Debug parameters
-  int output_freq; //!< How often to print temperature information
-  bool print_verbose; //!< Verbose printing flag
-  bool print_mesh_info; //!< Mesh information printing flag
+  int output_freq; //! How often to print temperature information
+  bool print_verbose; //! Verbose printing flag
+  bool print_mesh_info; //! Mesh information printing flag
 
   // parallel performance parameters
-  uint32_t map_size; //!< Size of stored off-rank mesh cells
-  uint32_t dd_mode; //!< Mode of domain decomposed transport algorithm
-  bool use_ghost_cells; //!< Always keep first ghost cells
-  uint32_t batch_size; //!< Particles to run between MPI message checks
-  uint32_t particle_message_size; //!< Preferred number of particles in MPI sends
+  uint32_t map_size; //! Size of stored off-rank mesh cells
+  uint32_t dd_mode; //! Mode of domain decomposed transport algorithm
+  bool use_ghost_cells; //! Always keep first ghost cells
+  uint32_t batch_size; //! Particles to run between MPI message checks
+  uint32_t particle_message_size; //! Preferred number of particles in MPI sends
 
   // detailed mesh specifications
   uint32_t n_divisions;
@@ -580,4 +586,7 @@ class Input
   float *silo_z;
 };
 
-#endif // inpu2t_h_
+#endif // input_h_
+//---------------------------------------------------------------------------//
+// end of input.h
+//---------------------------------------------------------------------------//
