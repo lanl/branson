@@ -9,7 +9,7 @@
 
 #include <iostream>
 #include <mpi.h>
-#include <map>
+#include <unordered_map>
 #include <algorithm>
 #include <vector>
 
@@ -45,7 +45,7 @@ void print_MPI_photons( const std::vector<Photon>& phtn_vec,
 std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
                                      Mesh* mesh, MPI_Types* mpi_types)
 {
-  using std::map;
+  using std::unordered_map;
   using std::sort;
   using std::vector;
 
@@ -57,7 +57,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
   MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
 
   // make off processor map
-  map<int,int> proc_map;
+  unordered_map<int,int> proc_map;
   for (int32_t i=0; i<n_off_rank; i++) {
     int r_index = i + int(i>=rank);
     proc_map[i] = r_index;

@@ -103,6 +103,14 @@ class Source {
   //! Get total photon count
   uint32_t get_n_photon(void) const {return n_photon;}
 
+  //! Print source census balance
+  void print_work_summary(const int& rank) const {
+    std::cout<<"rank: "<<rank<<" emission: "<<n_photon-census_photons.size();
+    std::cout<<" census: "<<census_photons.size();
+    std::cout<<" fraction census: "<<census_photons.size()/double(n_photon);
+    std::cout<<std::endl;
+  }
+
   //! Link work packets to census particles and get new total
   void post_lb_prepare_source(void) {
     using std::vector;

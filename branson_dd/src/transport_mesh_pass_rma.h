@@ -26,6 +26,7 @@
 #include "mpi_types.h"
 #include "RNG.h"
 #include "sampling_functions.h"
+#include "timing_functions.h"
 #include "transport_mesh_pass.h"
 
 
@@ -63,6 +64,11 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
   int rank, n_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
+
+  //timing 
+  struct timeval start,end;
+  struct timezone tzp;
+  gettimeofday(&start, &tzp); 
 
   // parallel event counters
   uint32_t n_cell_messages=0; //! Number of cell messages
@@ -190,6 +196,9 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
     }
   } //end while wait_list not empty
 
+  // record time of transport work for this rank 
+  gettimeofday(&end, &tzp);
+
   MPI_Barrier(MPI_COMM_WORLD);
 
   // all ranks have now finished transport
@@ -202,6 +211,7 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
   imc_state->set_step_sends_completed(n_sends_completed);
   imc_state->set_step_receives_posted(n_receives_posted);
   imc_state->set_step_receives_completed(n_receives_completed);
+  imc_state->set_rank_transport_runtime(get_runtime(&start,&end));
 
   // send the off-rank census back to ranks that own the mesh its on.
   // receive census particles that are on your mesh

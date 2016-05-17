@@ -165,6 +165,8 @@ class IMC_State
     cout<<"****************************************"<<endl;
   }
 
+  //! Get transport time for this rank on current timestep
+  double get_rank_transport_runtime(void) {return rank_transport_runtime;}
 
   //////////////////////////////////////////////////////////////////////////////
   // non-const functions                                                      //
@@ -360,14 +362,19 @@ class IMC_State
     step_sends_completed=_step_sends_completed;
   }
 
-  // Set total number of MPI receives posted for current timestep
+  //! Set total number of MPI receives posted for current timestep
   void set_step_receives_posted(uint32_t _step_receives_posted) {
     step_receives_posted=_step_receives_posted;
   }
 
-  // Set total number of MPI receives completed for current timestep
+  //! Set total number of MPI receives completed for current timestep
   void set_step_receives_completed(uint32_t _step_receives_completed) { 
     step_receives_completed=_step_receives_completed;
+  }
+
+  //! Set transport runtime for this rank
+  void set_rank_transport_runtime(double _rank_transport_runtime) {
+    rank_transport_runtime = _rank_transport_runtime;
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -423,6 +430,8 @@ class IMC_State
   uint32_t step_sends_completed; //! Number of sent messages completed
   uint32_t step_receives_posted; //! Number of received messages completed
   uint32_t step_receives_completed;  //! Number of received messages completed
+
+  double rank_transport_runtime; //! Transport step runtime for this rank
 
   //RNG
   RNG* m_RNG;

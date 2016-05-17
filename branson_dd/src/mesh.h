@@ -3,7 +3,7 @@
 #define mesh_h_
 
 #include <algorithm>
-#include <map>
+#include <unordered_map>
 #include <mpi.h>
 #include <set>
 #include <string>
@@ -249,7 +249,7 @@ class Mesh {
   uint32_t get_my_rank(void) const {return  rank;}
   uint32_t get_offset(void) const {return on_rank_start;}
   uint32_t get_global_num_cells(void) const {return n_global;}
-  std::map<uint32_t, uint32_t> get_proc_adjacency_list(void) const {
+  std::unordered_map<uint32_t, uint32_t> get_proc_adjacency_list(void) const {
     return adjacent_procs;
   }
   double get_total_photon_E(void) const {return total_photon_E;}
@@ -266,8 +266,8 @@ class Mesh {
       cells[i].print();
   }
 
-  std::map<uint32_t, uint32_t> get_map(void) const {
-    std::map<uint32_t, uint32_t> local_map;
+  std::unordered_map<uint32_t, uint32_t> get_map(void) const {
+    std::unordered_map<uint32_t, uint32_t> local_map;
     uint32_t g_ID;
     for (uint32_t i=0; i<n_cell; i++) {
       g_ID = cell_list[i].get_ID();
@@ -332,7 +332,7 @@ class Mesh {
   }
 
   void print_map(void) {
-    for ( std::map<uint32_t,Cell>::iterator map_i =
+    for ( std::unordered_map<uint32_t,Cell>::iterator map_i =
       stored_cells.begin();
       map_i!=stored_cells.end(); map_i++)
       (map_i->second).print();
@@ -427,23 +427,23 @@ class Mesh {
   }
 
 
-  void set_indices( std::map<uint32_t, uint32_t> off_map, 
+  void set_indices( std::unordered_map<uint32_t, uint32_t> off_map, 
                     std::vector< std::vector<bool> >& remap_flag) {
 
     using Constants::PROCESSOR;
     using Constants::dir_type;
-    using std::map;
+    using std::unordered_map;
     using std::set;
 
     uint32_t next_index;
-    map<uint32_t, uint32_t>::iterator end = off_map.end();
+    unordered_map<uint32_t, uint32_t>::iterator end = off_map.end();
     uint32_t new_index;
     //check to see if neighbors are on or off processor
     for (uint32_t i=0; i<n_cell; i++) {
       Cell& cell = cell_list[i];
       for (uint32_t d=0; d<6; d++) {
         next_index = cell.get_next_cell(d);
-        map<uint32_t, uint32_t>::iterator map_i = 
+        unordered_map<uint32_t, uint32_t>::iterator map_i = 
           off_map.find(next_index);
         if (off_map.find(next_index) != end && remap_flag[i][d] ==false ) {
           //update index and bc type, this will always be an off processor so
@@ -465,15 +465,15 @@ class Mesh {
     }
   }
 
-  void set_local_indices(std::map<uint32_t, uint32_t> local_map) {
+  void set_local_indices(std::unordered_map<uint32_t, uint32_t> local_map) {
 
     using Constants::PROCESSOR;
     using Constants::bc_type;
     using Constants::dir_type;
-    using std::map;
+    using std::unordered_map;
 
     uint32_t next_index;
-    map<uint32_t, uint32_t>::iterator end = local_map.end();
+    unordered_map<uint32_t, uint32_t>::iterator end = local_map.end();
     uint32_t new_index;
     bc_type current_bc;
     //check to see if neighbors are on or off processor
@@ -483,7 +483,7 @@ class Mesh {
       for (uint32_t d=0; d<6; d++) {
         current_bc = cell.get_bc(bc_type(d));
         next_index = cell.get_next_cell(d);
-        map<uint32_t, uint32_t>::iterator map_i = 
+        unordered_map<uint32_t, uint32_t>::iterator map_i = 
           local_map.find(next_index);
         //if this index is not a processor boundary, update it
         if (local_map.find(next_index) != end && current_bc != PROCESSOR) {
@@ -743,7 +743,7 @@ class Mesh {
   }
 
   void purge_working_mesh(void) {
-    stored_cells.clear(); ghost_cells.clear();
+    stored_cells.clear(); 
     ids_requested.clear();  
   }
 
@@ -849,10 +849,10 @@ class Mesh {
   std::vector<uint32_t> off_rank_bounds; //! Ending value of global ID for each rank
   std::vector<uint32_t> boundary_cells; //! Index of adjacent ghost cells
  
-  std::map<uint32_t, uint32_t> adjacent_procs; //! List of adjacent processors
+  std::unordered_map<uint32_t, uint32_t> adjacent_procs; //! List of adjacent processors
 
   std::vector<Region> regions; //! Vector of regions in the problem
-  std::map<uint32_t, uint32_t> region_ID_to_index; //! Maps region ID to index
+  std::unordered_map<uint32_t, uint32_t> region_ID_to_index; //! Maps region ID to index
 
   double total_photon_E; //! Total photon energy on the mesh
 
@@ -886,10 +886,10 @@ class Mesh {
   int r_id_req_flag;  //! Flag for received cell indices
   int s_id_req_flag; //! Flag for send cell indices
 
-  std::map<uint32_t, Cell> stored_cells; //! Cells that have been accessed off rank
-  std::map<uint32_t, Cell> ghost_cells; //! Static list of off-rank cells next to boundary
+  //! Cells that have been accessed off rank
+  std::unordered_map<uint32_t, Cell> stored_cells; 
 
-  std::map<int,int> proc_map; //! Maps number of off-rank processor to global rank
+  std::unordered_map<int,int> proc_map; //! Maps number of off-rank processor to global rank
 
   std::vector<std::vector<uint32_t> > ids_needed; //! Cell needed by this rank
   std::vector<int32_t > n_send_ids; //! Number of IDs to send

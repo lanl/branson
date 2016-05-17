@@ -19,7 +19,7 @@
 #include <iostream>
 #include <numeric>
 #include <queue>
-#include <map>
+#include <unordered_map>
 #include <stack>
 #include <vector>
 
@@ -161,7 +161,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
   using std::queue;
   using std::vector;
   using std::stack;
-  using std::map;
+  using std::unordered_map;
   using Constants::proc_null;
   using Constants::count_tag;
   using std::cout;
@@ -211,7 +211,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
   vector<vector<Photon> > send_list;
 
   //Get adjacent processor map (off_rank_id -> adjacent_proc_number)
-  map<uint32_t, uint32_t> adjacent_procs = mesh->get_proc_adjacency_list();
+  unordered_map<uint32_t, uint32_t> adjacent_procs = mesh->get_proc_adjacency_list();
   uint32_t n_adjacent = adjacent_procs.size();
   //Messsage requests for photon sends and receives
   MPI_Request *phtn_recv_request   = new MPI_Request[n_adjacent];
@@ -224,7 +224,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
   {
     uint32_t i_b; // buffer index
     int adj_rank; // adjacent rank
-    for ( std::map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin(); 
+    for ( std::unordered_map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin(); 
       it != adjacent_procs.end(); ++it) {
       adj_rank = it->first;
       i_b = it->second;
@@ -317,7 +317,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
       MPI_Status recv_status;
       uint32_t i_b; // buffer index
       int adj_rank; // adjacent rank
-      for ( std::map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin(); 
+      for ( std::unordered_map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin(); 
         it != adjacent_procs.end(); ++it) {
         adj_rank = it->first;
         i_b = it->second;
@@ -402,7 +402,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
     vector<Photon> one_photon(1);
     uint32_t i_b; // buffer index
     int adj_rank; // adjacent rank
-    for ( std::map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin(); 
+    for ( std::unordered_map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin(); 
       it != adjacent_procs.end(); ++it) {
       adj_rank = it->first;
       i_b = it->second;

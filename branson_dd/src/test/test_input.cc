@@ -57,7 +57,6 @@ int main (void) {
     if (input.get_tilt_bool() != false) simple_input_pass =false;
     if (input.get_comb_bool() != true) simple_input_pass =false;
     if (input.get_stratified_bool() != false) simple_input_pass =false;
-    if (input.get_ghost_cell_bool() != false) simple_input_pass =false;
     if (input.get_verbose_print_bool() != false) simple_input_pass =false;
     if (input.get_print_mesh_info_bool() != false) simple_input_pass =false;
     if (input.get_output_freq() != 1) simple_input_pass =false;
@@ -141,7 +140,6 @@ int main (void) {
     if (input.get_tilt_bool() != false) three_region_pass =false;
     if (input.get_comb_bool() != true) three_region_pass =false;
     if (input.get_stratified_bool() != false) three_region_pass =false;
-    if (input.get_ghost_cell_bool() != false) three_region_pass =false;
     if (input.get_verbose_print_bool() != false) three_region_pass =false;
     if (input.get_print_mesh_info_bool() != false) three_region_pass =false;
     if (input.get_output_freq() != 1) three_region_pass =false;

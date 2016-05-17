@@ -76,7 +76,8 @@ void imc_cell_pass_driver(const int& rank,
     imc_state->set_pre_census_E(get_photon_list_E(census_photons));
 
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
-    //load_balance(source);
+    load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
+      census_photons, mpi_types);
     // get new particle count after load balance. Group particle work by cell
     source.post_lb_prepare_source();
 
@@ -210,11 +211,12 @@ void imc_rma_cell_pass_driver(const int& rank,
     //invalid
     mesh->purge_working_mesh();
 
-    // write SILO file
-    vector<uint32_t> n_requests = rma_manager->get_n_request_vec();
-    write_silo(mesh, imc_state->get_time(), imc_state->get_step(), rank, 
-      n_rank, n_requests);
-
+    if (imc_parameters->get_write_silo_flag()) {
+      // write SILO file
+      vector<uint32_t> n_requests = rma_manager->get_n_request_vec();
+      write_silo(mesh, imc_state->get_time(), imc_state->get_step(), 
+        imc_state->get_rank_transport_runtime(), rank, n_rank, n_requests);
+    }
     //reset rma_manager object for next timestep
     rma_manager->end_timestep();
 

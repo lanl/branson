@@ -27,7 +27,7 @@ using Constants::CELL_PASS_RMA;
 int main(int argc, char *argv[])
 {
   MPI_Init(&argc, &argv);
-  
+
   int rank, n_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
@@ -69,9 +69,9 @@ int main(int argc, char *argv[])
   MPI_Barrier(MPI_COMM_WORLD);
   //print_MPI_out(mesh, rank, n_rank);
 
-  /****************************************************************************/
+  //--------------------------------------------------------------------------//
   // TRT PHYSICS CALCULATION
-  /****************************************************************************/
+  //--------------------------------------------------------------------------//
 
   if (input->get_dd_mode() == PARTICLE_PASS)
     imc_particle_pass_driver(rank, n_rank, mesh, imc_state, imc_p, mpi_types);

@@ -11,7 +11,7 @@
 #include <parmetis.h>
 #include <algorithm>
 #include <iostream>
-#include <map>
+#include <unordered_map>
 #include <numeric>
 #include <vector>
 
@@ -58,7 +58,7 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types) {
   using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
   using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
   using std::vector;
-  using std::map;
+  using std::unordered_map;
   using std::partial_sum;
   
   int rank, nrank;
@@ -69,7 +69,7 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types) {
 
   // make off processor map
   int n_off_rank = nrank -1;
-  map<int,int> proc_map;
+  unordered_map<int,int> proc_map;
   for (uint32_t i=0; i<n_off_rank; i++) {
     int r_index = i + int(i>=rank);
     proc_map[i] = r_index;
@@ -262,12 +262,12 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types) {
 
   //change global indices to match a simple number system for easy sorting,
   //this involves sending maps to each processor to get new indicies
-  map<uint32_t, uint32_t> local_map = mesh->get_map();
+  unordered_map<uint32_t, uint32_t> local_map = mesh->get_map();
   vector<uint32_t> packed_map(n_cell_post_decomp*2);
   vector<Buffer<uint32_t> > recv_packed_maps(n_off_rank);
   
   uint32_t i_packed = 0;
-  for(map<uint32_t, uint32_t>::iterator map_i=local_map.begin(); 
+  for(unordered_map<uint32_t, uint32_t>::iterator map_i=local_map.begin(); 
     map_i!=local_map.end(); map_i++) {
     packed_map[i_packed] = map_i->first;
     i_packed++;
@@ -301,7 +301,7 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types) {
   
   for (uint32_t ir=0; ir<n_off_rank; ir++) {
     vector<uint32_t> off_packed_map = recv_packed_maps[ir].get_object();
-    map<uint32_t, uint32_t> off_map;
+    unordered_map<uint32_t, uint32_t> off_map;
     for (uint32_t m=0; m<off_packed_map.size(); m++) {
       off_map[off_packed_map[m]] =off_packed_map[m+1];
       m++;

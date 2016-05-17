@@ -18,7 +18,7 @@
 #include <boost/foreach.hpp>
 #include <functional>
 #include <iostream>
-#include <map>
+#include <unordered_map>
 #include <numeric>
 #include <stdlib.h>
 #include <string>
@@ -50,6 +50,8 @@ class Input
     using Constants::PARTICLE_PASS;
     using Constants::CELL_PASS;
     using Constants::CELL_PASS_RMA;
+    using Constants::RMA_COMPLETION;
+    using Constants::MILAGRO_COMPLETION;
     using std::cout;
     using std::endl;
     using std::vector;
@@ -60,6 +62,9 @@ class Input
     double opacB; //! Opacity temperature multiplier 
     double opacC; //! Opacity temperature power
     double opacS; //! Scattering opacity
+
+    // default completion routine is RMA
+    completion_routine = RMA_COMPLETION;
 
     uint32_t x_key, y_key, z_key, key;
     // initialize nunmber of divisions in each dimension to zero
@@ -98,17 +103,23 @@ class Input
         if (tempString == "TRUE") use_comb= 1;
         else use_comb = 0;
 
-        //stratified sampling
+        // stratified sampling
         tempString = v.second.get<std::string>("stratified_sampling", 
                                                 std::string("FALSE"));
         if (tempString == "TRUE") use_strat= true;
         else use_strat = false;
 
-        //ghost map flag
-        tempString = v.second.get<std::string>("use_ghost_map", 
-                                               std::string("FALSE"));
-        if (tempString == "TRUE") use_ghost_cells= true;
-        else use_ghost_cells = false;
+        // write silo flag
+        tempString = v.second.get<std::string>("write_silo", 
+          std::string("FALSE"));
+        if (tempString == "TRUE") write_silo = true;
+        else write_silo = false;
+
+        // completion message type
+        tempString = v.second.get<std::string>("completion_routine", 
+          std::string("RMA"));
+        if (tempString == "RMA") completion_routine = RMA_COMPLETION;
+        else completion_routine = MILAGRO_COMPLETION;
 
         //number of particles to run between MPI message checks
         batch_size = v.second.get<uint32_t>("batch_size", 100);
@@ -415,9 +426,6 @@ class Input
     if (dd_mode == CELL_PASS) {
       cout<<"CELL PASSING"<<endl;
       cout<<"map size: "<<map_size;
-      cout<<",  make ghost cell map: ";
-      if (use_ghost_cells) cout<<"TRUE";
-      else cout<<"FALSE";
       cout<<", Batch size: "<<batch_size;
       cout<<endl;
     }
@@ -425,9 +433,6 @@ class Input
       cout<<"CELL PASSING (with RMA on MPI windows)"<<endl;
       cout<<"COMPILE PARAMETER: maximum number of RMA requests"<<endl;
       cout<<"map size: "<<map_size;
-      cout<<",  make ghost cell map: ";
-      if (use_ghost_cells) cout<<"TRUE";
-      else cout<<"FALSE";
       cout<<", Batch size: "<<batch_size;
       cout<<endl;
     }
@@ -479,7 +484,7 @@ class Input
   bool get_tilt_bool(void) const {return use_tilt;}
   bool get_comb_bool(void) const {return use_comb;}
   bool get_stratified_bool(void) const {return use_strat;}
-  bool get_ghost_cell_bool(void) const {return use_ghost_cells;}
+  bool get_write_silo_bool(void) const {return write_silo;}
 
   bool get_verbose_print_bool(void) const {return print_verbose;}
   bool get_print_mesh_info_bool(void) const {return print_mesh_info;}
@@ -522,6 +527,7 @@ class Input
   // flags
   bool using_simple_mesh;
   bool using_detailed_mesh;
+  bool write_silo; 
 
   Constants::bc_type bc[6]; //! Boundary condition array 
 
@@ -538,8 +544,8 @@ class Input
 
   //material
   std::vector<Region> regions;
-  std::map<uint32_t, uint32_t> region_map;
-  std::map<uint32_t, uint32_t> region_ID_to_index;
+  std::unordered_map<uint32_t, uint32_t> region_map;
+  std::unordered_map<uint32_t, uint32_t> region_ID_to_index;
 
   //source
   double T_source; //! Temperature of source
@@ -552,6 +558,8 @@ class Input
   bool use_tilt; //! Use tilting for emission sampling
   bool use_comb; //! Comb census photons
   bool use_strat; //! Use strafifed sampling
+  uint32_t dd_mode; //! Mode of domain decomposed transport algorithm
+  uint32_t completion_routine; //! Method for handling transport completion
 
   // Debug parameters
   int output_freq; //! How often to print temperature information
@@ -560,8 +568,6 @@ class Input
 
   // parallel performance parameters
   uint32_t map_size; //! Size of stored off-rank mesh cells
-  uint32_t dd_mode; //! Mode of domain decomposed transport algorithm
-  bool use_ghost_cells; //! Always keep first ghost cells
   uint32_t batch_size; //! Particles to run between MPI message checks
   uint32_t particle_message_size; //! Preferred number of particles in MPI sends
 

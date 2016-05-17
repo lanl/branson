@@ -20,11 +20,13 @@
 #include <vector>
 
 #include "constants.h"
+#include "imc_state.h"
 
 //! All ranks perform reductions to produce global arrays and rank zero
 // writes the SILO file for visualization
 void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step, 
-  const int& rank, const int& n_rank, std::vector<uint32_t>& rank_requests) 
+  const double& rank_transport_time, const int& rank, const int& n_rank, 
+  std::vector<uint32_t>& rank_requests) 
 {
   using std::array;
   using std::stringstream;
@@ -74,10 +76,13 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
   MPI_Allreduce(MPI_IN_PLACE, &rank_requests[0], n_xyz_cells, MPI_INT, MPI_SUM,
     MPI_COMM_WORLD);
 
-  // get rank data, map rank requests from global ID to SILO ID
+  // make vectors of data for plotting
   vector<int> rank_data(n_xyz_cells,0);
   vector<int> n_requests(n_xyz_cells,0);
   vector<double> T_e(n_xyz_cells,0.0);
+  vector<double> transport_time(n_xyz_cells,0.0);
+
+  // get rank data, map values from from global ID to SILO ID
   uint32_t n_local = mesh->get_n_local_cells();
   Cell cell;
   uint32_t g_index, silo_index;
@@ -88,18 +93,23 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     rank_data[silo_index] = rank;
     n_requests[silo_index] = rank_requests[g_index];
     T_e[silo_index] = cell.get_T_e();
+    transport_time[silo_index] = rank_transport_time;
   }
 
   // reduce to get rank of each cell across all ranks
   MPI_Allreduce(MPI_IN_PLACE, &rank_data[0], n_xyz_cells, MPI_INT, MPI_SUM,
     MPI_COMM_WORLD);
 
-  // reduce to get n_requests acorss all ranks
+  // reduce to get n_requests across all ranks
   MPI_Allreduce(MPI_IN_PLACE, &n_requests[0], n_xyz_cells, MPI_INT, MPI_SUM,
     MPI_COMM_WORLD);
 
-  // reduce to get n_requests acorss all ranks
+  // reduce to get n_requests across all ranks
   MPI_Allreduce(MPI_IN_PLACE, &T_e[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
+    MPI_COMM_WORLD);
+
+  // reduce to get transport runtime from all ranks
+  MPI_Allreduce(MPI_IN_PLACE, &transport_time[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
     MPI_COMM_WORLD);
 
   // First rank writes the SILO file
@@ -174,7 +184,6 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     DBPutQuadvar1(dbfile, "mesh_cell_requests", "quadmesh", &n_requests[0], 
       cell_dims, ndims, NULL, 0, DB_INT, DB_ZONECENT, req_optlist);
 
-
     // write the material energy scalar field
     DBoptlist *Te_optlist = DBMakeOptlist(2);
     DBAddOption(Te_optlist, DBOPT_UNITS, (void *)"keV");
@@ -182,10 +191,18 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     DBPutQuadvar1(dbfile, "T_e", "quadmesh", &T_e[0], 
       cell_dims, ndims, NULL, 0, DB_DOUBLE, DB_ZONECENT, Te_optlist);
 
+    // write the transport time scalar field
+    DBoptlist *t_time_optlist = DBMakeOptlist(2);
+    DBAddOption(t_time_optlist, DBOPT_UNITS, (void *)"seconds");
+    DBAddOption(t_time_optlist, DBOPT_DTIME, &time);
+    DBPutQuadvar1(dbfile, "transport_time", "quadmesh", &transport_time[0], 
+      cell_dims, ndims, NULL, 0, DB_DOUBLE, DB_ZONECENT, t_time_optlist);
+
     // free option lists
     DBFreeOptlist(optlist);
     DBFreeOptlist(req_optlist);
     DBFreeOptlist(Te_optlist);
+    DBFreeOptlist(t_time_optlist);
 
     // free data
     delete[] rank_ids;
