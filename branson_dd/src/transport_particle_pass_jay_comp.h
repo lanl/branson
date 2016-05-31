@@ -294,7 +294,8 @@ std::vector<Photon> jay_comp_transport_particle_pass(Source& source,
     comp->check_messages(n_complete, n_receives_posted, n_receives_completed, 
       n_sends_posted);
     if ( n_complete  &&  (n_local==n_local_sourced && 
-      phtn_recv_stack.empty()) ) {
+      phtn_recv_stack.empty()) ) 
+    {
       comp->send_parent_n_tree_complete(n_complete, n_sends_posted);
     }
     finished = comp->is_finished(n_complete);

@@ -18,7 +18,7 @@
 #include <functional>
 #include <vector>
 
-#include "completion_manager.h"
+#include "completion_manager_milagro.h"
 #include "completion_manager_rma.h"
 #include "mesh_rma_manager.h"
 #include "mpi_types.h"
@@ -30,7 +30,6 @@
 #include "source.h"
 #include "census_creation.h"
 #include "transport_particle_pass.h"
-#include "transport_particle_pass_jay_comp.h"
 #include "transport_mesh_pass.h"
 #include "transport_mesh_pass_rma.h"
 #include "write_silo.h"
@@ -45,11 +44,13 @@ void imc_cell_pass_driver(const int& rank,
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
 
-  //make object that handles RMA completion messages, completion
-  //objects set up the binary tree structure
-  Completion_Manager_RMA *comp = new Completion_Manager_RMA(rank, n_rank);
-  //open access to MPI windows in completion object
-  comp->start_access();
+  // make object that handles completion messages, completion
+  // object set up the binary tree structure
+  Completion_Manager *comp;
+  if (imc_parameters->get_completion_method() == Constants::RMA_COMPLETION)
+    comp = new Completion_Manager_RMA(rank, n_rank);
+  else
+    comp = new Completion_Manager_Milagro(rank, n_rank);
 
   while (!imc_state->finished())
   {
@@ -67,10 +68,8 @@ void imc_cell_pass_driver(const int& rank,
     //make initial census photons
     //on subsequent timesteps, this comes from transport
     if (imc_state->get_step() == 1) {
-      census_photons = make_initial_census_photons(mesh, 
-                                                  imc_state, 
-                                                  global_source_energy,
-                                                  imc_parameters->get_n_user_photon());
+      census_photons = make_initial_census_photons(mesh, imc_state, 
+        global_source_energy, imc_parameters->get_n_user_photon());
     }
 
     imc_state->set_pre_census_E(get_photon_list_E(census_photons));
@@ -110,9 +109,6 @@ void imc_cell_pass_driver(const int& rank,
     //cout<<"updating temperature..."<<endl;
     mesh->update_temperature(abs_E, imc_state);
 
-    //reset completion object for next timestep
-    comp->end_timestep();
-
     imc_state->print_conservation(imc_parameters->get_dd_mode());
 
     //purge the working mesh, it will be updated by other ranks and is now 
@@ -122,8 +118,8 @@ void imc_cell_pass_driver(const int& rank,
     //update time for next step
     imc_state->next_time_step();
   }
-  //close access to MPI windows in completion object and delete
-  comp->end_access(); 
+
+  // delete completion manager (closes and free window in RMA version)
   delete comp;
 }
 
@@ -139,11 +135,8 @@ void imc_rma_cell_pass_driver(const int& rank,
   vector<Photon> census_photons;
 
   //make object that handles RMA mesh requests and start access
-  RMA_Manager *rma_manager = new RMA_Manager(rank, 
-    mesh->get_off_rank_bounds(),
-    mesh->get_global_num_cells(),
-    mpi_types,
-    mesh->get_mesh_window_ref());
+  RMA_Manager *rma_manager = new RMA_Manager(rank, mesh->get_off_rank_bounds(),
+    mesh->get_global_num_cells(), mpi_types, mesh->get_mesh_window_ref());
   rma_manager->start_access();
 
   while (!imc_state->finished())
@@ -239,11 +232,13 @@ void imc_particle_pass_driver(const int& rank,
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
 
-  //make object that handles RMA completion messages, completion
-  //objects set up the binary tree structure
-  Completion_Manager_RMA *comp = new Completion_Manager_RMA(rank, n_rank);
-  //open access to MPI windows in completion object
-  comp->start_access();
+  // make object that handles completion messages, completion
+  // object set up the binary tree structure
+  Completion_Manager *comp;
+  if (imc_parameters->get_completion_method() == Constants::RMA_COMPLETION)
+    comp = new Completion_Manager_RMA(rank, n_rank);
+  else
+    comp = new Completion_Manager_Milagro(rank, n_rank);
 
   while (!imc_state->finished())
   {
@@ -284,79 +279,15 @@ void imc_particle_pass_driver(const int& rank,
                                               abs_E);
           
     mesh->update_temperature(abs_E, imc_state);
-    //reset completion object for next timestep
-    comp->end_timestep();
+
     //update time for next step    
     imc_state->print_conservation(imc_parameters->get_dd_mode());
     imc_state->next_time_step();
   }
 
-  //close access to MPI windows in completion object
-  comp->end_access();
+  // delete completion manager (closes and free window in RMA version)
+  delete comp;
 }
-
-
-
-void imc_particle_pass_driver_jay_comp(const int& rank, 
-                                        const int& n_rank,
-                                        Mesh *mesh, 
-                                        IMC_State *imc_state,
-                                        IMC_Parameters *imc_parameters,
-                                        MPI_Types *mpi_types) {
-
-  using std::vector;
-  vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
-  vector<Photon> census_photons;
-
-  // make object that handles RMA completion messages, completion
-  // objects set up the binary tree structure
-  Completion_Manager *comp = new Completion_Manager(rank, n_rank);
-
-  while (!imc_state->finished())
-  {
-    if (rank==0) imc_state->print_timestep_header();
-
-    // set opacity, Fleck factor, all energy to source
-    mesh->calculate_photon_energy(imc_state);
-
-    // all reduce to get total source energy to make correct number of
-    // particles on each rank
-    double global_source_energy = mesh->get_total_photon_E();
-    MPI_Allreduce(MPI_IN_PLACE, &global_source_energy, 1, MPI_DOUBLE,
-      MPI_SUM, MPI_COMM_WORLD);
-
-    // make initial census photons
-    // on subsequent timesteps, this comes from transport
-    if (imc_state->get_step() ==1)
-      census_photons = make_initial_census_photons(mesh, 
-                                                  imc_state, 
-                                                  global_source_energy,
-                                                  imc_parameters->get_n_user_photon());
-
-    imc_state->set_pre_census_E(get_photon_list_E(census_photons)); 
-
-    Source source(mesh, imc_parameters, global_source_energy, census_photons);
-    // no load balancing in particle passing method, just call the method
-    // to get accurate count
-    source.post_lb_prepare_source();
-
-    imc_state->set_transported_particles(source.get_n_photon());
-
-    census_photons = jay_comp_transport_particle_pass(source, 
-                                                      mesh, 
-                                                      imc_state, 
-                                                      imc_parameters,
-                                                      comp,
-                                                      abs_E);
-
-    mesh->update_temperature(abs_E, imc_state);
-    //update time for next step    
-    imc_state->print_conservation(imc_parameters->get_dd_mode());
-    imc_state->next_time_step();
-  }
-
-}
-
 
 #endif // imc_drivers_h_
 //---------------------------------------------------------------------------//

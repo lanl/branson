@@ -19,6 +19,7 @@
 #include <queue>
 #include <mpi.h>
 
+#include "completion_manager_milagro.h"
 #include "completion_manager_rma.h"
 #include "constants.h"
 #include "decompose_photons.h"
@@ -146,7 +147,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
                                         Mesh* mesh,
                                         IMC_State* imc_state,
                                         IMC_Parameters* imc_parameters,
-                                        Completion_Manager_RMA* comp,
+                                        Completion_Manager* comp,
                                         std::vector<double>& rank_abs_E,
                                         MPI_Types *mpi_types)
 {
@@ -175,10 +176,6 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
-  //set global particles to be n_rank, every rank sets it completed particles
-  //to 1 after finished local work
-  comp->set_timestep_global_particles(n_rank);
-
   // parallel event counters
   uint32_t n_cell_messages=0; //! Number of cell messages
   uint32_t n_cells_sent=0; //! Number of cells passed
@@ -186,6 +183,14 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   uint32_t n_sends_completed=0; //! Number of sent messages completed
   uint32_t n_receives_posted=0; //! Number of received messages completed
   uint32_t n_receives_completed=0; //! Number of received messages completed
+
+  // post receives to children and parent for completion messages 
+  comp->start_timestep(n_receives_posted);
+
+  //set global particles to be n_rank, every rank sets it completed particles
+  //to 1 after finished local work
+  comp->set_timestep_global_particles(n_rank);
+
 
   // New data flag is initially false
   bool new_data = false;
@@ -300,17 +305,25 @@ std::vector<Photon> transport_mesh_pass(Source& source,
 
   // set complete to be 1 (true) when all ranks set this in the tree,
   // the root will see n_complete == n_rank and finish
-  const uint64_t complete =1;
+  uint64_t complete =1;
   ////////////////////////////////////////////////////////////////////////
   // While waiting for other ranks to finish, check for other messages
   ////////////////////////////////////////////////////////////////////////
   bool finished = false;
+  bool waiting_for_work = true;
   while (!finished) {
-    finished = comp->binary_tree_rma(complete);
     mesh->process_mesh_requests(n_cell_messages, n_cells_sent,
                                 n_sends_posted, n_sends_completed,
                                 n_receives_posted, n_receives_completed);
+
+    comp->process_completion(waiting_for_work, complete, n_sends_posted, 
+      n_sends_completed, n_receives_posted, n_receives_completed);
+    finished = comp->is_finished();
   } //end while
+
+  // Milagro version sends completed count down, RMA version just resets
+  comp->end_timestep(n_sends_posted, n_sends_completed, n_receives_posted,
+    n_receives_completed);
 
   //wait for all ranks to finish transport to finish off cell and cell id
   //requests and sends

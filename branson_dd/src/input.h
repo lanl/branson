@@ -119,7 +119,12 @@ class Input
         tempString = v.second.get<std::string>("completion_routine", 
           std::string("RMA"));
         if (tempString == "RMA") completion_routine = RMA_COMPLETION;
-        else completion_routine = MILAGRO_COMPLETION;
+        else if (tempString == "MILAGRO") 
+          completion_routine = MILAGRO_COMPLETION;
+        else {
+          cout<<"Completion routine not recognized, setting to MILAGRO"<<endl;
+          completion_routine = MILAGRO_COMPLETION;
+        }
 
         //number of particles to run between MPI message checks
         batch_size = v.second.get<uint32_t>("batch_size", 100);
@@ -379,6 +384,8 @@ class Input
     using Constants::PARTICLE_PASS;
     using Constants::CELL_PASS;
     using Constants::CELL_PASS_RMA;
+    using Constants::RMA_COMPLETION;
+    using Constants::MILAGRO_COMPLETION;
 
     cout<<"Problem Specifications:";
     cout<<"Constants -- c: "<<c<<" (cm/sh) , a: "<<a <<endl;
@@ -436,10 +443,35 @@ class Input
       cout<<", Batch size: "<<batch_size;
       cout<<endl;
     }
-    else {
+    else if (dd_mode == PARTICLE_PASS) {
       cout<<"PARTICLE PASSING"<<endl;
       cout<<"Batch size: "<<batch_size;
       cout<<", particle message size: "<<particle_message_size;
+      cout<<endl;
+    }
+    else {
+      cout<<"ERROR: Parallel method not specific correctly";
+      cout<<" Exiting..."<<endl;
+      exit(EXIT_FAILURE); 
+    }
+
+    // cell pass RMA does not use completion routines
+    if (dd_mode != CELL_PASS_RMA) {
+      cout<<"Particle completion communication: ";
+      if (completion_routine == MILAGRO_COMPLETION) {
+        cout<<"Milagro binary tree"<<endl;
+      }
+      else if (completion_routine == RMA_COMPLETION) {
+        cout<<"One-sided RMA binary tree"<<endl;
+      }
+      else {
+        cout<<"ERROR: Particle completion method not specific correctly";
+        cout<<" Exiting..."<<endl;
+        exit(EXIT_FAILURE); 
+      }
+    }
+    else {
+      cout<<"Completion messages are not used in CELL_PASS_RMA"<<endl;
     }
 
     cout<<endl;

@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "completion_manager_rma.h"
+#include "completion_manager_milagro.h"
 #include "constants.h"
 #include "buffer.h"
 #include "mesh.h"
@@ -150,7 +151,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
                                             IMC_State* imc_state,
                                             IMC_Parameters* imc_parameters,
                                             MPI_Types* mpi_types,
-                                            Completion_Manager_RMA* comp,
+                                            Completion_Manager* comp,
                                             std::vector<double>& rank_abs_E)
 {
   using Constants::event_type;
@@ -203,6 +204,9 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
   MPI_Allreduce(&n_local, &n_global, 1, MPI_UNSIGNED_LONG, MPI_SUM, 
     MPI_COMM_WORLD);
+
+  // post receives to children and parent for completion messages 
+  comp->start_timestep(n_receives_posted);
 
   //set global particle count in completion object
   comp->set_timestep_global_particles(n_global);
@@ -257,6 +261,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
   uint64_t n_local_sourced = 0; //!< Photons pulled from source object
   bool finished = false;
   bool from_receive_stack = false;
+  bool waiting_for_work = false;
   Photon phtn;
   event_type event;
 
@@ -381,15 +386,24 @@ std::vector<Photon> transport_particle_pass(Source& source,
         }
       } // end loop over adjacent processors
     } //end scope of particle passing
-
-    
+ 
     ////////////////////////////////////////////////////////////////////////////
     // binary tree completion communication
     ////////////////////////////////////////////////////////////////////////////
-    if (n_local_sourced == n_local && phtn_recv_stack.empty()) {
-      finished = comp->binary_tree_rma(n_complete);
-    }
+
+    waiting_for_work = ((n_local_sourced == n_local) && 
+      phtn_recv_stack.empty());
+
+    comp->process_completion(waiting_for_work, n_complete, n_sends_posted, 
+      n_sends_completed, n_receives_posted, n_receives_completed);
+
+    finished = comp->is_finished();
+
   } // end while
+
+  // Milagro version sends completed count down, RMA version just resets
+  comp->end_timestep(n_sends_posted, n_sends_completed, n_receives_posted,
+    n_receives_completed);
 
   // wait for all ranks to finish then send empty photon messages.
   // Do this because it's possible for a rank to receive the empty message
@@ -434,14 +448,6 @@ std::vector<Photon> transport_particle_pass(Source& source,
     MPI_SUM, MPI_COMM_WORLD);
   MPI_Allreduce(&n_photon_tests, &g_photon_tests, 1, MPI_UNSIGNED_LONG,
     MPI_SUM, MPI_COMM_WORLD);
-
-  /*  
-  if (rank==0) {
-    cout<<"Total complete messages sent: "<<g_complete_messages<<endl;
-    cout<<"Total photon message tests: "<<g_photon_tests<<endl;
-  }
-  cout.flush();
-  */
 
   std::sort(census_list.begin(), census_list.end());
   //All ranks have now finished transport

@@ -34,9 +34,9 @@ add_test(NAME test_work_packet COMMAND ${MPI_EXEC} -n 1 ./test_work_packet_exe)
 add_executable(test_mpi_types_exe test_mpi_types.cc)
 add_test(NAME test_mpi_types COMMAND ${MPI_EXEC} -n 1 ./test_mpi_types_exe)
 
-# RMA Particle Completion class test
-add_executable(test_completion_manager_rma_exe test_completion_manager_rma.cc)
-add_test(NAME test_completion_manager_rma COMMAND ${MPI_EXEC} -n 7 ./test_completion_manager_rma_exe)
+# Particle Completion classes test
+add_executable(test_completion_manager_exe test_completion_manager.cc)
+add_test(NAME test_completion_manager COMMAND ${MPI_EXEC} -n 7 ./test_completion_manager_exe)
 
 # Parmetis Test with 1 processor
 add_executable(test_parmetis_1_exe test_parmetis.cc)

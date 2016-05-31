@@ -20,29 +20,27 @@
 #include <iostream>
 #include <mpi.h>
 
+#include "completion_manager.h"
 #include "constants.h"
+
 
 //==============================================================================
 /*!
  * \class Completion_Manager_RMA
- * \brief Manages completion of partilce transport with one-sided messages
+ * \brief Manages completion of particle transport with one-sided messages
  *
  * \example no test yet
  */
 //==============================================================================
 
-class Completion_Manager_RMA
+class Completion_Manager_RMA : public Completion_Manager
 {
 
   public:
 
   //! constructor
   Completion_Manager_RMA(const int& rank, const int& n_rank)
-    : n_complete_tree(0),
-      n_complete_c1(0),
-      n_complete_c2(0),
-      n_complete_p(0),
-      n_particle_global(0),
+    : Completion_Manager(rank, n_rank),
       buffer_c1(0),
       buffer_c2(0),
       buffer_p(0),
@@ -50,23 +48,6 @@ class Completion_Manager_RMA
       c2_req_flag(false),
       p_req_flag(false)
   {
-    using Constants::proc_null;
-    //set up binary tree rank structure
-    parent = (rank + 1) / 2 - 1;
-    child1 = rank * 2 + 1;
-    child2 = child1 + 1;
-    // set missing nodes to proc_null
-    if (!rank) parent = proc_null;
-
-    // maximum valid node id
-    const int last_node = n_rank - 1;
-
-    if (child1 > last_node) {
-      child1 = proc_null;
-      child2 = proc_null;
-    }
-    else if (child1 == last_node) child2 = proc_null;
-
     // Get the size of MPI_UNSIGNED_LONG
     int size_mpi_uint64;
     MPI_Type_size(MPI_UNSIGNED_LONG, &size_mpi_uint64);
@@ -77,36 +58,53 @@ class Completion_Manager_RMA
     // sub-tree, which includes this ranks completed particles
 
     MPI_Win_allocate(size_mpi_uint64, size_mpi_uint64, MPI_INFO_NULL,
-      MPI_COMM_WORLD, &n_complete_tree, &completion_window);
+      MPI_COMM_WORLD, &n_complete_tree_data, &completion_window);
 
     int flag;
-    MPI_Win_get_attr(completion_window, MPI_WIN_MODEL, &memory_model, &flag); 
+    MPI_Win_get_attr(completion_window, MPI_WIN_MODEL, &memory_model, &flag);
+
+    // open MPI window for one-sided messaging
+    int assert =0;
+    MPI_Win_lock_all(assert,completion_window);
+
   }
 
   //! destructor
-  ~Completion_Manager_RMA() {MPI_Win_free(&completion_window);}
+  ~Completion_Manager_RMA() {
+    // closes MPI window for one-sided messaging
+    MPI_Win_unlock_all(completion_window);
+    // free MPI window
+    MPI_Win_free(&completion_window);
+  }
 
   // const functions
-
-  //! Get the total number of completed particles in this tree
-  uint64_t get_n_complete_tree(void) const {return *n_complete_tree;}
 
   //! Get the type of memory model used by the MPI implementation on this system
   int get_mpi_window_memory_type(void) const {
     return *memory_model;
   }
 
-  // non-const functions
-
-  //! Set total number of particles that will be transport by all ranks
-  void set_timestep_global_particles(uint64_t _n_particle_global) {
-    n_particle_global = _n_particle_global;
+  //! Get the number of completed particles 
+  int64_t get_n_complete_tree(void) const {
+    return *n_complete_tree_data;
   }
 
-  //! Resets all particle counts and finishes open requests
-  void end_timestep(void) {
+
+
+  //! No posting of receives is necessary so don't do anything
+  virtual void start_timestep(uint32_t& n_receives_posted) {}
+
+  // non-const functions
+
+  //! Resets all particle counts and finishes open requests (send counts are 
+  // not used)
+  virtual void end_timestep(uint32_t& n_sends_posted,
+                            uint32_t& n_sends_completed, 
+                            uint32_t& n_receives_posted, 
+                            uint32_t& n_receives_completed)
+  {
     //reset tree counts
-    *n_complete_tree = 0;
+    *n_complete_tree_data = 0;
     n_complete_c1 = 0;
     n_complete_c2 = 0;
     n_complete_p = 0;
@@ -114,119 +112,119 @@ class Completion_Manager_RMA
     buffer_c2 = 0;
     buffer_p = 0;
 
+    // reset finished flag
+    finished = false;
+
     //wait on outstanding requests, parent has already completed
     if (c1_req_flag) {
       MPI_Wait(&req_c1, MPI_STATUS_IGNORE);
       c1_req_flag = false;
+      n_receives_completed++;
     }
     if (c2_req_flag) {
       MPI_Wait(&req_c2, MPI_STATUS_IGNORE);
       c2_req_flag = false;
+      n_receives_completed++;
     }
   }
-
-  //! Opens MPI window for one-sided messaging
-  void start_access(void) {
-    int assert =0;
-    MPI_Win_lock_all(assert,completion_window);
-  }
-
-  //! Closes MPI window for one-sided messaging
-  void end_access(void) {MPI_Win_unlock_all(completion_window);}
 
   //! Add number of completed particles to this tree count and get the number
-  // of completed particles by your children
-  bool binary_tree_rma(const uint64_t& n_complete_rank) {
+  // of completed particles by your children (n_sends_posted is not used
+  virtual void process_completion(bool waiting_for_work,
+                                  uint64_t& n_complete_tree,
+                                  uint32_t& n_sends_posted,
+                                  uint32_t& n_sends_completed,
+                                  uint32_t& n_receives_posted, 
+                                  uint32_t& n_receives_completed)
+  {
     using Constants::proc_null;
-    // Return value
-    bool finished = false;
-    // Test for completion of non-blocking RMA requests
-    // If child requests were completed, add to tree complete count and
-    // make a new request
 
-    // child 1
-    if (child1!= proc_null) {
-      if (c1_req_flag) {
-        MPI_Test(&req_c1, &flag_c1, MPI_STATUS_IGNORE);
-        if (flag_c1) {
-          n_complete_c1 = buffer_c1;
-          c1_req_flag = false;
-        }
-      }
-      if (!c1_req_flag) {
-        MPI_Rget(&buffer_c1, 1, MPI_UNSIGNED_LONG, child1, 0,
-          1, MPI_UNSIGNED_LONG, completion_window, &req_c1);
-        c1_req_flag=true;
-      }
-    }
+    // only do this if rank has no particles to transport and received 
+    // buffers are empty
+    if (waiting_for_work) {
+      // Test for completion of non-blocking RMA requests
+      // If child requests were completed, add to tree complete count and
+      // make a new request
 
-    // child 2
-    if (child2!= proc_null) {
-      if (c2_req_flag) {
-        MPI_Test(&req_c2, &flag_c2, MPI_STATUS_IGNORE);
-        if (flag_c2) {
-          n_complete_c2 = buffer_c2;
-          c2_req_flag = false;
-        }
-      }
-      if (!c2_req_flag) {
-        MPI_Rget(&buffer_c2, 1, MPI_UNSIGNED_LONG, child2, 0,
-          1, MPI_UNSIGNED_LONG, completion_window, &req_c2);
-        c2_req_flag=true;
-      }
-    }
-
-    // If parent is complete, test for overall completion
-    if (parent != proc_null) {
-      if (p_req_flag) { 
-        MPI_Test(&req_p, &flag_p, MPI_STATUS_IGNORE);
-        if (flag_p) {
-          n_complete_p = buffer_p;
-          if (n_complete_p == n_particle_global) {
-            finished=true;
-            *n_complete_tree = n_complete_p;
+      // child 1
+      if (child1!= proc_null) {
+        if (c1_req_flag) {
+          MPI_Test(&req_c1, &flag_c1, MPI_STATUS_IGNORE);
+          if (flag_c1) {
+            n_complete_c1 = buffer_c1;
+            c1_req_flag = false;
+            n_receives_completed++;
           }
-          p_req_flag =false;
+        }
+        if (!c1_req_flag) {
+          MPI_Rget(&buffer_c1, 1, MPI_UNSIGNED_LONG, child1, 0,
+            1, MPI_UNSIGNED_LONG, completion_window, &req_c1);
+          c1_req_flag=true;
+          n_receives_posted++;
         }
       }
-      if (!p_req_flag && !finished) {
-        MPI_Rget(&buffer_p, 1, MPI_UNSIGNED_LONG, parent, 0,
-          1, MPI_UNSIGNED_LONG, completion_window, &req_p);
-        p_req_flag=true;
-      }
-    }
-    else {
-      if (*n_complete_tree == n_particle_global) finished=true;
-    }
-    // Update tree count
-    if (!finished) 
-      *n_complete_tree = n_complete_rank + n_complete_c1 + n_complete_c2;
 
-    //MPI_Win_sync(completion_window);
-    return finished;
+      // child 2
+      if (child2!= proc_null) {
+        if (c2_req_flag) {
+          MPI_Test(&req_c2, &flag_c2, MPI_STATUS_IGNORE);
+          if (flag_c2) {
+            n_complete_c2 = buffer_c2;
+            c2_req_flag = false;
+            n_receives_completed++;
+          }
+        }
+        if (!c2_req_flag) {
+          MPI_Rget(&buffer_c2, 1, MPI_UNSIGNED_LONG, child2, 0,
+            1, MPI_UNSIGNED_LONG, completion_window, &req_c2);
+          c2_req_flag=true;
+          n_receives_posted++;
+        }
+      }
+
+      // update total count for this tree
+      *n_complete_tree_data =n_complete_tree + n_complete_c1 + n_complete_c2; 
+
+      // If parent is complete, test parent count for overall completion
+      if (parent != proc_null) {
+        if (p_req_flag) { 
+          MPI_Test(&req_p, &flag_p, MPI_STATUS_IGNORE);
+          if (flag_p) {
+            n_complete_p = buffer_p;
+            // If complete, set finished to true 
+            if (n_complete_p == n_particle_global) {
+              finished=true;
+              *n_complete_tree_data = n_complete_p;
+            }
+            p_req_flag =false;
+            n_receives_completed++;
+          }
+        }
+        if (!p_req_flag && !finished) {
+          MPI_Rget(&buffer_p, 1, MPI_UNSIGNED_LONG, parent, 0,
+            1, MPI_UNSIGNED_LONG, completion_window, &req_p);
+          p_req_flag=true;
+          n_receives_posted++;
+        }
+      }
+      // If root, test tree count for completion
+      else {
+        if (*n_complete_tree_data == n_particle_global) finished=true;
+      }
+
+    } //end if waiting_for_work
   }
 
   private:
   //! Pointer to complete tree, allocated by MPI_Mem_Alloc with a size of 1
-  uint64_t *n_complete_tree; 
-
-  uint64_t n_complete_c1; //! Completed particles in first child's tree
-  uint64_t n_complete_c2; //! Completed particles in second child's tree
-  uint64_t n_complete_p; //! Completed particles in parent's tree
-  uint64_t n_particle_global; //! Total particles across all ranks
+  uint64_t *n_complete_tree_data;
   uint64_t buffer_c1; //! Buffer to receive first child's tree count
   uint64_t buffer_c2; //! Buffer to receive second child's tree count
   uint64_t buffer_p; //! Buffer to receive parent's tree count
   bool c1_req_flag; //! Active request flag for first child
   bool c2_req_flag; //! Active request flag for second child
   bool p_req_flag; //! Active request flag for parent
-  uint64_t child1; //! Rank ID of first child
-  uint64_t child2; //! Rank ID of second child
-  uint64_t parent; //! Rank ID of parent
   MPI_Win completion_window; //! MPI window to complete count
-  int flag_c1; //! Return flag for MPI test of first child
-  int flag_c2; //! Return flag for MPI test of second child
-  int flag_p; //! Return flag for MPI test of parent
   MPI_Request req_c1; //! MPI request for first child
   MPI_Request req_c2; //! MPI request for second child
   MPI_Request req_p; //!  MPI request for parent
@@ -234,7 +232,6 @@ class Completion_Manager_RMA
 };
 
 #endif // def completion_manager_rma_h_
-
 //---------------------------------------------------------------------------//
 // end of completion_manager_rma.h
 //---------------------------------------------------------------------------//

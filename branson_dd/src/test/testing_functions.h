@@ -1,3 +1,14 @@
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   testing_functions.h
+ * \author Alex Long
+ * \date   December 10 2015
+ * \brief  Provide soft equivalence functions for testing
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 #include <cmath>
 
 #ifndef testing_functions_h_
@@ -8,4 +19,8 @@ bool soft_equiv(const double& a, const double& b, double tolerance ) {
   return  std::fabs(diff) < tolerance;
 }
 
-#endif // #ifndef testing_functions_h_
+#endif // testing_functions_h_
+//---------------------------------------------------------------------------//
+// end of testing_functions.h
+//---------------------------------------------------------------------------//
+

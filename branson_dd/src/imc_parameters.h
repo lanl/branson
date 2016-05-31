@@ -54,6 +54,9 @@ class IMC_Parameters
   //! Return domain decomposition algorithm
   uint32_t get_dd_mode(void) const {return dd_mode;}
 
+  //! Return completion 
+  uint32_t get_completion_method(void) const {return completion_method;}
+
   //! Get the number of particles to run between MPI message processing
   uint32_t get_batch_size(void) const {return batch_size;}
 
@@ -71,6 +74,7 @@ class IMC_Parameters
   uint64_t n_user_photon; //! User requested number of photons per timestep
   uint32_t map_size; //! Size of stored off-rank mesh cells
   uint32_t dd_mode; //! Mode of domain decomposed transport algorithm
+  uint32_t completion_method; //! Method for handling completion messages
   uint32_t batch_size; //! How often to check for MPI passed data
   uint32_t particle_message_size; //! Preferred number of particles in MPI sends
   bool write_silo_flag; //! Write SILO output files flag

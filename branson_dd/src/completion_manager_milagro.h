@@ -1,63 +1,58 @@
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   completion_manager_milagro.h
+ * \author Alex Long
+ * \date   March 31 2016
+ * \brief  Two-sided transport completion manager
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 /*
-  completion_manager.h
+  completion_manager_milagro.h
   by Alex Long
   3/31/2016
-  The number of completed particles is sent up the chain and then reset.
-  This allows us to send the completed count up the tree without
-  trying to synchronize completion from both children. The root
-  never resets the tree count
 */
 
-#ifndef completion_manager_h_
-#define completion_manager_h_
+#ifndef completion_manager_milagro_h_
+#define completion_manager_milagro_h_
 
 #include <iostream>
 #include <mpi.h>
 #include <vector>
 
+#include "buffer.h"
+#include "completion_manager.h"
 #include "constants.h"
 
-class Completion_Manager
+
+//==============================================================================
+/*!
+ * \class Completion_Manager_Milagro
+ * \brief The number of completed particles is sent up the chain and then reset.
+ * This allows us to send the completed count up the tree without trying to 
+ * synchronize completion from both children. The root never resets the tree 
+ * count
+ *
+ * \example no test yet
+ */
+//==============================================================================
+class Completion_Manager_Milagro : public Completion_Manager
 {
-
   public:
-  Completion_Manager(const int& rank,
-                     const int& n_rank)
-    : n_complete_c1(0),
-      n_complete_c2(0),
-      n_complete_p(0),
-      n_particle_global(0),
-      finished(false)
+  Completion_Manager_Milagro(const int& rank, const int& n_rank)
+    : Completion_Manager(rank,n_rank)
   {
-    using Constants::proc_null;
-    //set up binary tree rank structure
-    parent = (rank + 1) / 2 - 1;
-    child1 = rank * 2 + 1;
-    child2 = child1 + 1;
-    // set missing nodes to proc_null
-    if (!rank) parent = proc_null;
-
-    // maximum valid node id
-    const int last_node = n_rank - 1;
-
-    if (child1 > last_node) {
-      child1 = proc_null;
-      child2 = proc_null;
-    }
-    else if (child1 == last_node) child2 = proc_null;
-
+    // buffers will always receive only one 64 bit integer
     c1_recv_buffer.resize(1);
     c2_recv_buffer.resize(1);
     p_recv_buffer.resize(1); 
   }
-  ~Completion_Manager() {}
+  ~Completion_Manager_Milagro() {}
 
   //non-const functions
-  void set_timestep_global_particles(uint64_t _n_particle_global) {
-    n_particle_global = _n_particle_global;
-  }
-
-  void start_timestep(uint32_t& n_receives_posted) {
+  virtual void start_timestep(uint32_t& n_receives_posted) {
     using Constants::proc_null;
     using Constants::count_tag;
     // Messages are sent up the tree whenever a rank has completed its local work
@@ -85,16 +80,14 @@ class Completion_Manager
     }
   }
 
-
-
   //! Check for completed particle counts from children and parent.
-  //!  Add children to current tree count. If parent count is received, 
-  //!  it will be the global problem particle count, indicating completion
+  // Add children to current tree count. If parent count is received, 
+  // it will be the global problem particle count, indicating completion
   void check_messages(uint64_t& n_complete_tree,
                       uint32_t& n_receives_posted, 
                       uint32_t& n_receives_completed, 
                       uint32_t& n_sends_completed) 
-  { 
+  {
     using Constants::proc_null;
     using Constants::count_tag;
 
@@ -139,6 +132,7 @@ class Completion_Manager
         n_receives_completed++;
         p_recv_buffer.set_received();
         n_complete_p = p_recv_buffer.get_object()[0];
+        finished = true;
       }
     }
 
@@ -152,14 +146,24 @@ class Completion_Manager
     }
   }
 
-  void send_parent_n_tree_complete(uint64_t& n_complete_tree, 
-                                    uint32_t& n_sends_posted)
+  //! For the Milagro method, send the completed count up the tree
+  virtual void process_completion(bool waiting_for_work,
+                                  uint64_t& n_complete_tree,
+                                  uint32_t& n_sends_posted,
+                                  uint32_t& n_sends_completed,
+                                  uint32_t& n_receives_posted, 
+                                  uint32_t& n_receives_completed)
   {
     using std::vector;
     using Constants::count_tag;
     using Constants::proc_null;
 
-    if (parent!=proc_null) {
+
+    check_messages(n_complete_tree, n_receives_posted, n_receives_completed,
+      n_sends_completed);
+
+    // non-root ranks send complete counts up the tree
+    if (n_complete_tree && waiting_for_work && parent!=proc_null) {
       p_send_buffer.fill(vector<uint64_t> (1,n_complete_tree));
       MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
         count_tag, MPI_COMM_WORLD, &p_send_req);
@@ -169,18 +173,17 @@ class Completion_Manager
       //reset tree count so work is not double counted
       n_complete_tree =0;
     }
+    // root checks for completion
+    else {
+      if (n_complete_tree == n_particle_global) finished=true;
+    }
   }
 
-  bool is_finished(const uint64_t& n_complete_tree ) {
-    finished  = (n_complete_tree == n_particle_global || 
-      n_complete_p == n_particle_global);
-    return finished;
-  }
-
-  void end_timestep(uint32_t& n_sends_posted,
-                    uint32_t& n_sends_completed, 
-                    uint32_t& n_receives_posted, 
-                    uint32_t& n_receives_completed)
+  //! Send finish message down the tree and finish off messages
+  virtual void end_timestep(uint32_t& n_sends_posted,
+                            uint32_t& n_sends_completed, 
+                            uint32_t& n_receives_posted, 
+                            uint32_t& n_receives_completed)
   {
     using std::vector;
     using Constants::proc_null;
@@ -242,29 +245,18 @@ class Completion_Manager
     n_complete_c1 = 0;
     n_complete_c2 = 0;
     n_complete_p = 0;
+
+    // reset finished flag
+    finished = false;
   }
 
   private:
-  uint64_t n_complete_c1;
-  uint64_t n_complete_c2; 
-  uint64_t n_complete_p;
-  uint64_t n_particle_global;
-  bool finished;
   Buffer<uint64_t> c1_recv_buffer;
   Buffer<uint64_t> c2_recv_buffer;
   Buffer<uint64_t> p_recv_buffer;
   Buffer<uint64_t> c1_send_buffer;
   Buffer<uint64_t> c2_send_buffer;
   Buffer<uint64_t> p_send_buffer;
-  bool c1_req_flag;
-  bool c2_req_flag;
-  bool p_req_flag;
-  uint64_t child1;
-  uint64_t child2;
-  uint64_t parent;
-  int flag_c1;
-  int flag_c2;
-  int flag_p;
   MPI_Request p_recv_req;
   MPI_Request c1_recv_req;
   MPI_Request c2_recv_req;
@@ -273,5 +265,7 @@ class Completion_Manager
   MPI_Request c2_send_req;
 };
 
-
-#endif // def completion_manager_h_
+#endif // def completion_manager_milagro_h_
+//---------------------------------------------------------------------------//
+// end of completion_manager_milagro.h
+//---------------------------------------------------------------------------//
