@@ -1,3 +1,14 @@
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   mesh.h
+ * \author Alex Long
+ * \date   July 18 2014
+ * \brief  Object that holds mesh and manages decomposition and communication
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
+// $Id$
+//---------------------------------------------------------------------------//
 
 #ifndef mesh_h_
 #define mesh_h_
@@ -16,10 +27,25 @@
 #include "input.h"
 #include "imc_state.h"
 
+
+//==============================================================================
+/*!
+ * \class Mesh
+ * \brief Manages data access, decomposition and parallel communication for mesh
+ *
+ * Using an Input class, make the mesh with the correct material properties
+ * for each region. The mesh numbering and mapping between global IDs and local
+ * indices are all determined with the aid of Parmetis in the decompose_mesh
+ * function. The mesh class also manages two-sided messaging in the mesh-
+ * passing method. 
+ *
+ */
+//==============================================================================
 class Mesh {
 
   public:
 
+  //! constructor 
   Mesh(Input* input, MPI_Types *mpi_types, int _rank, int _n_rank)
   : ngx(input->get_global_n_x_cells()),
     ngy(input->get_global_n_y_cells()),
@@ -234,7 +260,7 @@ class Mesh {
     }
   }
 
-  //free buffers and delete MPI allocated cell
+  // destructor, free buffers and delete MPI allocated cell
   ~Mesh() {
     delete[] r_cell_reqs;
     delete[] r_id_reqs;
@@ -242,9 +268,9 @@ class Mesh {
     delete[] s_id_reqs;
   }
 
-/*****************************************************************************/
-  //const functions
-/*****************************************************************************/
+  //////////////////////////////////////////////////////////////////////////////
+  // const functions                                                          //
+  //////////////////////////////////////////////////////////////////////////////
   uint32_t get_n_local_cells(void) const {return n_cell;}
   uint32_t get_my_rank(void) const {return  rank;}
   uint32_t get_offset(void) const {return on_rank_start;}
@@ -358,9 +384,11 @@ class Mesh {
   float * get_silo_y(void) const {return silo_y;}
   float * get_silo_z(void) const {return silo_z;}
 
-/*****************************************************************************/
-  //non-const functions
-/*****************************************************************************/
+  //////////////////////////////////////////////////////////////////////////////
+  // non-const functions                                                      //
+  //////////////////////////////////////////////////////////////////////////////
+
+  //! set the global ID of the start and end cell on this rank
   void set_global_bound(uint32_t _on_rank_start, 
                         uint32_t _on_rank_end) 
   {
@@ -368,10 +396,13 @@ class Mesh {
     on_rank_end = _on_rank_end;
   }
 
+  //! set the global ID starting indices for all ranks
   void set_off_rank_bounds(std::vector<uint32_t> _off_rank_bounds) {
     off_rank_bounds=_off_rank_bounds;
   }
 
+  //! Calculate new physical properties and emission energy for each cell on 
+  // the mesh
   void calculate_photon_energy(IMC_State* imc_s) {
     using Constants::c;
     using Constants::a;
@@ -419,7 +450,7 @@ class Mesh {
       total_photon_E += m_emission_E[i] + m_census_E[i] + m_source_E[i];
     }
 
-    //set conservation
+    // set energy for conservation checks
     imc_s->set_pre_mat_E(pre_mat_E);
     imc_s->set_emission_E(tot_emission_E);
     imc_s->set_source_E(tot_source_E);
@@ -427,6 +458,8 @@ class Mesh {
   }
 
 
+  //! Correctly set the connectivity of cells given a new mesh numbering
+  // after mesh decomposition. Also, determine adjacent ranks.
   void set_indices( std::unordered_map<uint32_t, uint32_t> off_map, 
                     std::vector< std::vector<bool> >& remap_flag) {
 
@@ -438,7 +471,7 @@ class Mesh {
     uint32_t next_index;
     unordered_map<uint32_t, uint32_t>::iterator end = off_map.end();
     uint32_t new_index;
-    //check to see if neighbors are on or off processor
+    // check to see if neighbors are on or off processor
     for (uint32_t i=0; i<n_cell; i++) {
       Cell& cell = cell_list[i];
       for (uint32_t d=0; d<6; d++) {
@@ -453,10 +486,10 @@ class Mesh {
           cell.set_neighbor( dir_type(d) , new_index );
           cell.set_bc(dir_type(d), PROCESSOR);
           boundary_cells.push_back(new_index);
-          // add off-rank ID to map
+
+          // determine adjacent ranks for minimizing communication
           uint32_t off_rank = get_off_rank_id(new_index);
-          if (adjacent_procs.find(off_rank) 
-            == adjacent_procs.end()) {
+          if (adjacent_procs.find(off_rank) == adjacent_procs.end()) {
             uint32_t rank_count = adjacent_procs.size();
             adjacent_procs[off_rank] = rank_count;
           } // if adjacent_proc.find(off_rank) 
@@ -465,6 +498,8 @@ class Mesh {
     }
   }
 
+  //! Renumber the local cell IDs and connectivity of local cells after 
+  // decomposition using simple global  numbering
   void set_local_indices(std::unordered_map<uint32_t, uint32_t> local_map) {
 
     using Constants::PROCESSOR;
@@ -494,6 +529,7 @@ class Mesh {
     } // end cell
   }
 
+  // Remove old mesh cells after decomposition and communication of new cells
   void update_mesh(void) {
     using std::vector;
     vector<Cell> new_mesh;
@@ -522,6 +558,8 @@ class Mesh {
     m_source_E = vector<double>(n_cell, 0.0);
   }
 
+  //! Use MPI allocation routines, copy in cell data and make the MPI window 
+  // object
   void make_MPI_window(void) {
     //make the MPI window with the sorted cell list
     MPI_Aint n_bytes(n_cell*mpi_cell_size);
@@ -534,6 +572,8 @@ class Mesh {
     cell_list.clear();
   }
 
+  //! Use the absorbed energy and update the material temperature of each 
+  // cell on the mesh. Set diagnostic and conservation values.
   void update_temperature(std::vector<double>& abs_E, IMC_State* imc_s) {
     //abs E is a global vector
     double total_abs_E = 0.0;
@@ -564,8 +604,10 @@ class Mesh {
     off_rank_reads = 0;
   }
 
+  //! Return reference to MPI window (used by rma_mesh_manager class)
   MPI_Win& get_mesh_window_ref(void) {return mesh_window;}
 
+  //! Make a request for an off-rank mesh cell
   void request_cell(const uint32_t& index) {
     //get local index of global index
     uint32_t off_rank_id = get_off_rank_id(index);
@@ -583,20 +625,23 @@ class Mesh {
     }
   }
 
+  //! Add off-rank mesh data to the temporary mesh storage and manage the
+  // temporary mesh
   void add_non_local_mesh_cells(std::vector<Cell> new_recv_cells) {
     for (uint32_t i=0; i<new_recv_cells.size();i++) {
       uint32_t index = new_recv_cells[i].get_ID();
 
-      //add this cell to the map, if possible, otherwise manage map
+      // add this cell to the map, if possible, otherwise manage map
       if (stored_cells.size() < max_map_size) 
         stored_cells[index] = new_recv_cells[i];
       else {
-        //remove first cell from map, it will naturally be requested again
+        // remove first cell from map, it will naturally be requested again
         stored_cells.erase(stored_cells.begin());
       }
     } // for i in new_recv_cells[ir] 
   }
 
+  //! Communication of mesh data between ranks 
   bool process_mesh_requests(uint32_t& n_cell_messages,
                               uint32_t& n_cells_sent,
                               uint32_t& n_sends_posted,
@@ -742,11 +787,15 @@ class Mesh {
     return new_data;
   }
 
+  //! Remove the temporary off-rank mesh data after the end of a timestep 
+  // (the properties will be updated so it can't be reused)
   void purge_working_mesh(void) {
     stored_cells.clear(); 
     ids_requested.clear();  
   }
 
+
+  //! Routine to ensure no MPI ranks have unfinished receives
   void finish_mesh_pass_messages(uint32_t& n_sends_posted,
                                 uint32_t& n_sends_completed,
                                 uint32_t& n_receives_posted,
@@ -809,15 +858,23 @@ class Mesh {
     }
   }
 
+  //! Add mesh cell (used during decomposition, not parallel communication)
   void add_mesh_cell(Cell new_cell) {new_cell_list.push_back(new_cell);}
+
+  //! Remove mesh cell (used during decomposition, not parallel communication)
   void remove_cell(uint32_t index) {remove_cell_list.push_back(index);}
 
+  //! Get census energy vector needed to source particles
   std::vector<double>& get_census_E_ref(void) {return m_census_E;}
+
+  //! Get emission energy vector needed to source particles
   std::vector<double>& get_emission_E_ref(void) {return m_emission_E;}
+
+  //! Get external source energy vector needed to source particles
   std::vector<double>& get_source_E_ref(void) {return m_source_E;}
 
   //////////////////////////////////////////////////////////////////////////////
-  //member variables
+  // member variables
   //////////////////////////////////////////////////////////////////////////////
   private:
 
@@ -863,15 +920,15 @@ class Mesh {
   uint32_t max_map_size; //! Maximum size of map object
   uint32_t off_rank_reads; //! Number of off rank reads
 
-  MPI_Win mesh_window;
+  MPI_Win mesh_window; //! Handle to shared memory window of cell data
 
-  //send and receive buffers
+  // send and receive buffers
   std::vector<Buffer<Cell> > recv_cell_buffer; //! Receive buffer for cells
   std::vector<Buffer<Cell> > send_cell_buffer; //! Send buffer for cells
   std::vector<Buffer<uint32_t> > recv_id_buffer; //! Receive buffer for cell IDs
   std::vector<Buffer<uint32_t> > send_id_buffer; //! Receive buffer for cell IDs
 
-  //Data bools needed from off rank 
+  // data bools needed from off rank 
   std::vector<bool> need_data; //! Vector of size nrank-1, flag for needed data from rank
 
   // MPI requests for non-blocking cell communication
@@ -880,7 +937,7 @@ class Mesh {
   MPI_Request *r_id_reqs; //! Received cell ID requests
   MPI_Request *s_id_reqs; //! Send cell ID requests
 
-  //flags for MPI request testing
+  // flags for MPI request testing
   int r_cell_req_flag; //! Flag for received cell communications
   int s_cell_req_flag; //! Flag for sent cell communications
   int r_id_req_flag;  //! Flag for received cell indices
@@ -898,3 +955,6 @@ class Mesh {
 };
 
 #endif // mesh_h_
+//---------------------------------------------------------------------------//
+// end of mesh.h
+//---------------------------------------------------------------------------//

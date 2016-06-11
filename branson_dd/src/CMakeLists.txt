@@ -1,3 +1,9 @@
+###############################################################################
+# NOTES ON COMPILATION
+###############################################################################
+# Load the modules for each libary and the environment variables will be set 
+# correctly
+
 cmake_minimum_required (VERSION 2.8)
 # Set Intel MPI Compiler
 #set(CMAKE_CXX_COMPILER mpiicpc)
@@ -10,19 +16,26 @@ message ("Compiler: " ${CMAKE_CXX_COMPILER} )
 
 # add compiler flags
 set( DEBUG_FLAGS -gdwarf-3)
+
+# Intel C++ 11 flags
 set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
+
+# Cray flag for C++11
 #set (DEBUG_FLAGS "${DEBUG_FLAGS} -h std=c++11")
+
+# append optimization flags
 #set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
+
 set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${DEBUG_FLAGS}" )
 message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
 
 #set version number
 set(BRANSON_VERSION_MAJOR 0)
-set(BRANSON_VERSION_MINOR 1)
+set(BRANSON_VERSION_MINOR 8)
 
 ###############################################################################
-# Find Parmetis and link libraries
-# (user_contrib module sets environment variables pointing to correct ParMetis)
+# metis and parmetis
+# Load modules for metis and parmetis to get correct environment variables
 ###############################################################################
 # CCS MACHINES
 #set(METIS_INCLUDE_DIR  /var/tmp/vendors/ParMetis-4.0.3/openmpi-1.10.0-gcc-5.2.0/include)
@@ -43,7 +56,8 @@ include_directories( $ENV{METIS_INC_DIR})
 link_directories($ENV{METIS_LIB_DIR})
 
 ###############################################################################
-# Add Boost Include Directory
+# boost (headers only)
+# Load boost module to get correct environement variables
 ###############################################################################
 #set(BOOST_ROOT /projects/opt/boost/1.58.0/draco/vendors/boost-1.58.0)
 
@@ -63,9 +77,9 @@ include_directories(${Boost_INCLUDE_DIR})
 
 
 ###############################################################################
-# Add Silo header path and HDF5 library
+# Silo and HDF5 libraries
+# Load modules for hdf5 and solo to get correct environment variables
 ###############################################################################
-
 set(SILO_ROOT /users/along/installs/)
 message("Silo from: $ENV{SILO_ROOT} " )
 include_directories($ENV{SILO_ROOT}/include)
@@ -74,20 +88,22 @@ link_directories($ENV{SILO_ROOT}/lib)
 set(HDF_ROOT /usr/projects/draco/vendors/hdf5-1.10.0/openmpi-1.6.5-intel-15.0.5/ )
 message("HDF from: $ENV{HDF5_ROOT} ")
 link_directories($ENV{HDF5_ROOT}/lib)
+
 ###############################################################################
 # Set up libraries for Cray RMA routines
 ###############################################################################
-
 SET(DMAPP_DYNAMIC -Wl,--whole-archive,-ldmapp,--no-whole-archive)
 
 ###############################################################################
-# Configure executable
+# Configure executable and link libraries
 ###############################################################################
 add_executable(BRANSON main.cc)
 target_link_libraries(BRANSON parmetis)
 target_link_libraries(BRANSON metis)
 target_link_libraries(BRANSON hdf5)
 target_link_libraries(BRANSON siloh5)
+
+# these lines link the Cray DMAPP library
 #first, create the dynamic version of dmapp library
 #target_link_libraries(BRANSON ${DMAPP_DYNAMIC})
 #then link to it dynamically
