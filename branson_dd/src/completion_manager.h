@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "constants.h"
+#include "message_counter.h"
 
 //==============================================================================
 /*!
@@ -66,19 +67,13 @@ class Completion_Manager
 
   bool is_finished(void) {return finished;}
 
-  virtual void start_timestep(uint32_t& n_receives_posted) =0; 
+  virtual void start_timestep(Message_Counter& mctr) =0; 
 
-  virtual void end_timestep(uint32_t& n_sends_posted,
-                    uint32_t& n_sends_completed, 
-                    uint32_t& n_receives_posted, 
-                    uint32_t& n_receives_completed) = 0;
+  virtual void end_timestep(Message_Counter& mctr) = 0;
 
   virtual void process_completion(bool waiting_for_work,
                                   uint64_t& n_complete_tree,
-                                  uint32_t& n_sends_posted, 
-                                  uint32_t& n_sends_completed,
-                                  uint32_t& n_receives_posted, 
-                                  uint32_t& n_receives_completed) = 0;
+                                  Message_Counter& mctr) = 0;
 
   protected:
   uint64_t n_complete_c1; //! Completed particles in first child's tree

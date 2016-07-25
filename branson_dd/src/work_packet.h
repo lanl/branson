@@ -30,6 +30,7 @@ class Work_Packet {
   Work_Packet()
     : n_particles(0),
       g_cell_ID(0),
+      g_grip_ID(0),
       n_census(0),
       census_index_start(0),
       emission_E(0.0)
@@ -38,6 +39,7 @@ class Work_Packet {
 
   // constant funtions
   uint32_t get_global_cell_ID(void) const {return g_cell_ID;}
+  uint32_t get_global_grip_ID(void) const {return g_grip_ID;}
   uint32_t get_n_particles(void) const {return n_particles;}
   uint32_t get_n_census(void) const {return n_census;}
   uint32_t get_census_index(void) const {return census_index_start;}
@@ -61,6 +63,11 @@ class Work_Packet {
   void set_global_cell_ID(const uint32_t& _global_cell_ID) {
     g_cell_ID = _global_cell_ID;
   }
+
+  void set_global_grip_ID(const uint32_t& _global_grip_ID) {
+    g_grip_ID = _global_grip_ID;
+  }
+
   void attach_emission_work(const double& _emission_E, 
     const uint32_t& _n_particles) 
   {
@@ -97,6 +104,7 @@ class Work_Packet {
 
     // set properties of return work packet
     return_work.set_global_cell_ID(g_cell_ID);
+    return_work.set_global_grip_ID(g_grip_ID);
     return_work.set_coor(nodes);
     return_work.attach_emission_work(return_E, n_return);
     return return_work;
@@ -105,6 +113,7 @@ class Work_Packet {
   private:
   uint32_t n_particles; //!< Total number of particles in work packet
   uint32_t g_cell_ID; //!< Global index of cell containing this work
+  uint32_t g_grip_ID; //!< Global index of this cell's grip
   uint32_t n_census; //!< Census photons in this cell
   uint32_t census_index_start; //!< Start index in census vector
   double emission_E; //!< Emission energy in work packet

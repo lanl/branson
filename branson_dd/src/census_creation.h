@@ -47,13 +47,14 @@ std::vector<Photon> make_initial_census_photons(Mesh* mesh,
   // make the photons
   Cell cell;
   double pos[3]; double angle[3];
-  uint32_t g_ID;
+  uint32_t cell_ID, grip_ID;
   uint32_t p_index =0;
   for (uint32_t icell = 0; icell<n_cell; icell++) {
     cell = mesh->get_cell(icell);
-    g_ID = cell.get_ID();
+    cell_ID = cell.get_ID();
+    grip_ID = cell.get_grip_ID();
 
-    //Census photons scope
+    // census photons scope
     if (census_E[icell] > 0.0) {
       uint32_t t_num_census = int(n_user_photon*census_E[icell]/total_E);
       if (t_num_census == 0) t_num_census =1;
@@ -66,7 +67,8 @@ std::vector<Photon> make_initial_census_photons(Mesh* mesh,
         census_photon.set_angle(angle);
         census_photon.set_E0(census_phtn_E);
         census_photon.set_distance_to_census(c*delta_t);
-        census_photon.set_cell(g_ID);
+        census_photon.set_cell(cell_ID);
+        census_photon.set_grip(grip_ID);
         census_photons.push_back(census_photon);
         p_index++;
       }

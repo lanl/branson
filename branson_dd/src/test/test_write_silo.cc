@@ -47,7 +47,10 @@ int main (int argc, char *argv[]) {
 
     bool silo_write_pass = true;
 
-    decompose_mesh(mesh, mpi_types);
+    // grip size, required by decompose_mesh but not needed in test
+    uint32_t grip_size = 10;
+
+    decompose_mesh(mesh, mpi_types, grip_size);
 
     // get fake vector of mesh requests 
     std::vector<uint32_t> n_requests(mesh->get_global_num_cells(),0);
@@ -77,7 +80,10 @@ int main (int argc, char *argv[]) {
 
     bool three_reg_silo_write_pass = true;
 
-    decompose_mesh(mesh, mpi_types);
+    // grip size, required by decompose_mesh but not needed in test
+    uint32_t grip_size = 10;
+
+    decompose_mesh(mesh, mpi_types, grip_size);
 
     // get fake vector of mesh requests 
     std::vector<uint32_t> n_requests(mesh->get_global_num_cells(),0);

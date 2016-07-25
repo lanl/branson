@@ -52,7 +52,7 @@ int main (int argc, char *argv[]) {
 
     Cell cell;
     for (uint32_t i = 0; i<n_cell; i++) {
-      cell = mesh.get_pre_renumber_cell(i);
+      cell = mesh.get_pre_window_allocation_cell(i);
       if ( cell.get_region_ID() != 6) simple_mesh_pass =false;
     }
 
@@ -84,7 +84,7 @@ int main (int argc, char *argv[]) {
     // check the lower x position of the cell to see if the region matches
     // the divisions set in the input file
     for (uint32_t i = 0; i<n_cell; i++) {
-      cell = mesh.get_pre_renumber_cell(i);
+      cell = mesh.get_pre_window_allocation_cell(i);
       coor = cell.get_node_array();
       x_low = coor[0];
       //cells in the first region
@@ -117,6 +117,6 @@ int main (int argc, char *argv[]) {
 
   return nfail;
 }
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
 // end of test_mesh.cc
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//

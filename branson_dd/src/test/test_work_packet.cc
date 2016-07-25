@@ -28,22 +28,26 @@ int main (void) {
 
     // after construction, photons, cell ID and emission energy are zero
     if (work_packet.get_global_cell_ID() != 0) test_work_packet = false;
+    if (work_packet.get_global_grip_ID() != 0) test_work_packet = false;
     if (work_packet.get_n_particles() != 0) test_work_packet = false;
     if (work_packet.get_emission_E() != 0) test_work_packet = false;
 
     // set cell ID, emission energy and number of particles
     uint32_t cell_ID = 165470;
+    uint32_t grip_ID = 520468;
     uint32_t n_particles = 994908;
     double emission_E = 1904.304;
     double cell_coor[6] = {1.0,2.0, 0.0,0.5, 3.3,3.6};
 
     work_packet.set_global_cell_ID(cell_ID);
+    work_packet.set_global_grip_ID(grip_ID);
     work_packet.attach_emission_work(emission_E, n_particles);
     work_packet.set_coor(cell_coor);
 
     const double *work_packet_coor = work_packet.get_node_array();
 
     if (work_packet.get_global_cell_ID() != cell_ID) test_work_packet = false;
+    if (work_packet.get_global_grip_ID() != grip_ID) test_work_packet = false;
     if (work_packet.get_n_particles() != n_particles) test_work_packet = false;
     if (work_packet.get_emission_E() != emission_E) test_work_packet = false;
     for (uint32_t i=0;i<6;i++) {
@@ -69,11 +73,13 @@ int main (void) {
 
     // set cell ID, emission energy and number of particles
     uint32_t cell_ID = 10;
+    uint32_t grip_ID = 670;
     uint32_t n_particles = 106547;
     double emission_E = 100.0;
     double cell_coor[6] = {1.0,2.0, 0.0,0.5, 3.3,3.6};
 
     big_work_packet.set_global_cell_ID(cell_ID);
+    big_work_packet.set_global_grip_ID(grip_ID);
     big_work_packet.attach_emission_work(emission_E, n_particles);
     big_work_packet.set_coor(cell_coor);
 
@@ -87,6 +93,8 @@ int main (void) {
 
     // test big work packet
     if (big_work_packet.get_global_cell_ID() != cell_ID) 
+      test_split_work_packet = false;
+    if (big_work_packet.get_global_grip_ID() != grip_ID) 
       test_split_work_packet = false;
     if (big_work_packet.get_n_particles() != n_remain) 
       test_split_work_packet = false;

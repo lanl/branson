@@ -14,6 +14,7 @@
 #include <string>
 #include "../imc_state.h"
 #include "../input.h"
+#include "../message_counter.h"
 #include "testing_functions.h"
 
 using std::cout;
@@ -106,7 +107,10 @@ int main (int argc, char *argv[]) {
     uint64_t big_64_bit_number_2 = 8000000000;
     uint64_t big_64_bit_number_3 = 9000000000;
 
-    imc_state.set_step_particles_sent(big_64_bit_number_1);
+    Message_Counter mctr;
+    mctr.n_particles_sent = big_64_bit_number_1;
+
+    imc_state.set_network_message_counts(mctr);
     imc_state.set_census_size(big_64_bit_number_2);
     imc_state.set_transported_particles(big_64_bit_number_3);
     
@@ -140,7 +144,10 @@ int main (int argc, char *argv[]) {
     uint32_t big_32_bit_number = 3500000000;
     uint64_t combined_64_bit_number = 7000000000;
 
-    imc_state.set_step_particles_sent(big_32_bit_number);
+    Message_Counter mctr;
+    mctr.n_particles_sent = big_32_bit_number;
+
+    imc_state.set_network_message_counts(mctr);
     
     imc_state.print_conservation(0);
     

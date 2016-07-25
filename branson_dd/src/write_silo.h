@@ -81,6 +81,7 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
   vector<int> n_requests(n_xyz_cells,0);
   vector<double> T_e(n_xyz_cells,0.0);
   vector<double> transport_time(n_xyz_cells,0.0);
+  vector<int> grip_ID(n_xyz_cells,0);
 
   // get rank data, map values from from global ID to SILO ID
   uint32_t n_local = mesh->get_n_local_cells();
@@ -91,9 +92,11 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     g_index = cell.get_ID();
     silo_index = cell.get_silo_index();
     rank_data[silo_index] = rank;
+    // set silo plot variables
     n_requests[silo_index] = rank_requests[g_index];
     T_e[silo_index] = cell.get_T_e();
     transport_time[silo_index] = rank_transport_time;
+    grip_ID[silo_index] = cell.get_grip_ID();
   }
 
   // reduce to get rank of each cell across all ranks
@@ -104,12 +107,16 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
   MPI_Allreduce(MPI_IN_PLACE, &n_requests[0], n_xyz_cells, MPI_INT, MPI_SUM,
     MPI_COMM_WORLD);
 
-  // reduce to get n_requests across all ranks
+  // reduce to get T_e across all ranks
   MPI_Allreduce(MPI_IN_PLACE, &T_e[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
     MPI_COMM_WORLD);
 
   // reduce to get transport runtime from all ranks
   MPI_Allreduce(MPI_IN_PLACE, &transport_time[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
+    MPI_COMM_WORLD);
+
+  // reduce to get T_e across all ranks
+  MPI_Allreduce(MPI_IN_PLACE, &grip_ID[0], n_xyz_cells, MPI_INT, MPI_SUM,
     MPI_COMM_WORLD);
 
   // First rank writes the SILO file
@@ -198,11 +205,19 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     DBPutQuadvar1(dbfile, "transport_time", "quadmesh", &transport_time[0], 
       cell_dims, ndims, NULL, 0, DB_DOUBLE, DB_ZONECENT, t_time_optlist);
 
+    // write the grip_ID scalar field
+    DBoptlist *grip_id_optlist = DBMakeOptlist(2);
+    DBAddOption(grip_id_optlist, DBOPT_UNITS, (void *)"grip_ID");
+    DBAddOption(grip_id_optlist, DBOPT_DTIME, &time);
+    DBPutQuadvar1(dbfile, "grip_ID", "quadmesh", &grip_ID[0], 
+      cell_dims, ndims, NULL, 0, DB_INT, DB_ZONECENT, grip_id_optlist);
+
     // free option lists
     DBFreeOptlist(optlist);
     DBFreeOptlist(req_optlist);
     DBFreeOptlist(Te_optlist);
     DBFreeOptlist(t_time_optlist);
+    DBFreeOptlist(grip_id_optlist);
 
     // free data
     delete[] rank_ids;

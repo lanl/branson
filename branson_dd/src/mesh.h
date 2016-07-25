@@ -268,9 +268,10 @@ class Mesh {
     delete[] s_id_reqs;
   }
 
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // const functions                                                          //
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
+  uint32_t get_max_grip_size(void) const {return max_grip_size;}
   uint32_t get_n_local_cells(void) const {return n_cell;}
   uint32_t get_my_rank(void) const {return  rank;}
   uint32_t get_offset(void) const {return on_rank_start;}
@@ -287,12 +288,18 @@ class Mesh {
       cell_list[i].print();
   }
 
+  uint32_t get_grip_ID_from_cell_ID(uint32_t cell_ID) const {
+    uint32_t local_ID = cell_ID - on_rank_start;
+    return cells[local_ID].get_grip_ID();
+  }
+
   void post_decomp_print(void) const {
     for (uint32_t i= 0; i<n_cell; i++) 
       cells[i].print();
   }
 
-  std::unordered_map<uint32_t, uint32_t> get_map(void) const {
+  //! returns a mapping of old cell indices to new simple global indices
+  std::unordered_map<uint32_t, uint32_t> get_new_global_index_map(void) const {
     std::unordered_map<uint32_t, uint32_t> local_map;
     uint32_t g_ID;
     for (uint32_t i=0; i<n_cell; i++) {
@@ -302,7 +309,20 @@ class Mesh {
     return local_map;
   }
 
-  Cell get_pre_renumber_cell(const uint32_t& local_ID) const 
+  //! returns a mapping of new global cell indices to the global cell index of
+  // a grip, this must be used after grips with cell IDs have been set
+  std::unordered_map<uint32_t, uint32_t> get_grip_map(void) const {
+    std::unordered_map<uint32_t, uint32_t> local_grip_map;
+    uint32_t new_g_ID;
+    for (uint32_t i=0; i<n_cell; i++) {
+      new_g_ID = i+on_rank_start;
+      local_grip_map[new_g_ID] = cell_list[i].get_grip_ID();
+    }
+    return local_grip_map;
+  }
+
+  //! Gets cell from vector list of cells before it's deleted
+  Cell get_pre_window_allocation_cell(const uint32_t& local_ID) const 
   {
     return cell_list[local_ID];
   }
@@ -346,7 +366,7 @@ class Mesh {
   }
 
   Cell get_on_rank_cell(const uint32_t& index) {
-    //this can only be called with valid on rank indexes
+    // this can only be called with valid on rank indexes
     if (on_processor(index)) 
       return cells[index-on_rank_start];
     else 
@@ -384,9 +404,50 @@ class Mesh {
   float * get_silo_y(void) const {return silo_y;}
   float * get_silo_z(void) const {return silo_z;}
 
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // non-const functions                                                      //
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
+
+  //! set the grip ID to be the global index of the cell at the center of the
+  // grip
+  void set_grip_ID_using_cell_index(void) 
+  {
+    using std::max;
+    uint32_t global_index, new_grip_ID, grip_end_index;
+    // start by looking at the first grip
+    uint32_t current_grip_ID = cell_list.front().get_grip_ID();
+    uint32_t grip_start_index = 0;
+    uint32_t grip_count = 0;
+    // start with max_grip_size at zero
+    max_grip_size = 0;
+
+    for (uint32_t i=0; i<n_cell; i++) {
+      global_index = on_rank_start+i;
+      Cell & cell = cell_list[i];
+      // cell in grip, increment count
+      if (cell.get_grip_ID() == current_grip_ID) grip_count++;
+
+      // cell not in grip or this is the last cell on mesh, set grip ID for 
+      // cells in last grip
+      if (cell.get_grip_ID() != current_grip_ID || i==n_cell-1)  {
+        // set the new grip ID to be the index of the cell at the center
+        // this ID is at the center for odd grip sizes and one above
+        // center for even grip sizes (for convenience in parallel comm)
+        new_grip_ID = on_rank_start + grip_start_index + grip_count/2;
+        // update max grip size 
+        max_grip_size = max(max_grip_size, grip_count);
+        // loop over cells in grip and set new ID 
+        grip_end_index = grip_start_index + grip_count;
+        for (uint32_t j=grip_start_index; j<grip_end_index; j++)
+          cell_list[j].set_grip_ID(new_grip_ID);
+        // set new grip ID, indices and reset counts (start at one, counting 
+        // this cell)
+        current_grip_ID = cell.get_grip_ID();
+        grip_start_index = i;
+        grip_count = 1;
+      } 
+    }
+  }
 
   //! set the global ID of the start and end cell on this rank
   void set_global_bound(uint32_t _on_rank_start, 
@@ -399,6 +460,12 @@ class Mesh {
   //! set the global ID starting indices for all ranks
   void set_off_rank_bounds(std::vector<uint32_t> _off_rank_bounds) {
     off_rank_bounds=_off_rank_bounds;
+  }
+
+  //! Gets cell reference from vector list of cells before it's deleted
+  Cell& get_pre_window_allocation_cell_ref(const uint32_t& local_ID)
+  {
+    return cell_list[local_ID];
   }
 
   //! Calculate new physical properties and emission energy for each cell on 
@@ -460,8 +527,10 @@ class Mesh {
 
   //! Correctly set the connectivity of cells given a new mesh numbering
   // after mesh decomposition. Also, determine adjacent ranks.
-  void set_indices( std::unordered_map<uint32_t, uint32_t> off_map, 
-                    std::vector< std::vector<bool> >& remap_flag) {
+  void update_off_rank_connectivity( 
+    std::unordered_map<uint32_t, uint32_t> off_map, 
+    std::unordered_map<uint32_t, uint32_t> off_grip_map, 
+    std::vector< std::vector<bool> >& remap_flag) {
 
     using Constants::PROCESSOR;
     using Constants::dir_type;
@@ -470,7 +539,7 @@ class Mesh {
 
     uint32_t next_index;
     unordered_map<uint32_t, uint32_t>::iterator end = off_map.end();
-    uint32_t new_index;
+    uint32_t new_index, new_grip_index;
     // check to see if neighbors are on or off processor
     for (uint32_t i=0; i<n_cell; i++) {
       Cell& cell = cell_list[i];
@@ -478,14 +547,16 @@ class Mesh {
         next_index = cell.get_next_cell(d);
         unordered_map<uint32_t, uint32_t>::iterator map_i = 
           off_map.find(next_index);
-        if (off_map.find(next_index) != end && remap_flag[i][d] ==false ) {
-          //update index and bc type, this will always be an off processor so
-          //if an index is updated it will always be at a processor bound
+        if (map_i != end && remap_flag[i][d] ==false ) {
+          // update index and bc type, this will always be an off processor cell
+          // so if an index is updated it will always be at a processor bound
           remap_flag[i][d] = true;
           new_index = map_i->second;
+          // new_grip_map maps new global indices to new grip IDs
+          new_grip_index = off_grip_map[new_index];
           cell.set_neighbor( dir_type(d) , new_index );
+          cell.set_grip_neighbor(dir_type(d), new_grip_index);
           cell.set_bc(dir_type(d), PROCESSOR);
-          boundary_cells.push_back(new_index);
 
           // determine adjacent ranks for minimizing communication
           uint32_t off_rank = get_off_rank_id(new_index);
@@ -500,7 +571,10 @@ class Mesh {
 
   //! Renumber the local cell IDs and connectivity of local cells after 
   // decomposition using simple global  numbering
-  void set_local_indices(std::unordered_map<uint32_t, uint32_t> local_map) {
+  void renumber_local_cell_indices(
+    std::unordered_map<uint32_t, uint32_t> local_map,
+    std::unordered_map<uint32_t, uint32_t> local_grip_map) 
+  {
 
     using Constants::PROCESSOR;
     using Constants::bc_type;
@@ -509,9 +583,10 @@ class Mesh {
 
     uint32_t next_index;
     unordered_map<uint32_t, uint32_t>::iterator end = local_map.end();
-    uint32_t new_index;
+    uint32_t new_index, new_grip_index;
     bc_type current_bc;
-    //check to see if neighbors are on or off processor
+    // renumber global cell and check to see if neighbors are on or off
+    // processor
     for (uint32_t i=0; i<n_cell; i++) {
       Cell& cell = cell_list[i];
       cell.set_ID(i+on_rank_start);
@@ -523,14 +598,17 @@ class Mesh {
         //if this index is not a processor boundary, update it
         if (local_map.find(next_index) != end && current_bc != PROCESSOR) {
           new_index = map_i->second;
+          // new_grip_map maps new global indices to new grip IDs
+          new_grip_index = local_grip_map[new_index];
           cell.set_neighbor( dir_type(d) , new_index );
+          cell.set_grip_neighbor( dir_type(d) , new_grip_index);
         }
       } // end direction
     } // end cell
   }
 
   // Remove old mesh cells after decomposition and communication of new cells
-  void update_mesh(void) {
+  void set_post_decomposition_mesh_cells(void) {
     using std::vector;
     vector<Cell> new_mesh;
     for (uint32_t i =0; i< cell_list.size(); i++) {
@@ -550,12 +628,21 @@ class Mesh {
     n_cell = cell_list.size();
     new_cell_list.clear();
     remove_cell_list.clear();
+
+    // sort based on global cell ID
     sort(cell_list.begin(), cell_list.end());
 
     //use the final number of cells to size vectors
     m_census_E = vector<double>(n_cell, 0.0);
     m_emission_E = vector<double>(n_cell, 0.0);
     m_source_E = vector<double>(n_cell, 0.0);
+  }
+
+  //! sort pre-winodw allocation cell vector based on the grip ID of each cell
+  void sort_cells_by_grip_ID(void) {
+    using std::sort;
+    // sort based on global cell ID
+    sort(cell_list.begin(), cell_list.end(), Cell::sort_grip_ID);
   }
 
   //! Use MPI allocation routines, copy in cell data and make the MPI window 
@@ -642,12 +729,7 @@ class Mesh {
   }
 
   //! Communication of mesh data between ranks 
-  bool process_mesh_requests(uint32_t& n_cell_messages,
-                              uint32_t& n_cells_sent,
-                              uint32_t& n_sends_posted,
-                              uint32_t& n_sends_completed,
-                              uint32_t& n_receives_posted,
-                              uint32_t& n_receives_completed) 
+  bool process_mesh_requests(Message_Counter& mctr)
   {
     using Constants::cell_tag;
     using Constants::cell_id_tag;
@@ -661,23 +743,23 @@ class Mesh {
     MPI_Status mpi_recv_ids_status;
     for (uint32_t ir=0; ir<n_off_rank; ir++) {
       off_rank = proc_map[ir]; 
-      ////////////////////////////////////////////////////////////////////////
+      //----------------------------------------------------------------------//
       // if you need data from this rank, process request
-      ////////////////////////////////////////////////////////////////////////
+      //----------------------------------------------------------------------//
       if (need_data[ir]) {
 
         //test completion of send/receives
         if (recv_cell_buffer[ir].awaiting()) {
           MPI_Test(&r_cell_reqs[ir], &r_cell_req_flag, MPI_STATUS_IGNORE);
           if (r_cell_req_flag) {
-            n_receives_completed++;
+            mctr.n_receives_completed++;
             recv_cell_buffer[ir].set_received();
           }
         }
         if (send_id_buffer[ir].sent()) {
           MPI_Test(&s_id_reqs[ir], &s_id_req_flag, MPI_STATUS_IGNORE);
           if (s_id_req_flag) {
-            n_sends_completed++;
+            mctr.n_sends_completed++;
             send_id_buffer[ir].reset();
           }
         }
@@ -692,7 +774,7 @@ class Mesh {
           //send to off_rank
           MPI_Isend(send_id_buffer[ir].get_buffer(), n_req_cells, MPI_UNSIGNED,
             off_rank, cell_id_tag, MPI_COMM_WORLD, &s_id_reqs[ir]);
-          n_sends_posted++;
+          mctr.n_sends_posted++;
           send_id_buffer[ir].set_sent();
           // clear requested cell ids 
           // (requested cells will not be requested again)
@@ -702,7 +784,7 @@ class Mesh {
           recv_cell_buffer[ir].resize(n_req_cells);
           MPI_Irecv(recv_cell_buffer[ir].get_buffer(), n_req_cells, MPI_Cell,
             off_rank, cell_tag, MPI_COMM_WORLD, &r_cell_reqs[ir]);
-          n_receives_posted++;
+          mctr.n_receives_posted++;
           recv_cell_buffer[ir].set_awaiting();
         }
 
@@ -734,16 +816,16 @@ class Mesh {
       } // if need_data[ir]
 
 
-      ////////////////////////////////////////////////////////////////////////
+      //----------------------------------------------------------------------//
       // receiving cell ids needed by other ranks (post receives to all)
-      ////////////////////////////////////////////////////////////////////////
+      //----------------------------------------------------------------------//
       // check to see if cell ids received  and send has completed
       if ( recv_id_buffer[ir].empty() &&
            send_cell_buffer[ir].empty()) {
         recv_id_buffer[ir].resize(n_max_id_recv);
         MPI_Irecv(recv_id_buffer[ir].get_buffer(), n_max_id_recv, MPI_UNSIGNED,
           off_rank, cell_id_tag, MPI_COMM_WORLD, &r_id_reqs[ir]);
-        n_receives_posted++;
+        mctr.n_receives_posted++;
         recv_id_buffer[ir].set_awaiting();
       }
 
@@ -758,9 +840,9 @@ class Mesh {
         send_cell_buffer[ir].fill(s_cell);
         MPI_Isend(send_cell_buffer[ir].get_buffer(), n_send_cells, MPI_Cell,
           off_rank, cell_tag, MPI_COMM_WORLD, &s_cell_reqs[ir]);
-        n_sends_posted++;
-        n_cell_messages++;
-        n_cells_sent+=s_cell.size();
+        mctr.n_sends_posted++;
+        mctr.n_cell_messages++;
+        mctr.n_cells_sent+=s_cell.size();
         send_cell_buffer[ir].set_sent();
         //reset receive buffer
         recv_id_buffer[ir].reset();
@@ -771,7 +853,7 @@ class Mesh {
         MPI_Test(&r_id_reqs[ir], &r_id_req_flag, &mpi_recv_ids_status);
         if (r_id_req_flag) {
           MPI_Get_count(&mpi_recv_ids_status, MPI_UNSIGNED, &n_send_ids[ir]);
-          n_receives_completed++;
+          mctr.n_receives_completed++;
           recv_id_buffer[ir].set_received();
         }
       }
@@ -779,7 +861,7 @@ class Mesh {
       if (send_cell_buffer[ir].sent()) {
         MPI_Test(&s_cell_reqs[ir], &s_cell_req_flag, MPI_STATUS_IGNORE);
         if (s_cell_req_flag) {
-          n_sends_completed++;
+          mctr.n_sends_completed++;
           send_cell_buffer[ir].reset();
         }
       }
@@ -796,11 +878,7 @@ class Mesh {
 
 
   //! Routine to ensure no MPI ranks have unfinished receives
-  void finish_mesh_pass_messages(uint32_t& n_sends_posted,
-                                uint32_t& n_sends_completed,
-                                uint32_t& n_receives_posted,
-                                uint32_t& n_receives_completed) 
-  {
+  void finish_mesh_pass_messages(Message_Counter& mctr) {
     using Constants::cell_id_tag;
     using std::vector;
     //post receives for ids to all ranks
@@ -814,7 +892,7 @@ class Mesh {
         MPI_Irecv(recv_id_buffer[ir].get_buffer(), 1, MPI_UNSIGNED,
           off_rank, cell_id_tag, MPI_COMM_WORLD, &r_id_reqs[ir]);
         recv_id_buffer[ir].set_awaiting();
-        n_receives_posted++;
+        mctr.n_receives_posted++;
       }
     }
     
@@ -825,23 +903,23 @@ class Mesh {
       //make sure sent cell id messages have completed
       if (send_cell_buffer[ir].sent()) {
         MPI_Wait(&s_cell_reqs[ir], MPI_STATUS_IGNORE);
-        n_sends_completed++;
+        mctr.n_sends_completed++;
       }
       send_cell_buffer[ir].reset();
       //make sure sent id messages have completed
       if (send_id_buffer[ir].sent()) {
         MPI_Wait(&s_id_reqs[ir], MPI_STATUS_IGNORE);
-        n_sends_completed++;
+        mctr.n_sends_completed++;
       }
       //send empty id message to finish awaiting receives
       vector<uint32_t> empty_id_vector;
       send_id_buffer[ir].fill(empty_id_vector);
       MPI_Isend(send_id_buffer[ir].get_buffer(), 1, MPI_UNSIGNED,
         off_rank, cell_id_tag, MPI_COMM_WORLD, &s_id_reqs[ir]);
-      n_sends_posted++;
+      mctr.n_sends_posted++;
       //wait for message to send
       MPI_Wait(&s_id_reqs[ir], MPI_STATUS_IGNORE);
-      n_sends_completed++;
+      mctr.n_sends_completed++;
       //reset send if buffer
       send_id_buffer[ir].reset();
     }
@@ -853,9 +931,14 @@ class Mesh {
       //make sure sent cell id messages have completed
       //wait for receives to complete
       MPI_Wait(&r_id_reqs[ir], MPI_STATUS_IGNORE);
-      n_receives_completed++;
+      mctr.n_receives_completed++;
       recv_id_buffer[ir].reset();
     }
+  }
+
+  //! Set maximum grip size
+  void set_max_grip_size(const uint32_t& new_max_grip_size) {
+    max_grip_size = new_max_grip_size;
   }
 
   //! Add mesh cell (used during decomposition, not parallel communication)
@@ -873,9 +956,9 @@ class Mesh {
   //! Get external source energy vector needed to source particles
   std::vector<double>& get_source_E_ref(void) {return m_source_E;}
 
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // member variables
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   private:
 
   uint32_t ngx; //! Number of global x sizes
@@ -904,7 +987,6 @@ class Mesh {
   std::vector<Cell> new_cell_list; //! New received cells
   std::vector<uint32_t> remove_cell_list; //! Cells to be removed
   std::vector<uint32_t> off_rank_bounds; //! Ending value of global ID for each rank
-  std::vector<uint32_t> boundary_cells; //! Index of adjacent ghost cells
  
   std::unordered_map<uint32_t, uint32_t> adjacent_procs; //! List of adjacent processors
 
@@ -952,6 +1034,7 @@ class Mesh {
   std::vector<int32_t > n_send_ids; //! Number of IDs to send
   std::set<uint32_t> ids_requested; //! IDs that have been requested
 
+  uint32_t max_grip_size; //! Size of largest grip on this rank
 };
 
 #endif // mesh_h_

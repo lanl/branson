@@ -89,19 +89,14 @@ class Completion_Manager_RMA : public Completion_Manager
     return *n_complete_tree_data;
   }
 
-
-
   //! No posting of receives is necessary so don't do anything
-  virtual void start_timestep(uint32_t& n_receives_posted) {}
+  virtual void start_timestep(Message_Counter& mctr) {}
 
   // non-const functions
 
   //! Resets all particle counts and finishes open requests (send counts are 
   // not used)
-  virtual void end_timestep(uint32_t& n_sends_posted,
-                            uint32_t& n_sends_completed, 
-                            uint32_t& n_receives_posted, 
-                            uint32_t& n_receives_completed)
+  virtual void end_timestep( Message_Counter& mctr)
   {
     //reset tree counts
     *n_complete_tree_data = 0;
@@ -119,12 +114,12 @@ class Completion_Manager_RMA : public Completion_Manager
     if (c1_req_flag) {
       MPI_Wait(&req_c1, MPI_STATUS_IGNORE);
       c1_req_flag = false;
-      n_receives_completed++;
+      mctr.n_receives_completed++;
     }
     if (c2_req_flag) {
       MPI_Wait(&req_c2, MPI_STATUS_IGNORE);
       c2_req_flag = false;
-      n_receives_completed++;
+      mctr.n_receives_completed++;
     }
   }
 
@@ -132,10 +127,7 @@ class Completion_Manager_RMA : public Completion_Manager
   // of completed particles by your children (n_sends_posted is not used
   virtual void process_completion(bool waiting_for_work,
                                   uint64_t& n_complete_tree,
-                                  uint32_t& n_sends_posted,
-                                  uint32_t& n_sends_completed,
-                                  uint32_t& n_receives_posted, 
-                                  uint32_t& n_receives_completed)
+                                  Message_Counter& mctr)
   {
     using Constants::proc_null;
 
@@ -153,14 +145,14 @@ class Completion_Manager_RMA : public Completion_Manager
           if (flag_c1) {
             n_complete_c1 = buffer_c1;
             c1_req_flag = false;
-            n_receives_completed++;
+            mctr.n_receives_completed++;
           }
         }
         if (!c1_req_flag) {
           MPI_Rget(&buffer_c1, 1, MPI_UNSIGNED_LONG, child1, 0,
             1, MPI_UNSIGNED_LONG, completion_window, &req_c1);
           c1_req_flag=true;
-          n_receives_posted++;
+          mctr.n_receives_posted++;
         }
       }
 
@@ -171,14 +163,14 @@ class Completion_Manager_RMA : public Completion_Manager
           if (flag_c2) {
             n_complete_c2 = buffer_c2;
             c2_req_flag = false;
-            n_receives_completed++;
+            mctr.n_receives_completed++;
           }
         }
         if (!c2_req_flag) {
           MPI_Rget(&buffer_c2, 1, MPI_UNSIGNED_LONG, child2, 0,
             1, MPI_UNSIGNED_LONG, completion_window, &req_c2);
           c2_req_flag=true;
-          n_receives_posted++;
+          mctr.n_receives_posted++;
         }
       }
 
@@ -197,14 +189,14 @@ class Completion_Manager_RMA : public Completion_Manager
               *n_complete_tree_data = n_complete_p;
             }
             p_req_flag =false;
-            n_receives_completed++;
+            mctr.n_receives_completed++;
           }
         }
         if (!p_req_flag && !finished) {
           MPI_Rget(&buffer_p, 1, MPI_UNSIGNED_LONG, parent, 0,
             1, MPI_UNSIGNED_LONG, completion_window, &req_p);
           p_req_flag=true;
-          n_receives_posted++;
+          mctr.n_receives_posted++;
         }
       }
       // If root, test tree count for completion

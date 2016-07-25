@@ -32,6 +32,7 @@ class IMC_Parameters
   IMC_Parameters(Input *input)
     : n_user_photon(input->get_number_photons()),
       map_size(input->get_map_size()),
+      grip_size(input->get_grip_size()),
       dd_mode(input->get_dd_mode()) ,
       batch_size(input->get_batch_size()),
       particle_message_size(input->get_particle_message_size()),
@@ -41,12 +42,15 @@ class IMC_Parameters
   // destructor
   ~IMC_Parameters() {}
 
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // const functions                                                          //
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
 
   //! Return total photons specified by the user
   uint64_t get_n_user_photon(void) const {return n_user_photon;}
+
+  //! Return the preferred number of cells in a parallel communication 
+  uint32_t get_grip_size(void) const {return grip_size;}
 
   //! Return maximum size of stored remote mesh
   uint32_t get_map_size(void) const {return map_size;}
@@ -66,12 +70,17 @@ class IMC_Parameters
   //! Get SILO write flag
   bool get_write_silo_flag(void) const {return write_silo_flag;}
 
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // member data                                                              //
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   private:
 
   uint64_t n_user_photon; //! User requested number of photons per timestep
+
+  //! Preferred number of cells in a grip, the number of cells that are sent 
+  // in a message together
+  uint32_t grip_size; 
+
   uint32_t map_size; //! Size of stored off-rank mesh cells
   uint32_t dd_mode; //! Mode of domain decomposed transport algorithm
   uint32_t completion_method; //! Method for handling completion messages
@@ -81,6 +90,6 @@ class IMC_Parameters
 };
 
 #endif // imc_parameters_h_
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
 // end of imc_parameters.h
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//

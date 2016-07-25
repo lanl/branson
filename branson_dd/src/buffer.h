@@ -43,16 +43,19 @@ class Buffer {
   void set_received(void) {status = RECEIVED;}
   void set_awaiting(void) {status = AWAITING;}
 
-  bool sent(void) {return status == SENT;}
-  bool awaiting(void) {return status == AWAITING;}
-  bool ready(void) {return status == READY;}
-  bool received(void) {return status == RECEIVED;}
-  bool empty(void) {return status == EMPTY;}
+  bool sent(void) const {return status == SENT;}
+  bool awaiting(void) const {return status == AWAITING;}
+  bool ready(void) const {return status == READY;}
+  bool received(void) const  {return status == RECEIVED;}
+  bool empty(void) const {return status == EMPTY;}
+  uint32_t get_grip_ID(void) const {return grip_ID;}
 
+  void set_grip_ID(uint32_t _grip_ID) {grip_ID = _grip_ID;}
 
   private:
   std::vector<T> object;
   uint32_t status;
+  uint32_t grip_ID; //! Only used in mesh passing
   enum {EMPTY, READY, SENT, AWAITING, RECEIVED};
 
 };

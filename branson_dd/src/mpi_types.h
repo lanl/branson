@@ -64,10 +64,10 @@ class MPI_Types
       // remake the MPI cell datatype from mesh
       const int cell_entry_count = 3 ; 
       // 7 uint32_t, 6 int, 13 double
-      int cell_array_of_block_length[4] = {10, 6, 14};
+      int cell_array_of_block_length[4] = {16, 6, 14};
       // Displacements of each type in the cell
       MPI_Aint cell_array_of_block_displace[3] = 
-        {0, 10*sizeof(uint32_t),  10*sizeof(uint32_t)+6*sizeof(int)};
+        {0, 16*sizeof(uint32_t),  16*sizeof(uint32_t)+6*sizeof(int)};
       //Type of each memory block
       MPI_Datatype cell_array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE}; 
 
@@ -88,10 +88,10 @@ class MPI_Types
       // make the Work Packet 
       const int wp_entry_count = 2 ; 
       // 7 uint32_t, 6 int, 13 double
-      int wp_array_of_block_length[3] = { 4, 7};
+      int wp_array_of_block_length[3] = { 6, 7};
       // Displacements of each type in the cell
       MPI_Aint wp_array_of_block_displace[2] = 
-        {0, 4*sizeof(uint32_t)};
+        {0, 6*sizeof(uint32_t)};
       //Type of each memory block
       MPI_Datatype wp_array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
 
@@ -112,9 +112,9 @@ class MPI_Types
   // destructor
   ~MPI_Types() {}
 
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // const functions                                                          //
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
 
   //! Return reference to MPI_Particle for use in communication calls
   MPI_Datatype get_particle_type(void) const {return MPI_Particle;}
@@ -134,10 +134,9 @@ class MPI_Types
   //! Return size of MPI work packet in bytes
   int get_work_packet_size(void) {return mpi_work_packet_size;}
 
-
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // member data                                                              //
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   private:
   MPI_Datatype MPI_Particle; //! Custom MPI datatype for particles
   MPI_Datatype MPI_Cell; //! Custom MPI datatype for mesh cell

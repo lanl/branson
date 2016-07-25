@@ -23,6 +23,7 @@
 #include "completion_manager_rma.h"
 #include "constants.h"
 #include "decompose_photons.h"
+#include "message_counter.h"
 #include "mesh.h"
 #include "mpi_types.h"
 #include "RNG.h"
@@ -49,7 +50,7 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
   using Constants::c;
   using std::min;
 
-  uint32_t cell_id, next_cell;
+  uint32_t cell_id, next_cell, next_grip;
   bc_type boundary_event;
   event_type event;
   double dist_to_scatter, dist_to_boundary, dist_to_census, dist_to_event;
@@ -92,7 +93,6 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
     //Apply variance/runtime reduction
     if (phtn.below_cutoff(cutoff_fraction)) {
       rank_abs_E[cell_id] += phtn.get_E();
-      phtn.set_dead();
       active=false;
       event=KILL;
     }
@@ -109,7 +109,9 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
         boundary_event = cell.get_bc(surface_cross);
         if(boundary_event == ELEMENT || boundary_event == PROCESSOR) {
           next_cell = cell.get_next_cell(surface_cross);
+          next_grip = cell.get_next_grip(surface_cross);
           phtn.set_cell(next_cell);
+          phtn.set_grip(next_grip);
           cell_id=next_cell;
           //look for this cell, if it's not there transport later
           if (mesh->mesh_available(cell_id))
@@ -128,7 +130,6 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
       }
       //EVENT TYPE: REACH CENSUS
       else if(dist_to_event == dist_to_census) {
-        phtn.set_census_flag(1);
         phtn.set_distance_to_census(c*next_dt);
         active=false;
         census_E+=phtn.get_E();
@@ -148,6 +149,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
                                         IMC_State* imc_state,
                                         IMC_Parameters* imc_parameters,
                                         Completion_Manager* comp,
+                                        Message_Counter& mctr,
                                         std::vector<double>& rank_abs_E,
                                         MPI_Types *mpi_types)
 {
@@ -164,6 +166,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   uint32_t n_local_sourced = 0;
 
   uint32_t cell_id;
+
   double census_E = 0.0;
   double exit_E = 0.0;
   double dt = imc_state->get_next_dt(); //<! For making current photons
@@ -176,21 +179,12 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
-  // parallel event counters
-  uint32_t n_cell_messages=0; //! Number of cell messages
-  uint32_t n_cells_sent=0; //! Number of cells passed
-  uint32_t n_sends_posted=0; //! Number of sent messages posted
-  uint32_t n_sends_completed=0; //! Number of sent messages completed
-  uint32_t n_receives_posted=0; //! Number of received messages completed
-  uint32_t n_receives_completed=0; //! Number of received messages completed
-
   // post receives to children and parent for completion messages 
-  comp->start_timestep(n_receives_posted);
+  comp->start_timestep(mctr);
 
   //set global particles to be n_rank, every rank sets it completed particles
   //to 1 after finished local work
   comp->set_timestep_global_particles(n_rank);
-
 
   // New data flag is initially false
   bool new_data = false;
@@ -200,9 +194,9 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   event_type event;
   uint32_t wait_list_size;
 
-  ////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // main loop over photons
-  ////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   vector<Photon> census_list; //! Local end of timestep census list
   vector<Photon> off_rank_census_list; //! Off rank end of timestep census list
   queue<Photon> wait_list; //! Photons waiting for mesh data 
@@ -222,7 +216,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
       // waiting list
       if (mesh->mesh_available(cell_id)) {
         event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
-                                        census_E, rank_abs_E);
+          census_E, rank_abs_E);
         cell_id = phtn.get_cell();
       }
       else event = WAIT;
@@ -239,9 +233,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
     } // end batch transport
 
     //process mesh requests
-    new_data = mesh->process_mesh_requests(n_cell_messages, n_cells_sent,
-      n_sends_posted, n_sends_completed,
-      n_receives_posted, n_receives_completed);
+    new_data = mesh->process_mesh_requests(mctr);
     // if data was received, try to transport photons on waiting list
     if (new_data) {
       wait_list_size = wait_list.size();
@@ -268,13 +260,11 @@ std::vector<Photon> transport_mesh_pass(Source& source,
 
   } //end while (n_local_source < n_local)
 
-  ////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // Main transport loop finished, transport photons waiting for data
-  ////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   while (!wait_list.empty()) {
-    new_data = mesh->process_mesh_requests(n_cell_messages, n_cells_sent,
-      n_sends_posted, n_sends_completed,
-      n_receives_posted, n_receives_completed);
+    new_data = mesh->process_mesh_requests(mctr);
     // if new data received, transport waiting list 
     if (new_data) {
       wait_list_size = wait_list.size();
@@ -284,7 +274,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
         cell_id=phtn.get_cell();
         if (mesh->mesh_available(cell_id)) {
           event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
-                                              census_E, rank_abs_E);
+            census_E, rank_abs_E);
           cell_id = phtn.get_cell();
           if (event==CENSUS) { 
             if (mesh->on_processor(cell_id)) census_list.push_back(phtn);
@@ -306,54 +296,43 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   // set complete to be 1 (true) when all ranks set this in the tree,
   // the root will see n_complete == n_rank and finish
   uint64_t complete =1;
-  ////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // While waiting for other ranks to finish, check for other messages
-  ////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   bool finished = false;
   bool waiting_for_work = true;
   while (!finished) {
-    mesh->process_mesh_requests(n_cell_messages, n_cells_sent,
-                                n_sends_posted, n_sends_completed,
-                                n_receives_posted, n_receives_completed);
-
-    comp->process_completion(waiting_for_work, complete, n_sends_posted, 
-      n_sends_completed, n_receives_posted, n_receives_completed);
+    mesh->process_mesh_requests(mctr);
+    comp->process_completion(waiting_for_work, complete, mctr);
     finished = comp->is_finished();
-  } //end while
+  } // end while
 
   // Milagro version sends completed count down, RMA version just resets
-  comp->end_timestep(n_sends_posted, n_sends_completed, n_receives_posted,
-    n_receives_completed);
+  comp->end_timestep(mctr);
 
-  //wait for all ranks to finish transport to finish off cell and cell id
-  //requests and sends
+  // wait for all ranks to finish transport to finish off cell and cell id
+  // requests and sends
   MPI_Barrier(MPI_COMM_WORLD);
 
-  mesh->finish_mesh_pass_messages(n_sends_posted, n_sends_completed,
-                                  n_receives_posted, n_receives_completed);
+  mesh->finish_mesh_pass_messages(mctr);
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  //All ranks have now finished transport
+  // all ranks have now finished transport
 
   imc_state->set_exit_E(exit_E);
   imc_state->set_post_census_E(census_E);
-  imc_state->set_step_cell_messages(n_cell_messages);
-  imc_state->set_step_cells_sent(n_cells_sent);
-  imc_state->set_step_sends_posted(n_sends_posted);
-  imc_state->set_step_sends_completed(n_sends_completed);
-  imc_state->set_step_receives_posted(n_receives_posted);
-  imc_state->set_step_receives_completed(n_receives_completed);
+  imc_state->set_network_message_counts(mctr);
 
-  //send the off-rank census back to ranks that own the mesh its on.
-  //receive census particles that are on your mesh
+  // send the off-rank census back to ranks that own the mesh its on.
+  // receive census particles that are on your mesh
   vector<Photon> rebalanced_census = rebalance_census(off_rank_census_list,
                                                       mesh, mpi_types);
   census_list.insert(census_list.end(), 
     rebalanced_census.begin(), 
     rebalanced_census.end());
   
-  //sort on census vectors by cell ID (global ID)
+  // sort on census vectors by cell ID (global ID)
   sort(census_list.begin(), census_list.end());
 
   // set post census size after sorting and merging
@@ -363,7 +342,6 @@ std::vector<Photon> transport_mesh_pass(Source& source,
 }
 
 #endif // def transport_mesh_pass_h_
-
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
 // end of transport_mesh_pass.h
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//

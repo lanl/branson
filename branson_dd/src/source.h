@@ -55,8 +55,6 @@ class Source {
     //reset the total number of photons before counting
     n_photon = 0;
 
-    uint32_t global_index;
-
     //make work packets
     Work_Packet temp_cell_work;
     // current cell pointer
@@ -71,8 +69,8 @@ class Source {
         if (t_num_emission == 0) t_num_emission =1; 
         n_photon+=t_num_emission;
         // make work packet and add to vector
-        global_index =mesh->get_global_ID(i); 
-        temp_cell_work.set_global_cell_ID(global_index);
+        temp_cell_work.set_global_cell_ID(cell_ptr->get_ID());
+        temp_cell_work.set_global_grip_ID(cell_ptr->get_grip_ID());
         temp_cell_work.attach_emission_work(E_cell_emission[i], t_num_emission);
         temp_cell_work.set_coor(cell_ptr->get_node_array());
         work.push_back(temp_cell_work);
@@ -132,29 +130,35 @@ class Source {
     Work_Packet temp_packet;
 
     if (!census_photons.empty()) {
-      uint32_t last_g_ID = census_photons.front().get_cell();
-      uint32_t current_g_ID=last_g_ID;
+      uint32_t last_cell_ID = census_photons.front().get_cell();
+      uint32_t last_grip_ID = census_photons.front().get_grip();
+      uint32_t current_cell_ID=last_cell_ID;
+      uint32_t current_grip_ID=last_grip_ID;
       uint32_t census_in_cell=0;
       uint32_t i=0; //! Used to mark the loop index
       uint32_t start_index = 0;
       for (vector<Photon>::iterator iphtn =census_photons.begin(); 
-        iphtn!=census_photons.end();iphtn++) 
+        iphtn!=census_photons.end(); iphtn++) 
       {
-        current_g_ID = iphtn->get_cell();
-        // if new global ID, try to attach to work packet to the last global index
-        if (last_g_ID != current_g_ID) {
+        current_cell_ID = iphtn->get_cell();
+        current_grip_ID = iphtn->get_grip();
+        // if new global ID, try to attach to work packet to the last global 
+        // index
+        if (last_cell_ID != current_cell_ID) {
           // if work_packet exists for the last cell, attach
-          if (work_map.find(last_g_ID) != work_map.end())
-            work_map[last_g_ID]->attach_census_work(start_index, census_in_cell);
+          if (work_map.find(last_cell_ID) != work_map.end())
+            work_map[last_cell_ID]->attach_census_work(start_index, census_in_cell);
           // otherwise make a work packet and append it
           else {
-            temp_packet.set_global_cell_ID(last_g_ID);
+            temp_packet.set_global_cell_ID(last_cell_ID);
+            temp_packet.set_global_grip_ID(last_grip_ID);
             temp_packet.attach_census_work(start_index, census_in_cell);
             // add this work to the total work vector
             work.push_back(temp_packet);
           }
           // update indices, reset count
-          last_g_ID = current_g_ID;
+          last_cell_ID = current_cell_ID;
+          last_grip_ID = current_grip_ID;
           start_index = i;
           n_photon+=census_in_cell;
           census_in_cell = 0;
@@ -165,11 +169,12 @@ class Source {
       }
 
       //process work from last group of census particles
-      if (work_map.find(current_g_ID) != work_map.end())
-        work_map[last_g_ID]->attach_census_work(start_index, census_in_cell);
+      if (work_map.find(current_cell_ID) != work_map.end())
+        work_map[last_cell_ID]->attach_census_work(start_index, census_in_cell);
       // otherwise make a work packet and append it
       else {
-        temp_packet.set_global_cell_ID(last_g_ID);
+        temp_packet.set_global_cell_ID(last_cell_ID);
+        temp_packet.set_global_grip_ID(last_grip_ID);
         temp_packet.attach_census_work(start_index, census_in_cell);
         // add this work to the total work vector
         work.push_back(temp_packet);
@@ -233,6 +238,7 @@ class Source {
     emission_photon.set_E0(phtn_E);
     emission_photon.set_distance_to_census(rng->generate_random_number()*c*dt);
     emission_photon.set_cell(work.get_global_cell_ID());
+    emission_photon.set_grip(work.get_global_grip_ID());
   }
 
   //! Return reference to work vector

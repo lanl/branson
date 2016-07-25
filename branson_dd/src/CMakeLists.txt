@@ -24,7 +24,7 @@ set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
 #set (DEBUG_FLAGS "${DEBUG_FLAGS} -h std=c++11")
 
 # append optimization flags
-#set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
+set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
 
 set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${DEBUG_FLAGS}" )
 message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
@@ -32,6 +32,13 @@ message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
 #set version number
 set(BRANSON_VERSION_MAJOR 0)
 set(BRANSON_VERSION_MINOR 8)
+
+
+###############################################################################
+# Random123
+# Download and install Random123
+###############################################################################
+#ExternalProject_Add(random123 URL https://www.deshawresearch.com/downloads/download_random123.cgi/Random123-1.09.tar.gz)
 
 ###############################################################################
 # metis and parmetis

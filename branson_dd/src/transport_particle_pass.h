@@ -23,15 +23,16 @@
 #include <stack>
 #include <vector>
 
+#include "buffer.h"
 #include "completion_manager_rma.h"
 #include "completion_manager_milagro.h"
 #include "constants.h"
-#include "buffer.h"
 #include "mesh.h"
+#include "message_counter.h"
 #include "mpi_types.h"
+#include "photon.h"
 #include "sampling_functions.h"
 #include "RNG.h"
-#include "photon.h"
 
 Constants::event_type 
   transport_photon_particle_pass( Photon& phtn,
@@ -96,7 +97,6 @@ Constants::event_type
     //Apply variance/runtime reduction
     if (phtn.below_cutoff(cutoff_fraction)) {
       rank_abs_E[cell_id] += phtn.get_E();
-      phtn.set_dead();
       active=false;
       event=KILL;
     }
@@ -133,7 +133,6 @@ Constants::event_type
       }
       //EVENT TYPE: REACH CENSUS
       else if(dist_to_event == dist_to_census) {
-        phtn.set_census_flag(1);
         phtn.set_distance_to_census(c*next_dt);
         active=false;
         event=CENSUS;
@@ -152,6 +151,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
                                             IMC_Parameters* imc_parameters,
                                             MPI_Types* mpi_types,
                                             Completion_Manager* comp,
+                                            Message_Counter& mctr,
                                             std::vector<double>& rank_abs_E)
 {
   using Constants::event_type;
@@ -179,16 +179,6 @@ std::vector<Photon> transport_particle_pass(Source& source,
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
-  // parallel event counters
-  uint32_t n_photon_messages=0; //! Number of photon messages
-  uint32_t n_photons_sent=0; //! Number of photons passed
-  uint32_t n_sends_posted=0; //! Number of sent messages posted
-  uint32_t n_sends_completed=0; //! Number of sent messages completed
-  uint32_t n_receives_posted=0; //! Number of received messages completed
-  uint32_t n_receives_completed=0; //! Number of received messages completed
-  uint64_t n_complete_messages=0; //! Number of complete messages
-  uint64_t n_photon_tests=0; //! Number of receive tests for photon lists
-
   // Number of particles to run between MPI communication 
   const uint32_t batch_size = imc_parameters->get_batch_size();
 
@@ -206,7 +196,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
     MPI_COMM_WORLD);
 
   // post receives to children and parent for completion messages 
-  comp->start_timestep(n_receives_posted);
+  comp->start_timestep(mctr);
 
   //set global particle count in completion object
   comp->set_timestep_global_particles(n_global);
@@ -224,7 +214,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
   vector<Buffer<Photon> > phtn_recv_buffer(n_adjacent);
   vector<Buffer<Photon> > phtn_send_buffer(n_adjacent);
 
-  //Post receives for photons from adjacent sub-domains
+  // Post receives for photons from adjacent sub-domains
   {
     uint32_t i_b; // buffer index
     int adj_rank; // adjacent rank
@@ -244,21 +234,21 @@ std::vector<Photon> transport_particle_pass(Source& source,
         photon_tag,
         MPI_COMM_WORLD,
         &phtn_recv_request[i_b]);
-      n_receives_posted++;
+      mctr.n_receives_posted++;
       phtn_recv_buffer[i_b].set_awaiting();
     } // end loop over adjacent processors
   }
 
-  ////////////////////////////////////////////////////////////////////////
+  //------------------------------------------------------------------------//
   // main transport loop
-  ////////////////////////////////////////////////////////////////////////
+  //------------------------------------------------------------------------//
 
-  vector<Photon> census_list; //!< End of timestep census list
-  stack<Photon> phtn_recv_stack; //!< Stack of received photons
+  vector<Photon> census_list; //! End of timestep census list
+  stack<Photon> phtn_recv_stack; //! Stack of received photons
 
   int send_rank;
-  uint64_t n_complete = 0; //!< Completed histories, regardless of origin
-  uint64_t n_local_sourced = 0; //!< Photons pulled from source object
+  uint64_t n_complete = 0; //! Completed histories, regardless of origin
+  uint64_t n_local_sourced = 0; //! Photons pulled from source object
   bool finished = false;
   bool from_receive_stack = false;
   bool waiting_for_work = false;
@@ -269,9 +259,9 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
     uint32_t n = batch_size;
     
-    ////////////////////////////////////////////////////////////////////////////
+    //------------------------------------------------------------------------//
     // Transport photons from source and received list
-    ////////////////////////////////////////////////////////////////////////////
+    //------------------------------------------------------------------------//
     //first, try to transport photons from the received list
     while (n && (!phtn_recv_stack.empty() || (n_local_sourced < n_local))) {
       
@@ -311,9 +301,9 @@ std::vector<Photon> transport_particle_pass(Source& source,
       if (from_receive_stack) phtn_recv_stack.pop();
     }
 
-    ////////////////////////////////////////////////////////////////////////////
+    //------------------------------------------------------------------------//
     // process photon send and receives 
-    ////////////////////////////////////////////////////////////////////////////
+    //------------------------------------------------------------------------//
     {
       int send_req_flag;
       int recv_req_flag;
@@ -331,7 +321,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
           MPI_Test(&phtn_send_request[i_b], &send_req_flag, MPI_STATUS_IGNORE);
           if (send_req_flag) {
             phtn_send_buffer[i_b].reset();
-            n_sends_completed++;
+            mctr.n_sends_completed++;
           } 
         }
 
@@ -347,7 +337,6 @@ std::vector<Photon> transport_particle_pass(Source& source,
           vector<Photon> send_now_list(copy_start, copy_end);
           send_list[i_b].erase(copy_start,copy_end); 
           phtn_send_buffer[i_b].fill(send_now_list);
-          n_photons_sent += n_photons_to_send;
           MPI_Isend(phtn_send_buffer[i_b].get_buffer(), 
             n_photons_to_send,  
             MPI_Particle, 
@@ -355,17 +344,17 @@ std::vector<Photon> transport_particle_pass(Source& source,
             photon_tag, 
             MPI_COMM_WORLD, 
             &phtn_send_request[i_b]);
-          n_sends_posted++;
           phtn_send_buffer[i_b].set_sent();
-          n_photon_messages++;
+          // update counters
+          mctr.n_particles_sent += n_photons_to_send;
+          mctr.n_sends_posted++;
+          mctr.n_particle_messages++;
         }
 
         //process receive buffer
         if (phtn_recv_buffer[i_b].awaiting()) {
-          n_photon_tests++;
           MPI_Test(&phtn_recv_request[i_b], &recv_req_flag, &recv_status);
           if (recv_req_flag) {
-            n_receives_completed++;
             vector<Photon>& receive_list = phtn_recv_buffer[i_b].get_object();
             // only push the number of received photons onto the recv_stack
             MPI_Get_count(&recv_status, MPI_Particle, &recv_count);
@@ -380,30 +369,29 @@ std::vector<Photon> transport_particle_pass(Source& source,
               photon_tag,
               MPI_COMM_WORLD,
               &phtn_recv_request[i_b]);
-            n_receives_posted++;
             phtn_recv_buffer[i_b].set_awaiting();
+            mctr.n_receives_completed++;
+            mctr.n_receives_posted++;
           }
         }
       } // end loop over adjacent processors
     } //end scope of particle passing
  
-    ////////////////////////////////////////////////////////////////////////////
+    //------------------------------------------------------------------------//
     // binary tree completion communication
-    ////////////////////////////////////////////////////////////////////////////
+    //------------------------------------------------------------------------//
 
     waiting_for_work = ((n_local_sourced == n_local) && 
       phtn_recv_stack.empty());
 
-    comp->process_completion(waiting_for_work, n_complete, n_sends_posted, 
-      n_sends_completed, n_receives_posted, n_receives_completed);
+    comp->process_completion(waiting_for_work, n_complete, mctr);
 
     finished = comp->is_finished();
 
   } // end while
 
   // Milagro version sends completed count down, RMA version just resets
-  comp->end_timestep(n_sends_posted, n_sends_completed, n_receives_posted,
-    n_receives_completed);
+  comp->end_timestep(mctr);
 
   // wait for all ranks to finish then send empty photon messages.
   // Do this because it's possible for a rank to receive the empty message
@@ -427,43 +415,30 @@ std::vector<Photon> transport_particle_pass(Source& source,
       //be processed by the receiving ranks (all ranks are out of transport)
       MPI_Isend(&one_photon[0], 1, MPI_Particle, adj_rank,
         photon_tag, MPI_COMM_WORLD, &phtn_send_request[i_b]);
-      n_sends_posted++;
+      mctr.n_sends_posted++;
       MPI_Wait(&phtn_send_request[i_b], MPI_STATUS_IGNORE);
-      n_sends_completed++;
+      mctr.n_sends_completed++;
     } // end loop over adjacent processors
   }
 
   // Wait for receive requests
   for (uint32_t i_b=0; i_b<n_adjacent; i_b++) {
     MPI_Wait(&phtn_recv_request[i_b], MPI_STATUS_IGNORE);
-    n_receives_completed++;
+    mctr.n_receives_completed++;
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
-
-  // Reduce diagnostic quantities
-  uint64_t g_complete_messages=0;
-  uint64_t g_photon_tests=0;
-  MPI_Allreduce(&n_complete_messages, &g_complete_messages, 1, MPI_UNSIGNED_LONG,
-    MPI_SUM, MPI_COMM_WORLD);
-  MPI_Allreduce(&n_photon_tests, &g_photon_tests, 1, MPI_UNSIGNED_LONG,
-    MPI_SUM, MPI_COMM_WORLD);
 
   std::sort(census_list.begin(), census_list.end());
   //All ranks have now finished transport
   delete[] phtn_recv_request;
   delete[] phtn_send_request;
 
+  //set diagnostic quantities
   imc_state->set_exit_E(exit_E);
   imc_state->set_post_census_E(census_E);
   imc_state->set_census_size(census_list.size());
-  //set diagnostic
-  imc_state->set_step_particle_messages(n_photon_messages);
-  imc_state->set_step_particles_sent(n_photons_sent);
-  imc_state->set_step_sends_posted(n_sends_posted);
-  imc_state->set_step_sends_completed(n_sends_completed);
-  imc_state->set_step_receives_posted(n_receives_posted);
-  imc_state->set_step_receives_completed(n_receives_completed);
+  imc_state->set_network_message_counts(mctr);
 
   return census_list;
 }

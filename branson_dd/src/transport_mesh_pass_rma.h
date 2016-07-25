@@ -23,6 +23,7 @@
 #include "decompose_photons.h"
 #include "mesh.h"
 #include "mesh_rma_manager.h"
+#include "message_counter.h"
 #include "mpi_types.h"
 #include "RNG.h"
 #include "sampling_functions.h"
@@ -37,6 +38,7 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
                                             IMC_State* imc_state,
                                             IMC_Parameters* imc_parameters,
                                             RMA_Manager* rma_manager,
+                                            Message_Counter& mctr, 
                                             std::vector<double>& rank_abs_E,
                                             MPI_Types *mpi_types)
 {
@@ -53,6 +55,7 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
   uint32_t n_local_sourced = 0;
 
   uint32_t cell_id;
+
   double census_E = 0.0;
   double exit_E = 0.0;
   double dt = imc_state->get_next_dt(); //! For making current photons
@@ -70,29 +73,22 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
   struct timezone tzp;
   gettimeofday(&start, &tzp); 
 
-  // parallel event counters
-  uint32_t n_cell_messages=0; //! Number of cell messages
-  uint32_t n_cells_sent=0; //! Number of cells passed
-  uint32_t n_sends_posted=0; //! Number of sent messages posted
-  uint32_t n_sends_completed=0; //! Number of sent messages completed
-  uint32_t n_receives_posted=0; //! Number of received messages completed
-  uint32_t n_receives_completed=0; //! Number of received messages completed
-
-  
   bool new_data = false; //! New data flag is initially false
   std::vector<Cell> new_cells; // New cells from completed RMA requests
+
   // Number of particles to run between MPI communication 
   const uint32_t batch_size = imc_parameters->get_batch_size();
 
   event_type event;
   uint32_t wait_list_size;
 
-  ////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // main loop over photons
-  ////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   vector<Photon> census_list; //! Local end of timestep census list
   vector<Photon> off_rank_census_list; //! Off rank end of timestep census list
   queue<Photon> wait_list; //! Photons waiting for mesh data 
+
   while ( n_local_sourced < n_local) {
     
     uint32_t n = batch_size;
@@ -119,14 +115,14 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
         else off_rank_census_list.push_back(phtn);
       }
       else if (event==WAIT) {
-        rma_manager->request_cell_rma(cell_id, n_receives_posted);
+        rma_manager->request_cell_rma(phtn.get_grip(), mctr);
         wait_list.push(phtn);
       }
       n--;
     } // end batch transport
 
     //process mesh requests
-    new_cells = rma_manager->process_rma_mesh_requests(n_receives_completed);
+    new_cells = rma_manager->process_rma_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data) mesh->add_non_local_mesh_cells(new_cells);
     // if data was received, try to transport photons on waiting list
@@ -145,12 +141,12 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
             else off_rank_census_list.push_back(phtn);
           }
           else if (event==WAIT) {
-            rma_manager->request_cell_rma(cell_id, n_receives_posted);
+            rma_manager->request_cell_rma(phtn.get_grip(), mctr);
             wait_list.push(phtn);
           }
         }
         else {
-          rma_manager->request_cell_rma(cell_id, n_receives_posted);
+          rma_manager->request_cell_rma(phtn.get_grip(), mctr);
           wait_list.push(phtn);
         }
       } // end wp in wait_list
@@ -158,12 +154,12 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
 
   } //end while (n_local_source < n_local)
 
-  ////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // Main transport loop finished, transport photons waiting for data
-  ////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   wait_list_size = wait_list.size();
   while (!wait_list.empty()) {
-    new_cells = rma_manager->process_rma_mesh_requests(n_receives_completed);
+    new_cells = rma_manager->process_rma_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data) mesh->add_non_local_mesh_cells(new_cells);
     // if new data received or there are no active mesh requests, try to 
@@ -184,13 +180,13 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
             else off_rank_census_list.push_back(phtn);
           }
           else if (event==WAIT) {
-            rma_manager->request_cell_rma(cell_id, n_receives_posted);
+            rma_manager->request_cell_rma(phtn.get_grip(), mctr);
             wait_list.push(phtn);
           }
         }
         else {
+          rma_manager->request_cell_rma(phtn.get_grip(), mctr);
           wait_list.push(phtn);
-          rma_manager->request_cell_rma(cell_id, n_receives_posted);
         }
       }
     }
@@ -201,16 +197,10 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  // all ranks have now finished transport
-
+  // all ranks have now finished transport set diagnostic quantities
   imc_state->set_exit_E(exit_E);
   imc_state->set_post_census_E(census_E);
-  imc_state->set_step_cell_messages(n_receives_posted);
-  imc_state->set_step_cells_sent(n_receives_completed);
-  imc_state->set_step_sends_posted(n_sends_posted);
-  imc_state->set_step_sends_completed(n_sends_completed);
-  imc_state->set_step_receives_posted(n_receives_posted);
-  imc_state->set_step_receives_completed(n_receives_completed);
+  imc_state->set_network_message_counts(mctr);
   imc_state->set_rank_transport_runtime(get_runtime(&start,&end));
 
   // send the off-rank census back to ranks that own the mesh its on.
@@ -232,7 +222,6 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
 }
 
 #endif // def transport_rma_mesh_pass_h_
-
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
 // end of transport_mesh_pass_rma.h
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//

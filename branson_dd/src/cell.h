@@ -48,15 +48,17 @@ class Cell
 
   ~Cell(void) {}
 
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // const functions                                                          //
-  //////////////////////////////////////////////////////////////////////////////
-
+  //--------------------------------------------------------------------------//
   //! Get boundary condition type in this direction
   Constants::bc_type get_bc(const uint32_t& dir) const {return bc[dir];}
 
   //! Get global ID of cell in next direction
   uint32_t get_next_cell(const uint32_t& dir) const {return e_next[dir];} 
+
+  //! Get grip ID of cell in next direction
+  uint32_t get_next_grip(const uint32_t& dir) const {return grip_next[dir];} 
 
   //! Return a distance to boundary and set surface crossing given 
   // position and angle
@@ -135,6 +137,9 @@ class Cell
   // Return global ID
   uint32_t get_ID(void) const {return g_ID;}
 
+  // Return global grip ID
+  uint32_t get_grip_ID(void) const {return grip_ID;}
+
   // Return region ID
   uint32_t get_region_ID(void) const {return region_ID;}
 
@@ -173,13 +178,23 @@ class Cell
    
   }
 
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // non-const functions                                                      //
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   
+  //! Provide static function for sorting based on grip ID
+  static bool sort_grip_ID(const Cell& compare_1, const Cell& compare_2) {
+    return compare_1.get_grip_ID() < compare_2.get_grip_ID();
+  }
+
   //! Set neighbor in a given direction by global cell ID
   void set_neighbor(Constants::dir_type neighbor_dir, uint32_t nbr_g_ID) {
     e_next[neighbor_dir] = nbr_g_ID;
+  }
+
+  //! Set grip neighbor in a given direction by global grip ID
+  void set_grip_neighbor(Constants::dir_type neighbor_dir, uint32_t nbr_grip_ID) {
+    grip_next[neighbor_dir] = nbr_grip_ID;
   }
 
   //! Set boundary conditions for cell in a given direction
@@ -214,6 +229,9 @@ class Cell
   //! Set global ID
   void set_ID(double _id) {g_ID = _id;}
 
+  //! Set global grip ID
+  void set_grip_ID(double _grip_id) {grip_ID = _grip_id;}
+
   //! Set region ID
   void set_region_ID(uint32_t _region_ID) { region_ID=_region_ID;}
 
@@ -232,13 +250,18 @@ class Cell
   //! Set SILO index (for plotting)
   void set_silo_index(uint32_t _silo_index) {silo_index = _silo_index;}
 
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // member data                                                              //
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   private:
   uint32_t g_ID; //! Global ID, valid across all ranks
+
+  //! Global ID of cell at the center of grip, valid across all ranks 
+  uint32_t grip_ID;
+
   uint32_t region_ID; //! region cell is in (for setting physical properties)
   uint32_t e_next[6]; //! Bordering cell, given as global ID
+  uint32_t grip_next[6]; //! Bordering grip, given as global cell ID
   uint32_t silo_index; //! Global index not remappated, for SILO plotting
   Constants::bc_type bc[6];   //! Boundary conditions for each face 
   double nodes[6]; //! x_low, x_high, y_low, y_high, z_low, z_high

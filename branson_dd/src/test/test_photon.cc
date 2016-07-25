@@ -26,8 +26,6 @@ int main (void) {
   {
     bool test_photon = true;
     Photon photon;
-    //after construction census_flag should be false
-    if (photon.get_census_flag()) test_photon = false;
 
     //set position matches get position
     double pos[3] = {0.1, 0.2, 0.3}; 
@@ -39,14 +37,23 @@ int main (void) {
     if (pos[2] != pos_from_get[2]) test_photon= false;
 
     //set angle matches get angle
-    double angle[3] = {0.57735, 0.57735, 0.57735};
+    double angle[3] = {0.57735, 0.37735, 0.52427};
     photon.set_angle(angle);
     const double *angle_from_get = photon.get_angle();
     
     if (angle[0] != angle_from_get[0]) test_photon= false;
     if (angle[1] != angle_from_get[1]) test_photon= false;
     if (angle[2] != angle_from_get[2]) test_photon= false;
+   
+    // set cell and grip matches get cell and grip
+    uint32_t cell = 129120;
+    uint32_t grip = 213191;
+    photon.set_cell(cell);
+    photon.set_grip(grip);
     
+    if (photon.get_cell() != cell) test_photon= false;
+    if (photon.get_grip() != grip) test_photon= false;
+ 
     if (test_photon) cout<<"TEST PASSED: Photon construction, get and set functions"<<endl;
     else { 
       cout<<"TEST FAILED: Photon construction, get and set functions function"<<endl; 

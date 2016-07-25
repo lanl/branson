@@ -52,7 +52,7 @@ class Completion_Manager_Milagro : public Completion_Manager
   ~Completion_Manager_Milagro() {}
 
   //non-const functions
-  virtual void start_timestep(uint32_t& n_receives_posted) {
+  virtual void start_timestep(Message_Counter& mctr) {
     using Constants::proc_null;
     using Constants::count_tag;
     // Messages are sent up the tree whenever a rank has completed its local work
@@ -63,19 +63,19 @@ class Completion_Manager_Milagro : public Completion_Manager
     if (child1!=proc_null) {
       MPI_Irecv(c1_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1, 
         count_tag, MPI_COMM_WORLD, &c1_recv_req);
-      n_receives_posted++;
+      mctr.n_receives_posted++;
       c1_recv_buffer.set_awaiting();
     }
     if (child2!=proc_null) {
       MPI_Irecv(c2_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child2,
         count_tag, MPI_COMM_WORLD, &c2_recv_req);
-      n_receives_posted++;
+      mctr.n_receives_posted++;
       c2_recv_buffer.set_awaiting();
     }
     if (parent != proc_null) {
       MPI_Irecv(p_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
         count_tag, MPI_COMM_WORLD, &p_recv_req);
-      n_receives_posted++;
+      mctr.n_receives_posted++;
       p_recv_buffer.set_awaiting();
     }
   }
@@ -83,11 +83,7 @@ class Completion_Manager_Milagro : public Completion_Manager
   //! Check for completed particle counts from children and parent.
   // Add children to current tree count. If parent count is received, 
   // it will be the global problem particle count, indicating completion
-  void check_messages(uint64_t& n_complete_tree,
-                      uint32_t& n_receives_posted, 
-                      uint32_t& n_receives_completed, 
-                      uint32_t& n_sends_completed) 
-  {
+  void check_messages(uint64_t& n_complete_tree, Message_Counter& mctr) {
     using Constants::proc_null;
     using Constants::count_tag;
 
@@ -95,7 +91,7 @@ class Completion_Manager_Milagro : public Completion_Manager
     if (c1_recv_buffer.awaiting()) {
       MPI_Test(&c1_recv_req, &flag_c1, MPI_STATUS_IGNORE);
       if (flag_c1) {
-        n_receives_completed++;
+        mctr.n_receives_completed++;
         c1_recv_buffer.set_received();
         n_complete_c1 = c1_recv_buffer.get_object()[0];
         //update tree count 
@@ -104,14 +100,14 @@ class Completion_Manager_Milagro : public Completion_Manager
         c1_recv_buffer.reset();
         MPI_Irecv(c1_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1, 
           count_tag, MPI_COMM_WORLD, &c1_recv_req);
-        n_receives_posted++;
+        mctr.n_receives_posted++;
         c1_recv_buffer.set_awaiting();
       }
     }
     if (c2_recv_buffer.awaiting()) {
       MPI_Test(&c2_recv_req, &flag_c2, MPI_STATUS_IGNORE);
       if (flag_c2) {
-        n_receives_completed++;
+        mctr.n_receives_completed++;
         c2_recv_buffer.set_received();
         n_complete_c2 = c2_recv_buffer.get_object()[0];
         //update tree count 
@@ -120,7 +116,7 @@ class Completion_Manager_Milagro : public Completion_Manager
         c2_recv_buffer.reset();
         MPI_Irecv(c2_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child2, 
           count_tag, MPI_COMM_WORLD, &c2_recv_req);
-        n_receives_posted++;
+        mctr.n_receives_posted++;
         c2_recv_buffer.set_awaiting();
       }
     }
@@ -129,7 +125,7 @@ class Completion_Manager_Milagro : public Completion_Manager
     if (p_recv_buffer.awaiting()) {
       MPI_Test(&p_recv_req, &flag_p, MPI_STATUS_IGNORE);
       if (flag_p) {
-        n_receives_completed++;
+        mctr.n_receives_completed++;
         p_recv_buffer.set_received();
         n_complete_p = p_recv_buffer.get_object()[0];
         finished = true;
@@ -140,7 +136,7 @@ class Completion_Manager_Milagro : public Completion_Manager
     if (p_send_buffer.sent() ) {
       MPI_Test(&p_send_req, &flag_p, MPI_STATUS_IGNORE);
       if (flag_p) {
-        n_sends_completed++;
+        mctr.n_sends_completed++;
         p_send_buffer.reset();
       }
     }
@@ -149,25 +145,20 @@ class Completion_Manager_Milagro : public Completion_Manager
   //! For the Milagro method, send the completed count up the tree
   virtual void process_completion(bool waiting_for_work,
                                   uint64_t& n_complete_tree,
-                                  uint32_t& n_sends_posted,
-                                  uint32_t& n_sends_completed,
-                                  uint32_t& n_receives_posted, 
-                                  uint32_t& n_receives_completed)
+                                  Message_Counter& mctr)
   {
     using std::vector;
     using Constants::count_tag;
     using Constants::proc_null;
 
-
-    check_messages(n_complete_tree, n_receives_posted, n_receives_completed,
-      n_sends_completed);
+    check_messages(n_complete_tree, mctr);
 
     // non-root ranks send complete counts up the tree
     if (n_complete_tree && waiting_for_work && parent!=proc_null) {
       p_send_buffer.fill(vector<uint64_t> (1,n_complete_tree));
       MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
         count_tag, MPI_COMM_WORLD, &p_send_req);
-      n_sends_posted++;
+      mctr.n_sends_posted++;
       //n_complete_messages++;
       p_send_buffer.set_sent();
       //reset tree count so work is not double counted
@@ -180,10 +171,7 @@ class Completion_Manager_Milagro : public Completion_Manager
   }
 
   //! Send finish message down the tree and finish off messages
-  virtual void end_timestep(uint32_t& n_sends_posted,
-                            uint32_t& n_sends_completed, 
-                            uint32_t& n_receives_posted, 
-                            uint32_t& n_receives_completed)
+  virtual void end_timestep(Message_Counter& mctr)
   {
     using std::vector;
     using Constants::proc_null;
@@ -194,26 +182,26 @@ class Completion_Manager_Milagro : public Completion_Manager
     if (child1 != proc_null) {
       if (c1_send_buffer.sent()) {
         MPI_Wait(&c1_send_req, MPI_STATUS_IGNORE);
-        n_sends_completed++;
+        mctr.n_sends_completed++;
       }
       c1_send_buffer.fill(vector<uint64_t> (1,n_particle_global));
       MPI_Isend(c1_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1, 
         count_tag, MPI_COMM_WORLD, &c1_send_req);
-      n_sends_posted++;
+      mctr.n_sends_posted++;
       MPI_Wait(&c1_send_req, MPI_STATUS_IGNORE);
-      n_sends_completed++;
+      mctr.n_sends_completed++;
     }
     if (child2 != proc_null)  {
       if (c2_send_buffer.sent()) {
         MPI_Wait(&c2_send_req, MPI_STATUS_IGNORE);
-        n_sends_completed++;
+        mctr.n_sends_completed++;
       }
       c2_send_buffer.fill(vector<uint64_t> (1,n_particle_global));
       MPI_Isend(c2_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child2,
         count_tag, MPI_COMM_WORLD, &c2_send_req);
-      n_sends_posted++;
+      mctr.n_sends_posted++;
       MPI_Wait(&c2_send_req, MPI_STATUS_IGNORE);
-      n_sends_completed++;
+      mctr.n_sends_completed++;
     }
 
     // wait for parent send to complete, if sent then finish off
@@ -221,23 +209,23 @@ class Completion_Manager_Milagro : public Completion_Manager
     if (parent!=proc_null) {
       if (p_send_buffer.sent()) {
         MPI_Wait(&p_send_req, MPI_STATUS_IGNORE);
-        n_sends_completed++;
+        mctr.n_sends_completed++;
       }
       p_send_buffer.fill(vector<uint64_t> (1,1));
       MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
         count_tag, MPI_COMM_WORLD, &p_send_req);
-      n_sends_posted++;
+      mctr.n_sends_posted++;
       MPI_Wait(&p_send_req, MPI_STATUS_IGNORE);
-      n_sends_completed++;
+      mctr.n_sends_completed++;
     }
 
     if (child1 != proc_null) {
       MPI_Wait(&c1_recv_req, MPI_STATUS_IGNORE);
-      n_receives_completed++;
+      mctr.n_receives_completed++;
     }
     if (child2 != proc_null) {
       MPI_Wait(&c2_recv_req, MPI_STATUS_IGNORE);
-      n_receives_completed++;
+      mctr.n_receives_completed++;
     }
 
     //reset tree counts

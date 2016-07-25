@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
   gettimeofday(&start, &tzp); 
 
   // decompose mesh with ParMETIS
-  decompose_mesh(mesh, mpi_types);
+  decompose_mesh(mesh, mpi_types, imc_p->get_grip_size());
 
   MPI_Barrier(MPI_COMM_WORLD);
   //print_MPI_out(mesh, rank, n_rank);

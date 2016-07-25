@@ -33,6 +33,7 @@ const int finish_tag(3); //! MPI tag for finish messages
 const int count_tag(4); //! MPI tag for completion count messages
 const int photon_tag(5); //! MPI tag for photon messages
 const int work_tag(6); //! MPI tag for work packet messages
+const int grip_id_tag(7); //! MPI tag for grip ID messages
 const int proc_null(1000000000); //! High number, unlikely to be used
 };
 

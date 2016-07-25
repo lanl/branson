@@ -19,9 +19,10 @@
 #include <cmath>
 #include <mpi.h>
 
-#include "input.h"
-#include "photon.h"
 #include "constants.h"
+#include "input.h"
+#include "message_counter.h"
+#include "photon.h"
 #include "RNG.h"
 
 //==============================================================================
@@ -57,12 +58,12 @@ class IMC_State
       absorbed_E = 0.0;
       source_E = 0.0;
 
-      //64 bit
+      // 64 bit
       trans_particles = 0;
       census_size = 0;
       step_particles_sent = 0;
       total_particles_sent=0;
-      //32 bit
+      // 32 bit
       total_cells_requested=0;
       total_cells_sent=0;
       total_cell_messages=0;
@@ -327,50 +328,22 @@ class IMC_State
   //! Set number of census particles for current timestep (diagnostic, 64 bit)
   void set_census_size(uint64_t _census_size) {census_size = _census_size;}
 
-  //! Set number of partices sent for current timestep (diagnostic, 64 bit)
-  void set_step_particles_sent(uint64_t _step_particles_sent) {
-    step_particles_sent=_step_particles_sent;
+  //! Set the network message counters used in diagnostics
+  void set_network_message_counts(Message_Counter& mctr) {
+    step_particles_sent=mctr.n_particles_sent;
+    step_particle_messages=mctr.n_particle_messages;
+    step_cell_messages=mctr.n_cell_messages;
+    step_cells_sent=mctr.n_cells_sent;
+    step_sends_posted=mctr.n_sends_posted;
+    step_sends_completed=mctr.n_sends_completed;
+    step_receives_posted=mctr.n_receives_posted;
+    step_receives_completed=mctr.n_receives_completed;
   }
 
-  //! Set number of cells requested in mesh passing method for current timestep
   void set_step_cells_requested(uint32_t _step_cells_requested) {
     step_cells_requested = _step_cells_requested;
   }
 
-  //! Set number of particle messages sent for current timestep
-  void set_step_particle_messages(uint32_t _step_particle_messages) {
-    step_particle_messages=_step_particle_messages;
-  }
-
-  //! Set number of messages used in mesh passing for current timestep
-  void set_step_cell_messages(uint32_t _step_cell_messages) {
-    step_cell_messages=_step_cell_messages;
-  }
-
-  //! Set total number of cells sent in mesh passing
-  void set_step_cells_sent(uint32_t _step_cells_sent) {
-    step_cells_sent=_step_cells_sent;
-  }
-
-  //! Set total number of MPI sends posted for current timestep
-  void set_step_sends_posted(uint32_t _step_sends_posted) {
-    step_sends_posted=_step_sends_posted;
-  }
-
-  //! Set total number of MPI sends completed for current timestep
-  void set_step_sends_completed(uint32_t _step_sends_completed) {
-    step_sends_completed=_step_sends_completed;
-  }
-
-  //! Set total number of MPI receives posted for current timestep
-  void set_step_receives_posted(uint32_t _step_receives_posted) {
-    step_receives_posted=_step_receives_posted;
-  }
-
-  //! Set total number of MPI receives completed for current timestep
-  void set_step_receives_completed(uint32_t _step_receives_completed) { 
-    step_receives_completed=_step_receives_completed;
-  }
 
   //! Set transport runtime for this rank
   void set_rank_transport_runtime(double _rank_transport_runtime) {

@@ -93,6 +93,7 @@ class Input
         dtMax = v.second.get<double>("dt_max" , dt);
         n_photons =v.second.get<uint64_t>("photons"); 
         seed = v.second.get<int>("seed");
+        grip_size = v.second.get<int>("grip_size", 10);
         map_size = v.second.get<int>("map_size");
         output_freq = v.second.get<int>("output_frequency",1);
         tempString = v.second.get<std::string>("tilt", std::string("FALSE"));
@@ -413,6 +414,9 @@ class Input
     if (print_verbose) cout<<"Verbose printing mode enabled"<<endl;
     else cout<<"Terse printing mode (default)"<<endl;
 
+    if (write_silo) cout<<"SILO output enabled"<<endl;
+    else cout<<"SILO output disabled (default)"<<endl;
+
     cout<<"Spatial Information -- cells x,y,z: "<<n_global_x_cells<<" ";
     cout<<n_global_y_cells<<" "<<n_global_z_cells<<endl;
     if (using_simple_mesh) {
@@ -432,15 +436,17 @@ class Input
     cout<<"Parallel Information -- DD algorithm: ";
     if (dd_mode == CELL_PASS) {
       cout<<"CELL PASSING"<<endl;
-      cout<<"map size: "<<map_size;
-      cout<<", Batch size: "<<batch_size;
+      cout<<"grip size: "<<grip_size;
+      cout<<", map size: "<<map_size;
+      cout<<", batch size: "<<batch_size;
       cout<<endl;
     }
     else if (dd_mode ==CELL_PASS_RMA) {
       cout<<"CELL PASSING (with RMA on MPI windows)"<<endl;
       cout<<"COMPILE PARAMETER: maximum number of RMA requests"<<endl;
-      cout<<"map size: "<<map_size;
-      cout<<", Batch size: "<<batch_size;
+      cout<<"grip size: "<<grip_size;
+      cout<<", map size: "<<map_size;
+      cout<<", batch size: "<<batch_size;
       cout<<endl;
     }
     else if (dd_mode == PARTICLE_PASS) {
@@ -531,6 +537,7 @@ class Input
   uint64_t get_number_photons(void) const {return n_photons;}
   uint32_t get_batch_size(void) const {return batch_size;}
   uint32_t get_particle_message_size(void) const {return particle_message_size;}
+  uint32_t get_grip_size(void) const {return grip_size;}
   uint32_t get_map_size(void) const {return map_size;}
   uint32_t get_dd_mode(void) const {return dd_mode;}
 
@@ -599,6 +606,7 @@ class Input
   bool print_mesh_info; //! Mesh information printing flag
 
   // parallel performance parameters
+  uint32_t grip_size; //! Preferred number of cells in a parallel communication
   uint32_t map_size; //! Size of stored off-rank mesh cells
   uint32_t batch_size; //! Particles to run between MPI message checks
   uint32_t particle_message_size; //! Preferred number of particles in MPI sends

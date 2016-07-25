@@ -21,6 +21,7 @@
 #include "completion_manager_milagro.h"
 #include "completion_manager_rma.h"
 #include "mesh_rma_manager.h"
+#include "message_counter.h"
 #include "mpi_types.h"
 #include "imc_state.h"
 #include "imc_parameters.h"
@@ -39,10 +40,13 @@ void imc_cell_pass_driver(const int& rank,
                           Mesh *mesh, 
                           IMC_State *imc_state,
                           IMC_Parameters *imc_parameters,
-                          MPI_Types *mpi_types) {
+                          MPI_Types *mpi_types) 
+{
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
+  vector<uint32_t> needed_grip_ids; //! Grips needed after load balance
+  Message_Counter mctr;
 
   // make object that handles completion messages, completion
   // object set up the binary tree structure
@@ -55,6 +59,8 @@ void imc_cell_pass_driver(const int& rank,
   while (!imc_state->finished())
   {
     if (rank==0) imc_state->print_timestep_header();
+
+    mctr.reset_counters();
 
     //set opacity, Fleck factor, all energy to source
     mesh->calculate_photon_energy(imc_state);
@@ -81,8 +87,6 @@ void imc_cell_pass_driver(const int& rank,
     source.post_lb_prepare_source();
 
     imc_state->set_transported_particles(source.get_n_photon());
-    //cout<<"Rank: "<<rank<<" about to transport ";
-    //cout<<n_photon<<" particles."<<endl;
 
     //cell properties are set in calculate_photon_energy. 
     //make sure everybody gets here together so that windows are not changing 
@@ -90,13 +94,8 @@ void imc_cell_pass_driver(const int& rank,
     MPI_Barrier(MPI_COMM_WORLD);
 
     //transport photons
-    census_photons = transport_mesh_pass(source, 
-                                          mesh, 
-                                          imc_state, 
-                                          imc_parameters,
-                                          comp,
-                                          abs_E,
-                                          mpi_types);
+    census_photons = transport_mesh_pass(source, mesh, imc_state, 
+      imc_parameters, comp, mctr, abs_E, mpi_types);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
     MPI_Allreduce(MPI_IN_PLACE, 
@@ -106,7 +105,6 @@ void imc_cell_pass_driver(const int& rank,
                   MPI_SUM, 
                   MPI_COMM_WORLD);
 
-    //cout<<"updating temperature..."<<endl;
     mesh->update_temperature(abs_E, imc_state);
 
     imc_state->print_conservation(imc_parameters->get_dd_mode());
@@ -129,19 +127,25 @@ void imc_rma_cell_pass_driver(const int& rank,
                               Mesh *mesh, 
                               IMC_State *imc_state,
                               IMC_Parameters *imc_parameters,
-                              MPI_Types *mpi_types) {
+                              MPI_Types *mpi_types)
+{
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
+  vector<uint32_t> needed_grip_ids; //! Grips needed after load balance
+  Message_Counter mctr;
 
   //make object that handles RMA mesh requests and start access
   RMA_Manager *rma_manager = new RMA_Manager(rank, mesh->get_off_rank_bounds(),
-    mesh->get_global_num_cells(), mpi_types, mesh->get_mesh_window_ref());
+    mesh->get_global_num_cells(), mesh->get_max_grip_size(), mpi_types, 
+    mesh->get_mesh_window_ref());
   rma_manager->start_access();
 
   while (!imc_state->finished())
   {
     if (rank==0) imc_state->print_timestep_header();
+
+    mctr.reset_counters();
 
     //set opacity, Fleck factor, all energy to source
     mesh->calculate_photon_energy(imc_state);
@@ -155,10 +159,8 @@ void imc_rma_cell_pass_driver(const int& rank,
     //make initial census photons
     //on subsequent timesteps, this comes from transport
     if (imc_state->get_step() == 1) {
-      census_photons = make_initial_census_photons(mesh, 
-                                                  imc_state, 
-                                                  global_source_energy,
-                                                  imc_parameters->get_n_user_photon());
+      census_photons = make_initial_census_photons(mesh, imc_state, 
+        global_source_energy, imc_parameters->get_n_user_photon());
     }
 
     imc_state->set_pre_census_E(get_photon_list_E(census_photons));
@@ -166,12 +168,11 @@ void imc_rma_cell_pass_driver(const int& rank,
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
     load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
       census_photons, mpi_types);
+
     // get new particle count after load balance, group particle work by cell
     source.post_lb_prepare_source();
 
     imc_state->set_transported_particles(source.get_n_photon());
-    //cout<<"Rank: "<<rank<<" about to transport ";
-    //cout<<n_photon<<" particles."<<endl;
 
     //cell properties are set in calculate_photon_energy. 
     //make sure everybody gets here together so that windows are not changing 
@@ -179,29 +180,20 @@ void imc_rma_cell_pass_driver(const int& rank,
     MPI_Barrier(MPI_COMM_WORLD);
 
     //transport photons
-    census_photons = transport_mesh_pass_rma( source, 
-                                              mesh, 
-                                              imc_state, 
-                                              imc_parameters,
-                                              rma_manager,
-                                              abs_E,
-                                              mpi_types);
+    census_photons = transport_mesh_pass_rma( source, mesh, imc_state,
+      imc_parameters, rma_manager, mctr, abs_E, mpi_types);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
-    MPI_Allreduce(MPI_IN_PLACE, 
-                  &abs_E[0], 
-                  mesh->get_global_num_cells(), 
-                  MPI_DOUBLE, 
-                  MPI_SUM, 
-                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(), 
+      MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     //cout<<"updating temperature..."<<endl;
     mesh->update_temperature(abs_E, imc_state);
 
     imc_state->print_conservation(imc_parameters->get_dd_mode());
 
-    //purge the working mesh, it will be updated by other ranks and is now 
-    //invalid
+    // purge the working mesh, it will be updated by other ranks and is now 
+    // invalid
     mesh->purge_working_mesh();
 
     if (imc_parameters->get_write_silo_flag()) {
@@ -226,11 +218,12 @@ void imc_particle_pass_driver(const int& rank,
                               Mesh *mesh, 
                               IMC_State *imc_state,
                               IMC_Parameters *imc_parameters,
-                              MPI_Types * mpi_types) {
-
+                              MPI_Types * mpi_types) 
+{
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
+  Message_Counter mctr;
 
   // make object that handles completion messages, completion
   // object set up the binary tree structure
@@ -244,6 +237,8 @@ void imc_particle_pass_driver(const int& rank,
   {
     if (rank==0) imc_state->print_timestep_header();
 
+    mctr.reset_counters();
+
     //set opacity, Fleck factor, all energy to source
     mesh->calculate_photon_energy(imc_state);
 
@@ -256,10 +251,8 @@ void imc_particle_pass_driver(const int& rank,
     //make initial census photons
     //on subsequent timesteps, this comes from transport
     if (imc_state->get_step() ==1)
-      census_photons = make_initial_census_photons(mesh, 
-                                                  imc_state, 
-                                                  global_source_energy,
-                                                  imc_parameters->get_n_user_photon());
+      census_photons = make_initial_census_photons(mesh, imc_state, 
+        global_source_energy, imc_parameters->get_n_user_photon());
 
     imc_state->set_pre_census_E(get_photon_list_E(census_photons)); 
 
@@ -270,13 +263,8 @@ void imc_particle_pass_driver(const int& rank,
 
     imc_state->set_transported_particles(source.get_n_photon());
 
-    census_photons = transport_particle_pass( source, 
-                                              mesh, 
-                                              imc_state, 
-                                              imc_parameters,
-                                              mpi_types,
-                                              comp,
-                                              abs_E);
+    census_photons = transport_particle_pass(source, mesh, imc_state, 
+      imc_parameters, mpi_types, comp, mctr, abs_E);
           
     mesh->update_temperature(abs_E, imc_state);
 

@@ -16,6 +16,7 @@
 #include "../constants.h"
 #include "../completion_manager_milagro.h"
 #include "../completion_manager_rma.h"
+#include "../message_counter.h"
 #include "testing_functions.h"
 
 using std::cout;
@@ -66,16 +67,12 @@ int main (int argc, char *argv[]) {
     double work = 0.0;
     bool finished = false;
 
-    uint32_t n_receives_posted = 0;
-    uint32_t n_receives_completed = 0;
-    uint32_t n_sends_posted = 0;
-    uint32_t n_sends_completed = 0;
+    Message_Counter mctr;
 
     while(!finished ) {
       if (rank_complete <rank_particles) rank_complete++;
       work+=exp(-rank_complete%8);
-      comp.process_completion(true, rank_complete, n_sends_posted,
-        n_sends_completed, n_receives_posted, n_receives_completed);
+      comp.process_completion(true, rank_complete, mctr);
       finished=comp.is_finished();
     }
 
@@ -88,8 +85,7 @@ int main (int argc, char *argv[]) {
     if (!comp.is_finished()) completion_routine_pass = false;
 
     // reset for next timestep and test value again
-    comp.end_timestep(n_sends_posted, n_sends_completed, n_receives_posted,
-       n_receives_completed);
+    comp.end_timestep(mctr);
 
     // after reset, all ranks should not be finished
     if (comp.is_finished()) completion_routine_pass = false;
@@ -97,15 +93,15 @@ int main (int argc, char *argv[]) {
     if (comp.get_n_complete_tree() !=  0) completion_routine_pass = false;
 
     // should post/complete some receives
-    if (n_receives_posted == 0) completion_routine_pass = false;
-    if (n_receives_completed == 0) completion_routine_pass = false;
-    if (n_receives_posted != n_receives_completed) 
+    if (mctr.n_receives_posted == 0) completion_routine_pass = false;
+    if (mctr.n_receives_completed == 0) completion_routine_pass = false;
+    if (mctr.n_receives_posted != mctr.n_receives_completed) 
       completion_routine_pass = false;
 
     // shold post/complete no sends
-    if (n_sends_posted != 0) completion_routine_pass = false;
-    if (n_sends_completed != 0) completion_routine_pass = false;
-    if (n_sends_posted != n_sends_completed) completion_routine_pass = false;
+    if (mctr.n_sends_posted != 0) completion_routine_pass = false;
+    if (mctr.n_sends_completed != 0) completion_routine_pass = false;
+    if (mctr.n_sends_posted != mctr.n_sends_completed) completion_routine_pass = false;
 
     if (completion_routine_pass) {
       cout<<"TEST PASSED: Completion_Manager_RMA "; 
@@ -116,7 +112,7 @@ int main (int argc, char *argv[]) {
       cout<<" ranks"<<endl;
       nfail++;
     }
-    cout<<"RMA Number of requests: "<<n_receives_completed<<endl;
+    cout<<"RMA Number of requests: "<<mctr.n_receives_completed<<endl;
   }
 
 
@@ -136,12 +132,9 @@ int main (int argc, char *argv[]) {
     double work = 0.0;
     bool finished = false;
 
-    uint32_t n_receives_posted = 0;
-    uint32_t n_receives_completed = 0;
-    uint32_t n_sends_posted = 0;
-    uint32_t n_sends_completed = 0;
+    Message_Counter mctr;
 
-    comp.start_timestep(n_receives_posted);
+    comp.start_timestep(mctr);
     
     while(!finished ) {
       // add completed work if there is work to do
@@ -150,8 +143,7 @@ int main (int argc, char *argv[]) {
         rank_sourced++;
       }
       work+=exp(-rank_complete%8);
-      comp.process_completion(true, rank_complete, n_sends_posted, 
-        n_sends_completed, n_receives_posted, n_receives_completed);
+      comp.process_completion(true, rank_complete, mctr);
       finished=comp.is_finished();
     }
 
@@ -159,8 +151,7 @@ int main (int argc, char *argv[]) {
     if (!comp.is_finished()) milagro_completion_pass = false;
 
     // send completed count down the tree
-    comp.end_timestep(n_sends_posted, n_sends_completed, n_receives_posted,
-       n_receives_completed);
+    comp.end_timestep(mctr);
 
     // after reset, all ranks should not be finished
     if (comp.is_finished()) milagro_completion_pass = false;
@@ -169,15 +160,15 @@ int main (int argc, char *argv[]) {
     MPI_Barrier(MPI_COMM_WORLD);
 
     // should post/complete some receives and post should equal complete
-    if (n_receives_posted == 0) milagro_completion_pass = false;
-    if (n_receives_completed == 0) milagro_completion_pass = false;
-    if (n_receives_posted != n_receives_completed) 
+    if (mctr.n_receives_posted == 0) milagro_completion_pass = false;
+    if (mctr.n_receives_completed == 0) milagro_completion_pass = false;
+    if (mctr.n_receives_posted != mctr.n_receives_completed) 
       milagro_completion_pass = false;
 
     // shold post/complete some sends and post should equal complete
-    if (n_sends_posted == 0) milagro_completion_pass = false;
-    if (n_sends_completed == 0) milagro_completion_pass = false;
-    if (n_sends_posted != n_sends_completed) milagro_completion_pass = false;
+    if (mctr.n_sends_posted == 0) milagro_completion_pass = false;
+    if (mctr.n_sends_completed == 0) milagro_completion_pass = false;
+    if (mctr.n_sends_posted != mctr.n_sends_completed) milagro_completion_pass = false;
 
     if (milagro_completion_pass) {
       cout<<"TEST PASSED: ";
@@ -189,7 +180,7 @@ int main (int argc, char *argv[]) {
       nfail++;
     }
 
-    cout<<"Milagro Number of requests: "<<n_receives_completed<<endl;
+    cout<<"Milagro Number of requests: "<<mctr.n_receives_completed<<endl;
   }
 
   MPI_Finalize();
