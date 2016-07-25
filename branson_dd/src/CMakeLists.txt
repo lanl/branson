@@ -86,15 +86,27 @@ include_directories(${Boost_INCLUDE_DIR})
 ###############################################################################
 # Silo and HDF5 libraries
 # Load modules for hdf5 and solo to get correct environment variables
+# use find package
 ###############################################################################
-set(SILO_ROOT /users/along/installs/)
 message("Silo from: $ENV{SILO_ROOT} " )
 include_directories($ENV{SILO_ROOT}/include)
 link_directories($ENV{SILO_ROOT}/lib)
+if ("$ENV{SILO_ROOT}x" STREQUAL "x")
+  set(SILO_FOUND FALSE)
+else ()
+  set(SILO_FOUND TRUE)
+endif ()
+message("SILO_FOUND = ${SILO_FOUND}")
 
-set(HDF_ROOT /usr/projects/draco/vendors/hdf5-1.10.0/openmpi-1.6.5-intel-15.0.5/ )
+find_package(HDF5)
+message("HDF5 from: $ENV{HDF5_ROOT} " )
+message("HDF5_FOUND = ${HDF5_FOUND}")
 message("HDF from: $ENV{HDF5_ROOT} ")
 link_directories($ENV{HDF5_ROOT}/lib)
+
+if (HDF5_FOUND AND SILO_FOUND)
+  set(VIZ_LIBRARIES_FOUND TRUE)
+endif ()
 
 ###############################################################################
 # Set up libraries for Cray RMA routines
@@ -102,13 +114,21 @@ link_directories($ENV{HDF5_ROOT}/lib)
 SET(DMAPP_DYNAMIC -Wl,--whole-archive,-ldmapp,--no-whole-archive)
 
 ###############################################################################
+# Create config file
+###############################################################################
+configure_file(config.h.in ${PROJECT_BINARY_DIR}/config.h)
+include_directories(${PROJECT_BINARY_DIR})
+
+###############################################################################
 # Configure executable and link libraries
 ###############################################################################
 add_executable(BRANSON main.cc)
 target_link_libraries(BRANSON parmetis)
 target_link_libraries(BRANSON metis)
-target_link_libraries(BRANSON hdf5)
-target_link_libraries(BRANSON siloh5)
+if (VIZ_LIBRARIES_FOUND)
+  target_link_libraries(BRANSON hdf5)
+  target_link_libraries(BRANSON siloh5)
+endif ()
 
 # these lines link the Cray DMAPP library
 #first, create the dynamic version of dmapp library
@@ -121,5 +141,6 @@ enable_testing()
 add_subdirectory(test)
 # Define variables needed to compile and link unit test executables
 get_directory_property(Boost_INCLUDE_DIR DIRECTORY test VARIABLES Boost_INCLUDE_DIR)
+get_directory_property(VIZ_LIBRARIES_FOUND test VARIABLES VIZ_LIBRARIES_FOUND)
 
 #install(TARGETS BRANSON DESTINATION bin)

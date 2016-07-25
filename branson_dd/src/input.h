@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string>
 
+#include "config.h"
 #include "constants.h"
 #include "region.h"
 
@@ -414,9 +415,13 @@ class Input
     if (print_verbose) cout<<"Verbose printing mode enabled"<<endl;
     else cout<<"Terse printing mode (default)"<<endl;
 
-    if (write_silo) cout<<"SILO output enabled"<<endl;
-    else cout<<"SILO output disabled (default)"<<endl;
-
+    #ifdef VIZ_LIBRARIES_FOUND
+      if (write_silo) cout<<"SILO output enabled"<<endl;
+      else cout<<"SILO output disabled (default)"<<endl;
+    #else
+      if (write_silo) 
+        cout<<"NOTE: SILO libraries not linked... no visualization"<<endl;
+    #endif
     cout<<"Spatial Information -- cells x,y,z: "<<n_global_x_cells<<" ";
     cout<<n_global_y_cells<<" "<<n_global_z_cells<<endl;
     if (using_simple_mesh) {

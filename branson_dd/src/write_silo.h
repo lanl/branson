@@ -14,12 +14,16 @@
 #define write_silo_h_
 
 #include <array>
-#include <silo.h>
 #include <string>
 #include <sstream>
 #include <vector>
 
+#ifdef VIZ_LIBRARIES_FOUND
+  #include <silo.h>
+#endif
+
 #include "constants.h"
+#include "config.h"
 #include "imc_state.h"
 
 //! All ranks perform reductions to produce global arrays and rank zero
@@ -28,6 +32,8 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
   const double& rank_transport_time, const int& rank, const int& n_rank, 
   std::vector<uint32_t>& rank_requests) 
 {
+
+#ifdef VIZ_LIBRARIES_FOUND
   using std::array;
   using std::stringstream;
   using std::string;
@@ -228,6 +234,7 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     // close file
     DBClose(dbfile);
   } // end rank==0
+#endif
 }
 
   // rank based silo write with polygonal unstructured mesh

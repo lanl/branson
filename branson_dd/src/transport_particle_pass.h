@@ -3,7 +3,7 @@
  * \file   transport_particle_pass.h
  * \author Alex Long
  * \date   December 1 2015
- * \brief  IMC transprot with particle passing method 
+ * \brief  IMC transport with particle passing method 
  * \note   ***COPYRIGHT_GOES_HERE****
  */
 //---------------------------------------------------------------------------//
@@ -445,5 +445,5 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
 #endif // def transport_particle_pass_h_
 //---------------------------------------------------------------------------//
-// end of work_packet.h
+// end of transport_particle_pass.h
 //---------------------------------------------------------------------------//
