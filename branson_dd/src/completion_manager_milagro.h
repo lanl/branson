@@ -154,7 +154,8 @@ class Completion_Manager_Milagro : public Completion_Manager
     check_messages(n_complete_tree, mctr);
 
     // non-root ranks send complete counts up the tree
-    if (n_complete_tree && waiting_for_work && parent!=proc_null) {
+    if ((n_complete_tree && waiting_for_work) && (parent!=proc_null && 
+      !p_send_buffer.sent()) ) {
       p_send_buffer.fill(vector<uint64_t> (1,n_complete_tree));
       MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
         count_tag, MPI_COMM_WORLD, &p_send_req);

@@ -5,8 +5,11 @@ cmake_minimum_required (VERSION 2.8)
 # Set OpenMPI compiler
 #set(CMAKE_CXX_COMPILER mpic++)
 
-set(MPI_EXEC mpirun)
-#set(MPI_EXEC aprun)
+if (${SITENAME} STREQUAL "Moonlight")
+  set(MPI_EXEC mpirun)
+elseif (${SITENAME} STREQUAL "Trinitite")
+  set(MPI_EXEC aprun)
+endif ()
 
 include_directories(${Boost_INCLUDE_DIR})
 include_directories($ENV{METIS_INC_DIR})

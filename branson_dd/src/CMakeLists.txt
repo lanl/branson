@@ -5,13 +5,32 @@
 # correctly
 
 cmake_minimum_required (VERSION 2.8)
-# Set Intel MPI Compiler
-#set(CMAKE_CXX_COMPILER mpiicpc)
-# Set OpenMPI compiler
-set(CMAKE_CXX_COMPILER mpic++)
 project (BRANSON)
 
-#set compiler
+###############################################################################
+site_name( SITENAME )
+string( REGEX REPLACE "([A-z0-9]+).*" "\\1" SITENAME ${SITENAME} )
+if( ${SITENAME} MATCHES "c[it]" )
+  set( SITENAME "Cielito" )
+elseif( ${SITENAME} MATCHES "ml" OR ${SITENAME} MATCHES "lu" )
+  set( SITENAME "Moonlight" )
+elseif( ${SITENAME} MATCHES "tt") #" -login[0-9]+" OR ${SITENAME} MATCHES "tt-fey[0-9]+" )
+  set( SITENAME "Trinitite" )
+elseif( ${SITENAME} MATCHES "tr") #" -login[0-9]+" OR ${SITENAME} MATCHES "tr-fe[0-9]+" )
+  set( SITENAME "Trinity" )
+elseif( ${SITENAME} MATCHES "ccscs[0-9]+" )
+  # do nothing (keep the fullname)
+endif()
+set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
+message("Machine name: ${SITENAME}")
+
+
+# set compiler
+if ("${SITENAME}" STREQUAL "Moonlight")
+  set(CMAKE_CXX_COMPILER mpic++)
+elseif ("${SITENAME}" STREQUAL "Trinitite")
+  set(CMAKE_CXX_COMPILER cc)
+endif ()
 message ("Compiler: " ${CMAKE_CXX_COMPILER} )
 
 # add compiler flags
@@ -24,7 +43,7 @@ set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
 #set (DEBUG_FLAGS "${DEBUG_FLAGS} -h std=c++11")
 
 # append optimization flags
-set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
+#set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
 
 set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${DEBUG_FLAGS}" )
 message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
@@ -32,7 +51,6 @@ message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
 #set version number
 set(BRANSON_VERSION_MAJOR 0)
 set(BRANSON_VERSION_MINOR 8)
-
 
 ###############################################################################
 # Random123
@@ -44,16 +62,6 @@ set(BRANSON_VERSION_MINOR 8)
 # metis and parmetis
 # Load modules for metis and parmetis to get correct environment variables
 ###############################################################################
-# CCS MACHINES
-#set(METIS_INCLUDE_DIR  /var/tmp/vendors/ParMetis-4.0.3/openmpi-1.10.0-gcc-5.2.0/include)
-#set(PARMETIS_INCLUDE_DIR  /var/tmp/vendors/ParMetis-4.0.3/openmpi-1.10.0-gcc-5.2.0/include)
-#set(PARMETIS_LIBRARY_DIR /var/tmp/vendors/ParMetis-4.0.3/openmpi-1.10.0-gcc-5.2.0/lib )
-
-# MOONLIGHT (DRACO) 
-#set(PARMETIS_INCLUDE_DIRS /usr/include/)
-#set(METIS_INCLUDE_DIR /usr/projects/draco/vendors/ParMetis-4.0.3/moonlight-openmpi-1.6.5-intel-15.0.3/include )
-#set(PARMETIS_LIBRARY_DIR /usr/projects/draco/vendors/ParMetis-4.0.3/moonlight-openmpi-1.6.5-intel-15.0.3/lib)
-
 message("ParMetis from: " $ENV{ParMETIS_ROOT_DIR})
 include_directories( $ENV{PARMETIS_INC_DIR})
 link_directories($ENV{PARMETIS_LIB_DIR})
@@ -66,22 +74,10 @@ link_directories($ENV{METIS_LIB_DIR})
 # boost (headers only)
 # Load boost module to get correct environement variables
 ###############################################################################
-#set(BOOST_ROOT /projects/opt/boost/1.58.0/draco/vendors/boost-1.58.0)
-
-# MOONLIGHT 
-#set(BOOST_ROOT /usr/projects/draco/vendors/boost-1.59.0/moonlight-openmpi-1.6.5-intel-15.0.3)
-#set(BOOST_ROOT /usr/projects/draco/vendors/boost-1.60.0/moonlight-openmpi-1.10.1-intel-15.0.3)
-
-# CCS
-#set(BOOST_ROOT /ccs/codes/radtran/vendors/boost-1.58.0/openmpi-1.6.3-gcc-4.8.1/)
-
 message("Boost from: " $ENV{BOOST_ROOT})
 set(Boost_INCLUDE_DIR $ENV{BOOST_ROOT}/include)
-#set(Boost_LIBRARY_DIR $ENV{BOOST_ROOT}/lib)
 
 include_directories(${Boost_INCLUDE_DIR})
-#link_directories(${Boost_LIBRARY_DIR})
-
 
 ###############################################################################
 # Silo and HDF5 libraries
@@ -99,13 +95,14 @@ endif ()
 message("SILO_FOUND = ${SILO_FOUND}")
 
 find_package(HDF5)
-message("HDF5 from: $ENV{HDF5_ROOT} " )
 message("HDF5_FOUND = ${HDF5_FOUND}")
 message("HDF from: $ENV{HDF5_ROOT} ")
 link_directories($ENV{HDF5_ROOT}/lib)
 
 if (HDF5_FOUND AND SILO_FOUND)
   set(VIZ_LIBRARIES_FOUND TRUE)
+else ()
+  message("Visualization libraries not loaded...skipping")
 endif ()
 
 ###############################################################################
@@ -142,5 +139,6 @@ add_subdirectory(test)
 # Define variables needed to compile and link unit test executables
 get_directory_property(Boost_INCLUDE_DIR DIRECTORY test VARIABLES Boost_INCLUDE_DIR)
 get_directory_property(VIZ_LIBRARIES_FOUND test VARIABLES VIZ_LIBRARIES_FOUND)
+get_directory_property(SITENAME test VARIABLES SITENAME)
 
 #install(TARGETS BRANSON DESTINATION bin)

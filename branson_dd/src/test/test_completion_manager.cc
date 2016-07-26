@@ -180,7 +180,10 @@ int main (int argc, char *argv[]) {
       nfail++;
     }
 
-    cout<<"Milagro Number of requests: "<<mctr.n_receives_completed<<endl;
+    cout<<"Milagro number of sends posted: "<<mctr.n_sends_posted<<endl;
+    cout<<"Milagro number of sends completed: "<<mctr.n_sends_completed<<endl;
+    cout<<"Milagro number of receives posted: "<<mctr.n_receives_posted<<endl;
+    cout<<"Milagro number of receives completed: "<<mctr.n_receives_completed<<endl;
   }
 
   MPI_Finalize();

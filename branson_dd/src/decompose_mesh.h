@@ -383,9 +383,9 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const uint32_t& grip_size)
   uint32_t max_grip_size = mesh->get_max_grip_size();
   uint32_t global_max_grip_size=0;
   uint32_t global_min_grip_size=10000000;
-  MPI_Allreduce(&max_grip_size, &global_max_grip_size, nrank, MPI_UNSIGNED, 
+  MPI_Allreduce(&max_grip_size, &global_max_grip_size, 1, MPI_UNSIGNED, 
     MPI_MAX, MPI_COMM_WORLD); 
-  MPI_Allreduce(&max_grip_size, &global_min_grip_size, nrank, MPI_UNSIGNED, 
+  MPI_Allreduce(&max_grip_size, &global_min_grip_size, 1, MPI_UNSIGNED, 
     MPI_MIN, MPI_COMM_WORLD); 
   mesh->set_max_grip_size(global_max_grip_size);
 
