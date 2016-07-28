@@ -14,10 +14,11 @@
 #define mesh_h_
 
 #include <algorithm>
-#include <unordered_map>
 #include <mpi.h>
+#include <iterator>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "buffer.h"
@@ -715,17 +716,29 @@ class Mesh {
   //! Add off-rank mesh data to the temporary mesh storage and manage the
   // temporary mesh
   void add_non_local_mesh_cells(std::vector<Cell> new_recv_cells) {
+    using std::advance;
+    using std::unordered_map;
+
+    // if new_recv_cells is bigger than maximum map size truncate it
+    if (new_recv_cells.size() > max_map_size) {
+      new_recv_cells.erase(new_recv_cells.begin() + max_map_size,
+        new_recv_cells.end());
+    }
+
+    // remove a chunk of working mesh data if the new cells won't fit
+    uint32_t stored_cell_size = stored_cells.size();
+    if (stored_cell_size + new_recv_cells.size() > max_map_size) {
+      // remove enough cells so all new cells will fit
+      unordered_map<uint32_t, Cell>::iterator i_start = stored_cells.begin();
+      advance(i_start, max_map_size - new_recv_cells.size());
+      stored_cells.erase(i_start, stored_cells.end());
+    }
+
+    // add received cells to the stored_cells map 
     for (uint32_t i=0; i<new_recv_cells.size();i++) {
       uint32_t index = new_recv_cells[i].get_ID();
-
-      // add this cell to the map, if possible, otherwise manage map
-      if (stored_cells.size() < max_map_size) 
-        stored_cells[index] = new_recv_cells[i];
-      else {
-        // remove first cell from map, it will naturally be requested again
-        stored_cells.erase(stored_cells.begin());
-      }
-    } // for i in new_recv_cells[ir] 
+      stored_cells[index] = new_recv_cells[i];
+    } 
   }
 
   //! Communication of mesh data between ranks 

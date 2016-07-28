@@ -25,16 +25,8 @@ set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
 message("Machine name: ${SITENAME}")
 
 
-# set compiler
-if ("${SITENAME}" STREQUAL "Moonlight")
-  set(CMAKE_CXX_COMPILER mpic++)
-elseif ("${SITENAME}" STREQUAL "Trinitite")
-  set(CMAKE_CXX_COMPILER cc)
-endif ()
-message ("Compiler: " ${CMAKE_CXX_COMPILER} )
-
 # add compiler flags
-set( DEBUG_FLAGS -gdwarf-3)
+set( DEBUG_FLAGS -g)
 
 # Intel C++ 11 flags
 set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
@@ -43,6 +35,7 @@ set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
 #set (DEBUG_FLAGS "${DEBUG_FLAGS} -h std=c++11")
 
 # append optimization flags
+set( DEBUG_FLAGS "${DEBUG_FLAGS} -O0")
 #set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
 
 set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${DEBUG_FLAGS}" )
@@ -51,6 +44,14 @@ message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
 #set version number
 set(BRANSON_VERSION_MAJOR 0)
 set(BRANSON_VERSION_MINOR 8)
+
+# set compiler
+if ("${SITENAME}" STREQUAL "Moonlight")
+  set(CMAKE_CXX_COMPILER mpic++)
+elseif ("${SITENAME}" STREQUAL "Trinitite")
+  set(CMAKE_CXX_COMPILER cc)
+endif ()
+message ("Compiler: " ${CMAKE_CXX_COMPILER} )
 
 ###############################################################################
 # Random123
@@ -108,7 +109,7 @@ endif ()
 ###############################################################################
 # Set up libraries for Cray RMA routines
 ###############################################################################
-SET(DMAPP_DYNAMIC -Wl,--whole-archive,-ldmapp,--no-whole-archive)
+#SET(DMAPP_DYNAMIC -Wl,--whole-archive,-ldmapp,--no-whole-archive)
 
 ###############################################################################
 # Create config file
@@ -120,6 +121,13 @@ include_directories(${PROJECT_BINARY_DIR})
 # Configure executable and link libraries
 ###############################################################################
 add_executable(BRANSON main.cc)
+
+# these lines link the Cray DMAPP library
+#first, create the dynamic version of dmapp library
+#target_link_libraries(BRANSON ${DMAPP_DYNAMIC})
+#then link to it dynamically
+#target_link_libraries(BRANSON dmapp)
+
 target_link_libraries(BRANSON parmetis)
 target_link_libraries(BRANSON metis)
 if (VIZ_LIBRARIES_FOUND)
@@ -127,11 +135,6 @@ if (VIZ_LIBRARIES_FOUND)
   target_link_libraries(BRANSON siloh5)
 endif ()
 
-# these lines link the Cray DMAPP library
-#first, create the dynamic version of dmapp library
-#target_link_libraries(BRANSON ${DMAPP_DYNAMIC})
-#then link to it dynamically
-#target_link_libraries(BRANSON dmapp)
 
 enable_testing()
 

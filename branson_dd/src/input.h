@@ -438,7 +438,8 @@ class Input
       cout<<", scattering opacity: "<<regions[r].get_scattering_opacity()<<endl;
     }
     
-    cout<<"Parallel Information -- DD algorithm: ";
+    cout<<"--Parallel Information--"<<endl;
+    cout<<"DD algorithm: ";
     if (dd_mode == CELL_PASS) {
       cout<<"CELL PASSING"<<endl;
       cout<<"grip size: "<<grip_size;

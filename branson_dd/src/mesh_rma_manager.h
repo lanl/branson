@@ -45,10 +45,10 @@ class RMA_Manager
     rank_bounds(_rank_bounds),
     MPI_Cell(mpi_types->get_cell_type()),
     mesh_window(_mesh_window),
-    grip_size(_grip_size)
+    grip_size(_grip_size),
+    n_max_requests(1000)
   {
     using std::vector;
-    n_max_requests = 1000;
     max_active_index = 0;
     count=0;
     requests = std::vector<MPI_Request> (n_max_requests);
@@ -117,14 +117,18 @@ class RMA_Manager
       {
         start_index = rank_bounds[off_rank_id];
       }
-      else start_index -= grip_size/2;
+      else 
+      {
+        start_index -= grip_size/2;
+      }
 
       // get the number of cells to request (if it overruns rank bounds, 
       // truncate it)
       uint32_t n_cells_to_request;
       if (start_index + grip_size > rank_bounds[off_rank_id+1])
         n_cells_to_request = rank_bounds[off_rank_id+1] - start_index;
-      else n_cells_to_request = grip_size;
+      else 
+        n_cells_to_request = grip_size;
 
       uint32_t off_rank_local = start_index - rank_bounds[off_rank_id];
 
@@ -144,6 +148,7 @@ class RMA_Manager
         MPI_Cell, off_rank_id, off_rank_local, n_cells_to_request, MPI_Cell, 
         mesh_window, &requests[count]);
       mctr.n_receives_posted++;
+      mctr.n_cell_messages++;
       mesh_requested.insert(g_index);
     }
   }
