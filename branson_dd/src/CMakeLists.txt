@@ -1,13 +1,13 @@
-###############################################################################
+################################################################################
 # NOTES ON COMPILATION
-###############################################################################
+################################################################################
 # Load the modules for each libary and the environment variables will be set 
 # correctly
 
 cmake_minimum_required (VERSION 2.8)
 project (BRANSON)
 
-###############################################################################
+################################################################################
 site_name( SITENAME )
 string( REGEX REPLACE "([A-z0-9]+).*" "\\1" SITENAME ${SITENAME} )
 if( ${SITENAME} MATCHES "c[it]" )
@@ -23,6 +23,7 @@ elseif( ${SITENAME} MATCHES "ccscs[0-9]+" )
 endif()
 set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
 message("Machine name: ${SITENAME}")
+################################################################################
 
 
 # add compiler flags
@@ -53,11 +54,14 @@ elseif ("${SITENAME}" STREQUAL "Trinitite")
 endif ()
 message ("Compiler: " ${CMAKE_CXX_COMPILER} )
 
+include(ExternalProject)
 ###############################################################################
-# Random123
-# Download and install Random123
+# Caliper
 ###############################################################################
-#ExternalProject_Add(random123 URL https://www.deshawresearch.com/downloads/download_random123.cgi/Random123-1.09.tar.gz)
+#set(CALIPER_INSTALL_DIR ${CMAKE_BINARY_DIR}/caliper)
+#ExternalProject_Add(caliper_local SOURCE_DIR "${CMAKE_SOURCE_DIR}/Caliper" PREFIX ${CALIPER_INSTALL_DIR} CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CALIPER_INSTALL_DIR}")
+#include_directories(${CALIPER_INSTALL_DIR}/include/caliper) 
+#link_directories(${CALIPER_INSTALL_DIR}/lib)
 
 ###############################################################################
 # metis and parmetis
@@ -122,19 +126,21 @@ include_directories(${PROJECT_BINARY_DIR})
 ###############################################################################
 add_executable(BRANSON main.cc)
 
+#add_dependencies(BRANSON caliper_local)
 # these lines link the Cray DMAPP library
 #first, create the dynamic version of dmapp library
 #target_link_libraries(BRANSON ${DMAPP_DYNAMIC})
 #then link to it dynamically
 #target_link_libraries(BRANSON dmapp)
 
+#target_link_libraries(BRANSON caliper)
+#target_link_libraries(BRANSON ${CALIPER_INSTALL_DIR}/lib/libcaliper.so)
 target_link_libraries(BRANSON parmetis)
 target_link_libraries(BRANSON metis)
 if (VIZ_LIBRARIES_FOUND)
   target_link_libraries(BRANSON hdf5)
   target_link_libraries(BRANSON siloh5)
 endif ()
-
 
 enable_testing()
 
