@@ -24,7 +24,7 @@
 #include "input.h"
 #include "mesh.h"
 #include "mpi_types.h"
-#include "timing_functions.h"
+#include "timer.h"
 
 using std::vector;
 using std::endl;
@@ -65,16 +65,14 @@ int main(int argc, char *argv[])
   IMC_State *imc_state;
   imc_state = new IMC_State(input, rank);
 
-  // make mesh from input object
-  Mesh *mesh = new Mesh(input, mpi_types, rank, n_rank);
-
   //timing 
-  struct timeval start,end;
-  struct timezone tzp;
-  gettimeofday(&start, &tzp); 
+  Timer * timers = new Timer();
 
-  // decompose mesh with ParMETIS
+  // make mesh from input object and decompose mesh with ParMetis
+  timers->start_timer("setup");
+  Mesh *mesh = new Mesh(input, mpi_types, rank, n_rank);
   decompose_mesh(mesh, mpi_types, imc_p->get_grip_size());
+  timers->stop_timer("setup");
 
   MPI_Barrier(MPI_COMM_WORLD);
   //print_MPI_out(mesh, rank, n_rank);
@@ -83,25 +81,29 @@ int main(int argc, char *argv[])
   // TRT PHYSICS CALCULATION
   //--------------------------------------------------------------------------//
 
+  timers->start_timer("transport");
+
   if (input->get_dd_mode() == PARTICLE_PASS)
     imc_particle_pass_driver(rank, n_rank, mesh, imc_state, imc_p, mpi_types);
   else if (input->get_dd_mode() == CELL_PASS)
     imc_cell_pass_driver(rank, n_rank, mesh, imc_state, imc_p, mpi_types);
   else if (input->get_dd_mode() == CELL_PASS_RMA)
     imc_rma_cell_pass_driver(rank, n_rank, mesh, imc_state, imc_p, mpi_types);
+
+  timers->stop_timer("transport");
   
   if (rank==0) {
     cout<<"****************************************";
     cout<<"****************************************"<<endl;
-    gettimeofday(&end, &tzp);
-    print_elapsed_inside("runtime:",&start, &end);
     imc_state->print_simulation_footer(input->get_dd_mode());
+    timers->print_timers();
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
   delete mpi_types;
   delete imc_state;
   delete imc_p;
+  delete timers;
 
   MPI_Finalize();
 }
