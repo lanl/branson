@@ -308,7 +308,7 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const uint32_t& grip_size)
 
     // Metis does not seem to like partitioning with one part, so skip in 
     // that case
-    if (n_grips > 1) {
+    if (n_grips > 1 && grip_size > 1) {
       metis_return =
         METIS_PartGraphKway( &n_cell_on_rank, // number of on-rank vertices
                               &ncon,  // weights per vertex
@@ -342,15 +342,24 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const uint32_t& grip_size)
       }
       // sort cells by grip ID
       mesh->sort_cells_by_grip_ID();
-    } 
-    else {
+    } // end if n_grips > 1
+
+    else if (n_grips == 1) {
       // one grip on this rank, all cells have the same grip index
       // set the grip index for each cell
       for (uint32_t i =0; i<n_cell_on_rank;i++) {
         Cell& cell = mesh->get_pre_window_allocation_cell_ref(i);
         cell.set_grip_ID(0);
       }
-    } // end if n_grips > 1
+    }
+
+    else if (grip_size ==1) {
+      for (uint32_t i =0; i<n_cell_on_rank;i++) {
+        Cell& cell = mesh->get_pre_window_allocation_cell_ref(i);
+        cell.set_grip_ID(i);
+      }
+      mesh->sort_cells_by_grip_ID();
+    }
 
   } // end within rank partitioning scope
 

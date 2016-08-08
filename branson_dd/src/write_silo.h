@@ -28,9 +28,9 @@
 
 //! All ranks perform reductions to produce global arrays and rank zero
 // writes the SILO file for visualization
-void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step, 
-  const double& rank_transport_time, const int& rank, const int& n_rank, 
-  std::vector<uint32_t>& rank_requests) 
+void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
+  const double& r_transport_time, const double& r_mpi_time, const int& rank,
+  const int& n_rank, std::vector<uint32_t>& rank_requests) 
 {
 
 #ifdef VIZ_LIBRARIES_FOUND
@@ -51,7 +51,7 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
   stringstream ss;
   ss.setf(std::ios::showpoint);
   ss<<std::setprecision(3); 
-  ss << "output_"<<step << ".silo";
+  ss << "output_"<<step<< ".silo";
   string file = ss.str();
 
   int nx = mesh->get_global_n_x_faces();
@@ -87,6 +87,7 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
   vector<int> n_requests(n_xyz_cells,0);
   vector<double> T_e(n_xyz_cells,0.0);
   vector<double> transport_time(n_xyz_cells,0.0);
+  vector<double> mpi_time(n_xyz_cells,0.0);
   vector<int> grip_ID(n_xyz_cells,0);
 
   // get rank data, map values from from global ID to SILO ID
@@ -101,7 +102,8 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     // set silo plot variables
     n_requests[silo_index] = rank_requests[g_index];
     T_e[silo_index] = cell.get_T_e();
-    transport_time[silo_index] = rank_transport_time;
+    transport_time[silo_index] = r_transport_time;
+    mpi_time[silo_index] = r_mpi_time;
     grip_ID[silo_index] = cell.get_grip_ID();
   }
 
@@ -119,6 +121,10 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
 
   // reduce to get transport runtime from all ranks
   MPI_Allreduce(MPI_IN_PLACE, &transport_time[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
+    MPI_COMM_WORLD);
+
+  // reduce to get mpi time from all ranks
+  MPI_Allreduce(MPI_IN_PLACE, &mpi_time[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
     MPI_COMM_WORLD);
 
   // reduce to get T_e across all ranks
@@ -197,7 +203,7 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     DBPutQuadvar1(dbfile, "mesh_cell_requests", "quadmesh", &n_requests[0], 
       cell_dims, ndims, NULL, 0, DB_INT, DB_ZONECENT, req_optlist);
 
-    // write the material energy scalar field
+    // write the material temperature scalar field
     DBoptlist *Te_optlist = DBMakeOptlist(2);
     DBAddOption(Te_optlist, DBOPT_UNITS, (void *)"keV");
     DBAddOption(Te_optlist, DBOPT_DTIME, &time);
@@ -211,6 +217,13 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     DBPutQuadvar1(dbfile, "transport_time", "quadmesh", &transport_time[0], 
       cell_dims, ndims, NULL, 0, DB_DOUBLE, DB_ZONECENT, t_time_optlist);
 
+    // write the mpi time scalar field
+    DBoptlist *mpi_time_optlist = DBMakeOptlist(2);
+    DBAddOption(mpi_time_optlist, DBOPT_UNITS, (void *)"seconds");
+    DBAddOption(mpi_time_optlist, DBOPT_DTIME, &time);
+    DBPutQuadvar1(dbfile, "mpi_time", "quadmesh", &mpi_time[0], 
+      cell_dims, ndims, NULL, 0, DB_DOUBLE, DB_ZONECENT, mpi_time_optlist);
+
     // write the grip_ID scalar field
     DBoptlist *grip_id_optlist = DBMakeOptlist(2);
     DBAddOption(grip_id_optlist, DBOPT_UNITS, (void *)"grip_ID");
@@ -223,6 +236,7 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
     DBFreeOptlist(req_optlist);
     DBFreeOptlist(Te_optlist);
     DBFreeOptlist(t_time_optlist);
+    DBFreeOptlist(mpi_time_optlist);
     DBFreeOptlist(grip_id_optlist);
 
     // free data

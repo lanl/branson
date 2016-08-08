@@ -72,6 +72,8 @@ void load_balance(const int& rank, const int& n_rank,
   uint64_t max_particles = 0;
   uint32_t max_rank = 0;
 
+  double overload_factor = 0.0; // 40%
+
   int send_to_nbr, rank_delta_p, left_node, right_node;
   for (uint32_t ir=0; ir<n_rank; ir++) {
     if (domain_particles[ir] > max_particles) {
@@ -79,6 +81,13 @@ void load_balance(const int& rank, const int& n_rank,
       max_rank = ir;
     }
     rank_delta_p = domain_delta_p[ir];
+
+    // allow overload on donor ranks (signed integer math)
+    if (rank_delta_p>0) {
+      rank_delta_p = domain_particles[ir] - 
+        (1.0 + overload_factor)*n_balance_particles;
+    }
+
     left_node = ir-1;
     right_node = ir+1;
     while (rank_delta_p > 0 && (left_node>=0 || right_node<n_rank)) {

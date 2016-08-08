@@ -218,6 +218,9 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
     rebalance_census(off_rank_census_list, mesh, mpi_types);
   t_mpi.stop_timer("timestep mpi");
 
+  imc_state->set_rank_mpi_time(
+    t_mpi.get_time("timestep mpi"));
+
   census_list.insert(census_list.end(),
     rebalanced_census.begin(), 
     rebalanced_census.end());

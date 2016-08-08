@@ -414,6 +414,8 @@ class Mesh {
   void set_grip_ID_using_cell_index(void) 
   {
     using std::max;
+    using std::unordered_map;
+
     uint32_t global_index, new_grip_ID, grip_end_index;
     // start by looking at the first grip
     uint32_t current_grip_ID = cell_list.front().get_grip_ID();
@@ -422,38 +424,51 @@ class Mesh {
     // start with max_grip_size at zero
     max_grip_size = 0;
 
-    for (uint32_t i=0; i<n_cell; i++) {
-      global_index = on_rank_start+i;
-      Cell & cell = cell_list[i];
-      // cell in grip, increment count
-      if (cell.get_grip_ID() == current_grip_ID) grip_count++;
+    unordered_map<uint32_t, uint32_t> start_index_to_count;
 
-      // cell not in grip or this is the last cell on mesh, set grip ID for 
-      // cells in last grip
-      if (cell.get_grip_ID() != current_grip_ID || i==n_cell-1)  {
-        // set the new grip ID to be the index of the cell at the center
-        // this ID is at the center for odd grip sizes and one above
-        // center for even grip sizes (for convenience in parallel comm)
-        new_grip_ID = on_rank_start + grip_start_index + grip_count/2;
-        // update max grip size 
-        max_grip_size = max(max_grip_size, grip_count);
-        // loop over cells in grip and set new ID 
-        grip_end_index = grip_start_index + grip_count;
-        for (uint32_t j=grip_start_index; j<grip_end_index; j++)
-          cell_list[j].set_grip_ID(new_grip_ID);
-        // set new grip ID, indices and reset counts (start at one, counting 
-        // this cell)
-        current_grip_ID = cell.get_grip_ID();
+    // map the starting index of cells with the same grip to the number in 
+    // that grip
+    for (uint32_t i=0; i<n_cell; i++) {
+      Cell & cell = cell_list[i];
+      if (cell.get_grip_ID() != current_grip_ID) {
         grip_start_index = i;
-        grip_count = 1;
-      } 
+        current_grip_ID = cell.get_grip_ID();
+      }
+
+      // if in grip, incerement count...
+      if (start_index_to_count.find(grip_start_index) != 
+        start_index_to_count.end()) 
+      {
+        start_index_to_count[grip_start_index]++;
+      }
+      // otherwise initialize count to 1
+      else {
+        start_index_to_count[grip_start_index] =1;
+      }
+    }
+
+    // set grip ID using the map of start indices and number of cells
+    typedef unordered_map<uint32_t, uint32_t>::const_iterator map_citr;
+    for (map_citr map_i = start_index_to_count.begin(); 
+      map_i!=start_index_to_count.end(); map_i++) 
+    {
+      grip_start_index = map_i->first;
+      grip_count = map_i->second;
+      // set the new grip ID to be the index of the cell at the center of
+      // this grip for odd grip sizes and one above center for even grip 
+      // sizes (for convenience in parallel comm)
+      new_grip_ID = on_rank_start + grip_start_index + grip_count/2;
+      // update max grip size 
+      max_grip_size = max(max_grip_size, grip_count);
+      // loop over cells in grip and set new ID 
+      grip_end_index = grip_start_index+grip_count;
+      for (uint32_t j=grip_start_index; j<grip_end_index;j++) 
+        cell_list[j].set_grip_ID(new_grip_ID); 
     }
   }
 
   //! set the global ID of the start and end cell on this rank
-  void set_global_bound(uint32_t _on_rank_start, 
-                        uint32_t _on_rank_end) 
-  {
+  void set_global_bound(uint32_t _on_rank_start, uint32_t _on_rank_end) {
     on_rank_start = _on_rank_start;
     on_rank_end = _on_rank_end;
   }

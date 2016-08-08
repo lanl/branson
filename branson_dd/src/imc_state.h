@@ -81,14 +81,18 @@ class IMC_State
 
       m_RNG = new RNG();
       m_RNG->set_seed(input->get_rng_seed()+rank*4106);
+
+      rank_transport_runtime = 0.0;
+      rank_mpi_time = 0.0;
+      rank_load_balance_time = 0.0;
     }
 
   //! Destructor
   ~IMC_State() { delete m_RNG;}
 
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   // const functions                                                          //
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
 
   //! Get current simulation time
   double get_time(void) const {return m_time;}
@@ -169,9 +173,12 @@ class IMC_State
   //! Get transport time for this rank on current timestep
   double get_rank_transport_runtime(void) {return rank_transport_runtime;}
 
-  //////////////////////////////////////////////////////////////////////////////
+  //! Get MPI time for this rank on current timestep
+  double get_rank_mpi_time(void) {return rank_mpi_time;}
+
+  //--------------------------------------------------------------------------//
   // non-const functions                                                      //
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
 
   //! Perform reduction on diagnostic and conservation quantities and print
   void print_conservation(uint32_t dd_type) {
@@ -280,6 +287,7 @@ class IMC_State
         cout<<"Step cell messages sent: "<<g_step_cell_messages;
         cout<<", Step cells sent: "<<g_step_cells_sent<<endl;
         cout<<"Step cells requested: "<<g_step_cells_requested<<endl;
+        cout<<"Load balance time: "<<rank_load_balance_time<<endl;
       }
     } // if rank==0
   }
@@ -340,19 +348,29 @@ class IMC_State
     step_receives_completed=mctr.n_receives_completed;
   }
 
+  //! Set the number of cells requested in mesh passing method this timestep
   void set_step_cells_requested(uint32_t _step_cells_requested) {
     step_cells_requested = _step_cells_requested;
   }
 
-
-  //! Set transport runtime for this rank
+  //! Set transport runtime for this timestep
   void set_rank_transport_runtime(double _rank_transport_runtime) {
     rank_transport_runtime = _rank_transport_runtime;
   }
 
-  //////////////////////////////////////////////////////////////////////////////
+  //! Set MPI time for this timestep
+  void set_rank_mpi_time(double _rank_mpi_time) {
+    rank_mpi_time = _rank_mpi_time;
+  }
+
+  //! Set load balance time for this timestep
+  void set_load_balance_time(double _load_balance_time) {
+   rank_load_balance_time = _load_balance_time; 
+  }
+
+  //--------------------------------------------------------------------------//
   // member data                                                              //
-  //////////////////////////////////////////////////////////////////////////////
+  //--------------------------------------------------------------------------//
   private:
   uint32_t rank; //! Rank owning this states object
   //time
@@ -405,8 +423,12 @@ class IMC_State
   uint32_t step_receives_completed;  //! Number of received messages completed
 
   double rank_transport_runtime; //! Transport step runtime for this rank
+  double rank_mpi_time; //! Time set in MPI related calls for this rank
 
-  //RNG
+  //! Time to load balance particles this timestep
+  double rank_load_balance_time; 
+
+  //! RNG
   RNG* m_RNG;
 };
 

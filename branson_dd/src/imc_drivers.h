@@ -30,6 +30,7 @@
 #include "RNG.h"
 #include "source.h"
 #include "census_creation.h"
+#include "timer.h"
 #include "transport_particle_pass.h"
 #include "transport_mesh_pass.h"
 #include "transport_mesh_pass_rma.h"
@@ -80,9 +81,15 @@ void imc_cell_pass_driver(const int& rank,
 
     imc_state->set_pre_census_E(get_photon_list_E(census_photons));
 
+    // setup source and load balance, time load balance
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
+    Timer t_lb;
+    t_lb.start_timer("load balance");
     load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
       census_photons, mpi_types);
+    t_lb.stop_timer("load balance");
+    imc_state->set_load_balance_time(t_lb.get_time("load balance"));
+
     // get new particle count after load balance. Group particle work by cell
     source.post_lb_prepare_source();
 
@@ -98,12 +105,8 @@ void imc_cell_pass_driver(const int& rank,
       imc_parameters, comp, mctr, abs_E, mpi_types);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
-    MPI_Allreduce(MPI_IN_PLACE, 
-                  &abs_E[0], 
-                  mesh->get_global_num_cells(), 
-                  MPI_DOUBLE, 
-                  MPI_SUM, 
-                  MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(), 
+      MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     mesh->update_temperature(abs_E, imc_state);
 
@@ -165,9 +168,14 @@ void imc_rma_cell_pass_driver(const int& rank,
 
     imc_state->set_pre_census_E(get_photon_list_E(census_photons));
 
+    // setup source and load balance, time load balance
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
+    Timer t_lb;
+    t_lb.start_timer("load balance");
     load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
       census_photons, mpi_types);
+    t_lb.stop_timer("load balance");
+    imc_state->set_load_balance_time(t_lb.get_time("load balance"));
 
     // get new particle count after load balance, group particle work by cell
     source.post_lb_prepare_source();
@@ -200,7 +208,8 @@ void imc_rma_cell_pass_driver(const int& rank,
       // write SILO file
       vector<uint32_t> n_requests = rma_manager->get_n_request_vec();
       write_silo(mesh, imc_state->get_time(), imc_state->get_step(), 
-        imc_state->get_rank_transport_runtime(), rank, n_rank, n_requests);
+        imc_state->get_rank_transport_runtime(), 
+        imc_state->get_rank_mpi_time(), rank, n_rank, n_requests);
     }
     //reset rma_manager object for next timestep
     rma_manager->end_timestep();
