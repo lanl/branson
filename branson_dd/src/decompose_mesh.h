@@ -342,6 +342,9 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const uint32_t& grip_size)
       }
       // sort cells by grip ID
       mesh->sort_cells_by_grip_ID();
+
+      // delete dynamically allocated data
+      delete[] grip_index;
     } // end if n_grips > 1
 
     else if (n_grips == 1) {
@@ -512,10 +515,11 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const uint32_t& grip_size)
 
   // clean up dynamically allocated memory
   delete[] grip_reqs;
-  delete[] tpwgts;
-  delete[] ubvec;
-  delete[] part;
   delete[] reqs;
+  delete[] part;
+  delete[] ubvec;
+  delete[] tpwgts;
+  delete[] xyz;
 }
 
 #endif // decompose_mesh_h

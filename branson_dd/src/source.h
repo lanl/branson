@@ -56,10 +56,10 @@ class Source {
     n_photon = 0;
 
     //make work packets
-    Work_Packet temp_cell_work;
     // current cell pointer
     const Cell* cell_ptr;
     for (uint32_t i = 0; i<n_cell; i++) {
+      Work_Packet temp_cell_work;
       cell_ptr = mesh->get_cell_ptr(i);
       //emission 
       if (E_cell_emission[i] > 0.0) {
@@ -79,20 +79,6 @@ class Source {
 
     // add local census size to n_photon
     n_photon+=census_photons.size();
-
-    // local and total are the same
-
-    // total photons and local photons are the same 
-    // now, count the census photons in each cell
-    // increment the n_p_in_cell count
-    
-    /*
-    for (vector<Photon>::iterator iphtn =census_photons.begin(); 
-      iphtn!=census_photons.end();iphtn++) {
-      global_index = iphtn->get_cell();
-      n_p_in_cell[global_index]++;
-    } 
-    */
   }
 
   //! destructor
@@ -114,10 +100,11 @@ class Source {
     using std::vector;
     using std::unordered_map;
     
-    //recount number of photons
+    // recount number of photons
     n_photon = 0;
 
     unordered_map<uint32_t, Work_Packet*> work_map;
+
     // map global cell ID to work packets to determine if census photons 
     // can be attached to a work packet
     for (vector<Work_Packet>::iterator work_itr =work.begin(); 
@@ -127,67 +114,64 @@ class Source {
       n_photon+=work_itr->get_n_particles();
     }
 
-    Work_Packet temp_packet;
+    uint32_t cell_ID, grip_ID;
+    unordered_map<uint32_t, uint32_t> census_in_cell;
+    unordered_map<uint32_t, uint32_t> census_start_index;
+    unordered_map<uint32_t, uint32_t> grip_index;
 
     if (!census_photons.empty()) {
-      uint32_t last_cell_ID = census_photons.front().get_cell();
-      uint32_t last_grip_ID = census_photons.front().get_grip();
-      uint32_t current_cell_ID=last_cell_ID;
-      uint32_t current_grip_ID=last_grip_ID;
-      uint32_t census_in_cell=0;
-      uint32_t i=0; //! Used to mark the loop index
-      uint32_t start_index = 0;
-      for (vector<Photon>::iterator iphtn =census_photons.begin(); 
-        iphtn!=census_photons.end(); iphtn++) 
+      uint32_t i=0;
+      for (vector<Photon>::iterator iphtn =census_photons.begin();
+        iphtn!=census_photons.end(); iphtn++)
       {
-        current_cell_ID = iphtn->get_cell();
-        current_grip_ID = iphtn->get_grip();
-        // if new global ID, try to attach to work packet to the last global 
-        // index
-        if (last_cell_ID != current_cell_ID) {
-          // if work_packet exists for the last cell, attach
-          if (work_map.find(last_cell_ID) != work_map.end())
-            work_map[last_cell_ID]->attach_census_work(start_index, census_in_cell);
-          // otherwise make a work packet and append it
-          else {
-            temp_packet.set_global_cell_ID(last_cell_ID);
-            temp_packet.set_global_grip_ID(last_grip_ID);
-            temp_packet.attach_census_work(start_index, census_in_cell);
-            // add this work to the total work vector
-            work.push_back(temp_packet);
-          }
-          // update indices, reset count
-          last_cell_ID = current_cell_ID;
-          last_grip_ID = current_grip_ID;
-          start_index = i;
-          n_photon+=census_in_cell;
-          census_in_cell = 0;
+        cell_ID = iphtn->get_cell();
+        grip_ID = iphtn->get_grip();
+        // at first instance of cell ID set the starting index
+        if (census_in_cell.find(cell_ID) == census_in_cell.end()) {
+          census_in_cell[cell_ID] = 1;
+          grip_index[cell_ID] = grip_ID;
+          census_start_index[cell_ID]=i;
         }
-        //increment counters
-        census_in_cell++;
+        else {
+          census_in_cell[cell_ID]++;
+        }
         i++;
       }
 
-      //process work from last group of census particles
-      if (work_map.find(current_cell_ID) != work_map.end())
-        work_map[last_cell_ID]->attach_census_work(start_index, census_in_cell);
-      // otherwise make a work packet and append it
-      else {
-        temp_packet.set_global_cell_ID(last_cell_ID);
-        temp_packet.set_global_grip_ID(last_grip_ID);
-        temp_packet.attach_census_work(start_index, census_in_cell);
-        // add this work to the total work vector
-        work.push_back(temp_packet);
+      // now attach census particles to work packets or make new ones
+      typedef unordered_map<uint32_t, uint32_t>::iterator mapi_t;
+      for (mapi_t mapi=census_start_index.begin(); 
+        mapi!=census_start_index.end(); ++mapi)
+      {
+        cell_ID = mapi->first;
+        grip_ID = grip_index[cell_ID];
+
+        // apppend count in this cell to the total
+        n_photon += census_in_cell[cell_ID];
+
+        // if a work packet for this cell exists, attach the census work
+        if (work_map.find(cell_ID) != work_map.end()) {
+          work_map[cell_ID]->attach_census_work(mapi->second, 
+            census_in_cell[cell_ID]);
+        }
+        // otherwise, make a new work packet
+        else {
+          Work_Packet temp_packet;
+          temp_packet.set_global_cell_ID(cell_ID);
+          temp_packet.set_global_grip_ID(grip_ID);
+          temp_packet.attach_census_work(mapi->second, census_in_cell[cell_ID]);
+
+          // add this work to the total work vector
+          work.push_back(temp_packet);
+        }
       }
-      // add last group of census particles to count
-      n_photon+=census_in_cell;
-    } // end if census not empty
+    } // end if !census_photons.empty()
 
     // set initial parameters and iterators
     iwork = work.begin();
-    n_emission = iwork->get_n_particles();
+    n_emission = iwork->get_n_emission();
     phtn_E = iwork->get_photon_E();
-    n_in_packet = iwork->get_n_particles() + iwork->get_n_census();
+    n_in_packet = iwork->get_n_particles();
     census_index = iwork->get_census_index();
     iphoton = 0;
   }
@@ -203,6 +187,9 @@ class Source {
     }
     // get census photon
     else {
+      if (census_index > census_photons.size() ) {
+        std::cout<<"This is bad: "<<census_index<<std::endl;
+      }
       return_photon = census_photons[census_index];
       iphoton++;
       census_index++;
@@ -211,9 +198,9 @@ class Source {
     // if work packet is done, increment the work packet and reset quantities
     if (iphoton == n_in_packet) {
       iwork++;
-      n_emission = iwork->get_n_particles();
+      n_emission = iwork->get_n_emission();
       phtn_E = iwork->get_photon_E();
-      n_in_packet = iwork->get_n_particles() + iwork->get_n_census();
+      n_in_packet = iwork->get_n_particles();
       census_index = iwork->get_census_index();
       iphoton = 0;
     }

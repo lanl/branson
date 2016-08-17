@@ -376,7 +376,11 @@ class Input
     for (uint32_t k=0;k<z.size();k++) silo_z[k] = z[k];
   }
   
-  ~Input() {};
+  ~Input() {
+    delete[] silo_x;
+    delete[] silo_y;
+    delete[] silo_z;
+  };
   
   void print_problem_info(void) const {
     using Constants::a;
@@ -541,6 +545,7 @@ class Input
   double get_dt_max(void) const {return dtMax;}
   int get_rng_seed(void) const {return seed;}
   uint64_t get_number_photons(void) const {return n_photons;}
+  uint32_t get_completion_routine(void) const {return completion_routine;}
   uint32_t get_batch_size(void) const {return batch_size;}
   uint32_t get_particle_message_size(void) const {return particle_message_size;}
   uint32_t get_grip_size(void) const {return grip_size;}

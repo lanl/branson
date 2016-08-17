@@ -73,8 +73,6 @@ class Completion_Manager_RMA : public Completion_Manager
   ~Completion_Manager_RMA() {
     // closes MPI window for one-sided messaging
     MPI_Win_unlock_all(completion_window);
-    // free MPI window
-    MPI_Win_free(&completion_window);
   }
 
   // const functions
@@ -90,7 +88,9 @@ class Completion_Manager_RMA : public Completion_Manager
   }
 
   //! No posting of receives is necessary so don't do anything
-  virtual void start_timestep(Message_Counter& mctr) {}
+  virtual void start_timestep(Message_Counter& mctr) {
+    *n_complete_tree_data=0;
+  }
 
   // non-const functions
 
@@ -99,7 +99,7 @@ class Completion_Manager_RMA : public Completion_Manager
   virtual void end_timestep( Message_Counter& mctr)
   {
     //reset tree counts
-    *n_complete_tree_data = 0;
+    //*n_complete_tree_data = 0;
     n_complete_c1 = 0;
     n_complete_c2 = 0;
     n_complete_p = 0;

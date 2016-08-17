@@ -259,10 +259,14 @@ class Mesh {
       //ids needed from other ranks
       ids_needed.push_back(empty_vec_ids); 
     }
+
+    mpi_window_set = false;
   }
 
   // destructor, free buffers and delete MPI allocated cell
   ~Mesh() {
+    // free MPI window (also frees associated memory)
+    if (mpi_window_set) MPI_Win_free(&mesh_window);
     delete[] r_cell_reqs;
     delete[] r_id_reqs;
     delete[] s_cell_reqs;
@@ -334,6 +338,10 @@ class Mesh {
 
   const Cell* get_cell_ptr(const uint32_t& local_ID) const {
     return &cells[local_ID];
+  }
+
+  const Cell const* get_const_cells_ptr(void) const {
+    return cells;
   }
 
   uint32_t get_off_rank_id(const uint32_t& index) const {
@@ -672,6 +680,7 @@ class Mesh {
     //copy the cells list data into the cells array
     memcpy(cells,&cell_list[0], n_bytes);
 
+    mpi_window_set = true;
     cell_list.clear();
   }
 
@@ -757,6 +766,7 @@ class Mesh {
   }
 
   //! Communication of mesh data between ranks 
+  /*
   bool process_mesh_requests(Message_Counter& mctr)
   {
     using Constants::cell_tag;
@@ -896,7 +906,9 @@ class Mesh {
     } //for ir in n_off_rank
     return new_data;
   }
+  */
 
+ 
   //! Remove the temporary off-rank mesh data after the end of a timestep 
   // (the properties will be updated so it can't be reused)
   void purge_working_mesh(void) {
@@ -905,6 +917,7 @@ class Mesh {
   }
 
 
+  /*
   //! Routine to ensure no MPI ranks have unfinished receives
   void finish_mesh_pass_messages(Message_Counter& mctr) {
     using Constants::cell_id_tag;
@@ -963,6 +976,7 @@ class Mesh {
       recv_id_buffer[ir].reset();
     }
   }
+  */
 
   //! Set maximum grip size
   void set_max_grip_size(const uint32_t& new_max_grip_size) {
@@ -1004,7 +1018,6 @@ class Mesh {
   
   uint32_t on_rank_start; //! Start of global index on rank
   uint32_t on_rank_end; //! End of global index on rank
-
 
   std::vector<double> m_census_E; //! Census energy vector
   std::vector<double> m_emission_E; //! Emission energy vector
@@ -1063,6 +1076,9 @@ class Mesh {
   std::set<uint32_t> ids_requested; //! IDs that have been requested
 
   uint32_t max_grip_size; //! Size of largest grip on this rank
+
+  bool mpi_window_set; //! Flag indicating if MPI_Window was created 
+
 };
 
 #endif // mesh_h_

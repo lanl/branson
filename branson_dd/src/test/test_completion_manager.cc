@@ -90,6 +90,9 @@ int main (int argc, char *argv[]) {
     // after reset, all ranks should not be finished
     if (comp.is_finished()) completion_routine_pass = false;
 
+    // at beginning of timestep count should be zero
+    comp.start_timestep(mctr);
+
     if (comp.get_n_complete_tree() !=  0) completion_routine_pass = false;
 
     // should post/complete some receives
@@ -155,7 +158,6 @@ int main (int argc, char *argv[]) {
 
     // after reset, all ranks should not be finished
     if (comp.is_finished()) milagro_completion_pass = false;
-
 
     MPI_Barrier(MPI_COMM_WORLD);
 

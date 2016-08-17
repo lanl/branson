@@ -21,6 +21,7 @@
 
 #include "completion_manager_milagro.h"
 #include "completion_manager_rma.h"
+#include "mesh_request_manager.h"
 #include "constants.h"
 #include "decompose_photons.h"
 #include "message_counter.h"
@@ -149,6 +150,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
                                         IMC_State* imc_state,
                                         IMC_Parameters* imc_parameters,
                                         Completion_Manager* comp,
+                                        Mesh_Request_Manager* req_manager,
                                         Message_Counter& mctr,
                                         std::vector<double>& rank_abs_E,
                                         MPI_Types *mpi_types)
@@ -179,15 +181,14 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
-  // post receives to children and parent for completion messages 
-  comp->start_timestep(mctr);
-
   //set global particles to be n_rank, every rank sets it completed particles
   //to 1 after finished local work
   comp->set_timestep_global_particles(n_rank);
 
   // New data flag is initially false
   bool new_data = false;
+  std::vector<Cell> new_cells; // New cells from completed RMA requests
+
   // Number of particles to run between MPI communication 
   const uint32_t batch_size = imc_parameters->get_batch_size();
 
@@ -226,14 +227,16 @@ std::vector<Photon> transport_mesh_pass(Source& source,
         else off_rank_census_list.push_back(phtn);
       }
       else if (event==WAIT) {
-        mesh->request_cell(cell_id);
+        req_manager->request_cell(phtn.get_grip(), mctr);
         wait_list.push(phtn);
       }
       n--;
     } // end batch transport
 
     //process mesh requests
-    new_data = mesh->process_mesh_requests(mctr);
+    new_cells = req_manager->process_mesh_requests(mctr);
+    new_data = !new_cells.empty();
+    if (new_data) mesh->add_non_local_mesh_cells(new_cells);
     // if data was received, try to transport photons on waiting list
     if (new_data) {
       wait_list_size = wait_list.size();
@@ -250,7 +253,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
             else off_rank_census_list.push_back(phtn);
           }
           else if (event==WAIT) {
-            mesh->request_cell(cell_id);
+            req_manager->request_cell(phtn.get_grip(), mctr);
             wait_list.push(phtn);
           }
         }
@@ -264,9 +267,12 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   // Main transport loop finished, transport photons waiting for data
   //--------------------------------------------------------------------------//
   while (!wait_list.empty()) {
-    new_data = mesh->process_mesh_requests(mctr);
+    //process mesh requests
+    new_cells = req_manager->process_mesh_requests(mctr);
+    new_data = !new_cells.empty();
+    if (new_data) mesh->add_non_local_mesh_cells(new_cells);
     // if new data received, transport waiting list 
-    if (new_data) {
+    if (new_data || req_manager->no_active_requests() ) {
       wait_list_size = wait_list.size();
       for (uint32_t wp =0; wp<wait_list_size; wp++) {
         phtn = wait_list.front();
@@ -281,13 +287,13 @@ std::vector<Photon> transport_mesh_pass(Source& source,
             else off_rank_census_list.push_back(phtn);
           }
           else if (event==WAIT) {
-            mesh->request_cell(cell_id);
+            req_manager->request_cell(phtn.get_grip(), mctr);
             wait_list.push(phtn);
           }
         }
         else {
           wait_list.push(phtn);
-          mesh->request_cell(cell_id);
+          req_manager->request_cell(phtn.get_grip(), mctr);
         }
       }
     }
@@ -302,7 +308,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   bool finished = false;
   bool waiting_for_work = true;
   while (!finished) {
-    mesh->process_mesh_requests(mctr);
+    req_manager->process_mesh_requests(mctr);
     comp->process_completion(waiting_for_work, complete, mctr);
     finished = comp->is_finished();
   } // end while
@@ -314,9 +320,9 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   // requests and sends
   MPI_Barrier(MPI_COMM_WORLD);
 
-  mesh->finish_mesh_pass_messages(mctr);
+  //mesh->finish_mesh_pass_messages(mctr);
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  //MPI_Barrier(MPI_COMM_WORLD);
 
   // all ranks have now finished transport
 

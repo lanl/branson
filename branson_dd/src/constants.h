@@ -27,13 +27,16 @@ enum dir_type {X_NEG, X_POS, Y_NEG, Y_POS, Z_NEG, Z_POS}; //! Directions
 enum event_type {KILL, EXIT, PASS, CENSUS, WAIT}; //! Events
 enum {PARTICLE_PASS, CELL_PASS, CELL_PASS_RMA}; //! DD types
 enum {RMA_COMPLETION, MILAGRO_COMPLETION}; //! Completion manager types
-const int cell_tag(1); //! MPI tag for cell messages
+const int grip_id_tag(1); //! MPI tag for grip ID messages
 const int cell_id_tag(2); //! MPI tag for requested cell ID messages
 const int finish_tag(3); //! MPI tag for finish messages
 const int count_tag(4); //! MPI tag for completion count messages
 const int photon_tag(5); //! MPI tag for photon messages
 const int work_tag(6); //! MPI tag for work packet messages
-const int grip_id_tag(7); //! MPI tag for grip ID messages
+
+//! MPI tag for cell messages NOTE: the number of grips in the message will
+// added to the end of this number
+const int cell_tag(7); 
 const int proc_null(1000000000); //! High number, unlikely to be used
 };
 

@@ -127,7 +127,7 @@ void load_balance(const int& rank, const int& n_rank,
   } // end for ir in n_rank
 
   if (rank==0) {
-    std::cout<<"Load balancing... ";
+    std::cout<<"Load balancing "<<n_global_particles<<" particles"<<std::endl;
     std::cout<<"Max particles: "<<max_particles<<" on rank "<<max_rank<<", ";
     std::cout<<100.0*double(max_particles)/double(n_global_particles);
     std::cout<<" percent of total work"<<std::endl;

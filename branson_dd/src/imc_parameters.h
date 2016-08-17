@@ -31,9 +31,10 @@ class IMC_Parameters
   //! constructor
   IMC_Parameters(Input *input)
     : n_user_photon(input->get_number_photons()),
-      map_size(input->get_map_size()),
       grip_size(input->get_grip_size()),
-      dd_mode(input->get_dd_mode()) ,
+      map_size(input->get_map_size()),
+      dd_mode(input->get_dd_mode()),
+      completion_method(input->get_completion_routine()),
       batch_size(input->get_batch_size()),
       particle_message_size(input->get_particle_message_size()),
       write_silo_flag(input->get_write_silo_bool())

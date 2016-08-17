@@ -34,7 +34,7 @@ using Constants::PARTICLE_PASS;
 using Constants::CELL_PASS;
 using Constants::CELL_PASS_RMA;
 
-int main(int argc, char *argv[])
+int main(int argc, char **argv)
 {
   MPI_Init(&argc, &argv);
 
@@ -69,10 +69,10 @@ int main(int argc, char *argv[])
   Timer * timers = new Timer();
 
   // make mesh from input object and decompose mesh with ParMetis
-  timers->start_timer("setup");
+  timers->start_timer("Total setup");
   Mesh *mesh = new Mesh(input, mpi_types, rank, n_rank);
   decompose_mesh(mesh, mpi_types, imc_p->get_grip_size());
-  timers->stop_timer("setup");
+  timers->stop_timer("Total setup");
 
   MPI_Barrier(MPI_COMM_WORLD);
   //print_MPI_out(mesh, rank, n_rank);
@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
   // TRT PHYSICS CALCULATION
   //--------------------------------------------------------------------------//
 
-  timers->start_timer("transport");
+  timers->start_timer("Total transport");
 
   if (input->get_dd_mode() == PARTICLE_PASS)
     imc_particle_pass_driver(rank, n_rank, mesh, imc_state, imc_p, mpi_types);
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
   else if (input->get_dd_mode() == CELL_PASS_RMA)
     imc_rma_cell_pass_driver(rank, n_rank, mesh, imc_state, imc_p, mpi_types);
 
-  timers->stop_timer("transport");
+  timers->stop_timer("Total transport");
   
   if (rank==0) {
     cout<<"****************************************";
@@ -100,10 +100,12 @@ int main(int argc, char *argv[])
   }
   MPI_Barrier(MPI_COMM_WORLD);
 
-  delete mpi_types;
+  delete mesh;
+  delete timers;
   delete imc_state;
   delete imc_p;
-  delete timers;
+  delete input;
+  delete mpi_types;
 
   MPI_Finalize();
 }

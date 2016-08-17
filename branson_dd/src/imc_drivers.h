@@ -21,6 +21,7 @@
 #include "completion_manager_milagro.h"
 #include "completion_manager_rma.h"
 #include "mesh_rma_manager.h"
+#include "mesh_request_manager.h"
 #include "message_counter.h"
 #include "mpi_types.h"
 #include "imc_state.h"
@@ -48,6 +49,12 @@ void imc_cell_pass_driver(const int& rank,
   vector<Photon> census_photons;
   vector<uint32_t> needed_grip_ids; //! Grips needed after load balance
   Message_Counter mctr;
+
+  // make object that handles requests for local and remote data
+  Mesh_Request_Manager *req_manager = new Mesh_Request_Manager(rank, 
+    mesh->get_off_rank_bounds(), mesh->get_global_num_cells(), 
+    mesh->get_max_grip_size(), mpi_types, mesh->get_const_cells_ptr());
+  req_manager->start_simulation(mctr);
 
   // make object that handles completion messages, completion
   // object set up the binary tree structure
@@ -83,12 +90,12 @@ void imc_cell_pass_driver(const int& rank,
 
     // setup source and load balance, time load balance
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
-    Timer t_lb;
-    t_lb.start_timer("load balance");
+    //Timer t_lb;
+    //t_lb.start_timer("load balance");
     load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
       census_photons, mpi_types);
-    t_lb.stop_timer("load balance");
-    imc_state->set_load_balance_time(t_lb.get_time("load balance"));
+    //t_lb.stop_timer("load balance");
+    //imc_state->set_load_balance_time(t_lb.get_time("load balance"));
 
     // get new particle count after load balance. Group particle work by cell
     source.post_lb_prepare_source();
@@ -100,9 +107,12 @@ void imc_cell_pass_driver(const int& rank,
     //when transport starts
     MPI_Barrier(MPI_COMM_WORLD);
 
+    // set pending receives for cell data requests and completion tracker
+    comp->start_timestep(mctr);
+
     //transport photons
     census_photons = transport_mesh_pass(source, mesh, imc_state, 
-      imc_parameters, comp, mctr, abs_E, mpi_types);
+      imc_parameters, comp, req_manager, mctr, abs_E, mpi_types);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
     MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(), 
@@ -112,16 +122,22 @@ void imc_cell_pass_driver(const int& rank,
 
     imc_state->print_conservation(imc_parameters->get_dd_mode());
 
-    //purge the working mesh, it will be updated by other ranks and is now 
-    //invalid
+    // purge the working mesh, it will be updated by other ranks and is now 
+    // invalid
     mesh->purge_working_mesh();
 
-    //update time for next step
+    // reset counters and max indices in mesh request object
+    req_manager->end_timestep();
+
+    // update time for next step
     imc_state->next_time_step();
   }
 
+  req_manager->end_simulation(mctr);
+
   // delete completion manager (closes and free window in RMA version)
   delete comp;
+  delete req_manager;
 }
 
 
@@ -170,12 +186,12 @@ void imc_rma_cell_pass_driver(const int& rank,
 
     // setup source and load balance, time load balance
     Source source(mesh, imc_parameters, global_source_energy, census_photons);
-    Timer t_lb;
-    t_lb.start_timer("load balance");
+    //Timer t_lb;
+    //t_lb.start_timer("load balance");
     load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
       census_photons, mpi_types);
-    t_lb.stop_timer("load balance");
-    imc_state->set_load_balance_time(t_lb.get_time("load balance"));
+    //t_lb.stop_timer("load balance");
+    //imc_state->set_load_balance_time(t_lb.get_time("load balance"));
 
     // get new particle count after load balance, group particle work by cell
     source.post_lb_prepare_source();
