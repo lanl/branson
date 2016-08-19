@@ -53,26 +53,25 @@ class Completion_Manager_Milagro : public Completion_Manager
 
   //non-const functions
   virtual void start_timestep(Message_Counter& mctr) {
-    using Constants::proc_null;
     using Constants::count_tag;
     // Messages are sent up the tree whenever a rank has completed its local work
     // or received an updated particle complete count from its child
     // Messages are sent down the tree only after completion and starting at the 
     // root node. 
     // Post receives for photon counts from children and parent now
-    if (child1!=proc_null) {
+    if (child1!=MPI_PROC_NULL) {
       MPI_Irecv(c1_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1, 
         count_tag, MPI_COMM_WORLD, &c1_recv_req);
       mctr.n_receives_posted++;
       c1_recv_buffer.set_awaiting();
     }
-    if (child2!=proc_null) {
+    if (child2!=MPI_PROC_NULL) {
       MPI_Irecv(c2_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child2,
         count_tag, MPI_COMM_WORLD, &c2_recv_req);
       mctr.n_receives_posted++;
       c2_recv_buffer.set_awaiting();
     }
-    if (parent != proc_null) {
+    if (parent != MPI_PROC_NULL) {
       MPI_Irecv(p_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
         count_tag, MPI_COMM_WORLD, &p_recv_req);
       mctr.n_receives_posted++;
@@ -84,7 +83,6 @@ class Completion_Manager_Milagro : public Completion_Manager
   // Add children to current tree count. If parent count is received, 
   // it will be the global problem particle count, indicating completion
   void check_messages(uint64_t& n_complete_tree, Message_Counter& mctr) {
-    using Constants::proc_null;
     using Constants::count_tag;
 
     //test receives from children and add work to tree count
@@ -149,12 +147,11 @@ class Completion_Manager_Milagro : public Completion_Manager
   {
     using std::vector;
     using Constants::count_tag;
-    using Constants::proc_null;
 
     check_messages(n_complete_tree, mctr);
 
     // non-root ranks send complete counts up the tree
-    if ((n_complete_tree && waiting_for_work) && (parent!=proc_null && 
+    if ((n_complete_tree && waiting_for_work) && (parent!=MPI_PROC_NULL && 
       !p_send_buffer.sent()) ) {
       p_send_buffer.fill(vector<uint64_t> (1,n_complete_tree));
       MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
@@ -175,12 +172,11 @@ class Completion_Manager_Milagro : public Completion_Manager
   virtual void end_timestep(Message_Counter& mctr)
   {
     using std::vector;
-    using Constants::proc_null;
     using Constants::count_tag;
 
     // finish off sends and send empty messages to complete awaiting receives
     //send finished count down tree to children and wait for completion
-    if (child1 != proc_null) {
+    if (child1 != MPI_PROC_NULL) {
       if (c1_send_buffer.sent()) {
         MPI_Wait(&c1_send_req, MPI_STATUS_IGNORE);
         mctr.n_sends_completed++;
@@ -192,7 +188,7 @@ class Completion_Manager_Milagro : public Completion_Manager
       MPI_Wait(&c1_send_req, MPI_STATUS_IGNORE);
       mctr.n_sends_completed++;
     }
-    if (child2 != proc_null)  {
+    if (child2 != MPI_PROC_NULL)  {
       if (c2_send_buffer.sent()) {
         MPI_Wait(&c2_send_req, MPI_STATUS_IGNORE);
         mctr.n_sends_completed++;
@@ -207,7 +203,7 @@ class Completion_Manager_Milagro : public Completion_Manager
 
     // wait for parent send to complete, if sent then finish off
     // parent's receive calls 
-    if (parent!=proc_null) {
+    if (parent!=MPI_PROC_NULL) {
       if (p_send_buffer.sent()) {
         MPI_Wait(&p_send_req, MPI_STATUS_IGNORE);
         mctr.n_sends_completed++;
@@ -220,11 +216,11 @@ class Completion_Manager_Milagro : public Completion_Manager
       mctr.n_sends_completed++;
     }
 
-    if (child1 != proc_null) {
+    if (child1 != MPI_PROC_NULL) {
       MPI_Wait(&c1_recv_req, MPI_STATUS_IGNORE);
       mctr.n_receives_completed++;
     }
-    if (child2 != proc_null) {
+    if (child2 != MPI_PROC_NULL) {
       MPI_Wait(&c2_recv_req, MPI_STATUS_IGNORE);
       mctr.n_receives_completed++;
     }

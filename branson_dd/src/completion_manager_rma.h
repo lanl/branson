@@ -129,7 +129,6 @@ class Completion_Manager_RMA : public Completion_Manager
                                   uint64_t& n_complete_tree,
                                   Message_Counter& mctr)
   {
-    using Constants::proc_null;
 
     // only do this if rank has no particles to transport and received 
     // buffers are empty
@@ -139,7 +138,7 @@ class Completion_Manager_RMA : public Completion_Manager
       // make a new request
 
       // child 1
-      if (child1!= proc_null) {
+      if (child1!= MPI_PROC_NULL) {
         if (c1_req_flag) {
           MPI_Test(&req_c1, &flag_c1, MPI_STATUS_IGNORE);
           if (flag_c1) {
@@ -157,7 +156,7 @@ class Completion_Manager_RMA : public Completion_Manager
       }
 
       // child 2
-      if (child2!= proc_null) {
+      if (child2!= MPI_PROC_NULL) {
         if (c2_req_flag) {
           MPI_Test(&req_c2, &flag_c2, MPI_STATUS_IGNORE);
           if (flag_c2) {
@@ -178,7 +177,7 @@ class Completion_Manager_RMA : public Completion_Manager
       *n_complete_tree_data =n_complete_tree + n_complete_c1 + n_complete_c2; 
 
       // If parent is complete, test parent count for overall completion
-      if (parent != proc_null) {
+      if (parent != MPI_PROC_NULL) {
         if (p_req_flag) { 
           MPI_Test(&req_p, &flag_p, MPI_STATUS_IGNORE);
           if (flag_p) {

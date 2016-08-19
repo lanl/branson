@@ -40,22 +40,21 @@ class Completion_Manager
       n_particle_global(0),
       finished(false)
   {
-    using Constants::proc_null;
     //set up binary tree rank structure
     parent = (rank + 1) / 2 - 1;
     child1 = rank * 2 + 1;
     child2 = child1 + 1;
-    // set missing nodes to proc_null
-    if (!rank) parent = proc_null;
+    // set missing nodes to MPI_PROC_NULL
+    if (!rank) parent = MPI_PROC_NULL;
 
     // maximum valid node id
     const int last_node = n_rank - 1;
 
     if (child1 > last_node) {
-      child1 = proc_null;
-      child2 = proc_null;
+      child1 = MPI_PROC_NULL;
+      child2 = MPI_PROC_NULL;
     }
-    else if (child1 == last_node) child2 = proc_null;
+    else if (child1 == last_node) child2 = MPI_PROC_NULL;
 
   }
   ~Completion_Manager() {}

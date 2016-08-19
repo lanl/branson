@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <iostream>
 #include <mpi.h>
+#include <queue>
 #include <unordered_set>
 #include <unordered_map>
 #include <vector>
@@ -169,8 +170,10 @@ class Mesh_Request_Manager
     return r_cell_count;
   }
 
-  //! Test active send request objects for completion (sent IDs and sent cells)
-  void test_sends(Message_Counter& mctr) { 
+  //! Test active send and receives request objects for completion (sent IDs and sent cells)
+  void test_sends_and_receives(Message_Counter& mctr) { 
+    using Constants::cell_id_tag;
+
     // test sends of cell IDs, don't test if no active requests
     if (!s_id_in_use.empty()) {
       MPI_Testsome(s_id_max_index+1, &s_id_reqs[0], &n_req_complete,
@@ -185,11 +188,72 @@ class Mesh_Request_Manager
     if (!s_cell_in_use.empty()) {
       MPI_Testsome(s_cell_max_index+1, &s_cell_reqs[0], &n_req_complete,
         &complete_indices[0], MPI_STATUSES_IGNORE);
-
       for (uint32_t i=0; i<n_req_complete;++i)
         s_cell_in_use.erase(complete_indices[i]);
       mctr.n_sends_completed+=n_req_complete;
     }
+
+    // test receives of local IDs needed by other ranks
+    MPI_Testsome(max_reqs, &r_id_reqs[0], &n_req_complete,
+      &complete_indices[0], &r_id_status[0]);
+    
+    int comp_index, n_ids;
+    uint32_t g_index, off_rank; 
+    mctr.n_receives_completed+=n_req_complete;
+
+    // for each complete request, add cells to send lists
+    typedef std::pair<uint32_t, uint32_t> rpair;
+    for (int i = 0;i<n_req_complete;++i) {
+      // get actual number of ids received
+      comp_index = complete_indices[i];
+      MPI_Get_count(&r_id_status[i], MPI_UNSIGNED, &n_ids);
+      r_id_buffers[comp_index].set_rank(r_id_status[i].MPI_SOURCE);
+      r_id_buffers[comp_index].set_receive_size(n_ids);
+      r_id_stack.push(r_id_buffers[comp_index]);
+
+      // repost the receive at this index
+      MPI_Irecv(r_id_buffers[comp_index].get_buffer(), max_reqs, MPI_UNSIGNED,
+        MPI_ANY_SOURCE, cell_id_tag, MPI_COMM_WORLD, &r_id_reqs[comp_index]);
+      mctr.n_receives_posted++;
+    }
+
+    // test receives for remote mesh
+    new_cells.clear();
+
+    // test all receives for needed cells
+    if (!r_cell_in_use.empty()) {
+
+      MPI_Testsome(r_cell_max_index+1, &r_cell_reqs[0], &n_req_complete,
+        &complete_indices[0], &r_cell_status[0]);
+    
+      int n_cell_recv;
+      int cells_in_req;
+
+      mctr.n_receives_completed+=n_req_complete;
+      // for each complete request, send the cells
+      for (int i = 0;i<n_req_complete;++i) {
+        comp_index = complete_indices[i];
+
+        MPI_Get_count(&r_cell_status[i], MPI_Cell, &n_cell_recv);
+
+        // remove request index from index_in_use set
+        r_cell_in_use.erase(comp_index);
+
+        // copy actual number of received cells from the buffer to the
+        // new_cells vector
+        std::vector<Cell>& complete_cells = 
+          r_cell_buffers[comp_index].get_object();
+        new_cells.insert(new_cells.begin(), complete_cells.begin(), 
+          complete_cells.begin() + n_cell_recv); 
+
+        // erase the receives IDs from the request list
+        const std::vector<uint32_t>& receive_ids =
+          r_cell_buffers[comp_index].get_grip_IDs();
+        for (uint32_t j=0;j<receive_ids.size();++j) {
+          ids_requested.erase(receive_ids[j]);
+        } 
+      } // end loop over received requests
+    } // end if !r_cell_in_use.empty()
   }
 
   //! Post sends and receives for needed mesh data
@@ -204,15 +268,12 @@ class Mesh_Request_Manager
     // can't erase from a set while iterating over it, use this
     std::unordered_set<uint32_t> ranks_to_erase;
 
-    for (usit irank=ranks_requested.begin(); 
-      irank!=ranks_requested.end();++irank) 
+    for (usit irank=ranks_to_recv.begin(); 
+      irank!=ranks_to_recv.end();++irank) 
     {
-      off_rank = *irank;
-      // process request if active sends and receives less than max
-      if (s_id_in_use.size() <= max_reqs && r_cell_in_use.size() <= max_reqs)
-      {
-
-        mmpair rank_range = ranks_to_ids.equal_range(off_rank);
+      if (s_id_in_use.size() < max_reqs && r_cell_in_use.size() < max_reqs) {
+        off_rank = *irank;
+        mmpair rank_range = s_rank_to_ids.equal_range(off_rank);
         std::vector<uint32_t> send_ids;
         for (mmit it=rank_range.first; it!=rank_range.second; ++it) 
           send_ids.push_back(it->second);
@@ -235,158 +296,116 @@ class Mesh_Request_Manager
         // post receive with number of grips in the tag and store request for 
         // testing
         int custom_tag = cell_tag + send_ids.size();
+        r_cell_buffers[r_cell_index].set_grip_IDs(send_ids);
+
         MPI_Irecv(r_cell_buffers[r_cell_index].get_buffer(), recv_size, MPI_Cell,
           off_rank, custom_tag, MPI_COMM_WORLD, &r_cell_reqs[r_cell_index]);
         mctr.n_receives_posted++;
 
         ranks_to_erase.insert(off_rank);
-        ranks_to_ids.erase(off_rank);
-      }
-    } // end for off_rank in ranks_requested
+        s_rank_to_ids.erase(off_rank);
+      } // end if requests available
+    } // end for off_rank in ranks_to_recv
 
     // delete the ranks that were requested from the set
     for (usit irank=ranks_to_erase.begin(); 
       irank!=ranks_to_erase.end();++irank)
     {
-      ranks_requested.erase(*irank);
+      ranks_to_recv.erase(*irank);
     } 
   }
 
   //! If requests for local mesh have been made, send the mesh to the
   // requesting rank
   void process_requests_for_local_mesh(Message_Counter& mctr) {
-    using Constants::cell_id_tag;
     using Constants::cell_tag;
+    typedef std::unordered_set<uint32_t>::iterator usit;
+    typedef std::unordered_multimap<uint32_t,uint32_t>::iterator mmit;
+    typedef std::pair<mmit,mmit> mmpair;
 
-    MPI_Testsome(max_reqs, &r_id_reqs[0], &n_req_complete,
-      &complete_indices[0], &r_id_status[0]);
+    // can't erase from a set while iterating over it, use this
+    std::unordered_set<uint32_t> ranks_to_erase;
 
-    int comp_index, n_ids;
-    uint32_t g_index, off_rank; 
-  
-    mctr.n_receives_completed+=n_req_complete;
+    uint32_t off_rank, n_ids, g_index;
+    uint32_t r_id_stack_size = r_id_stack.size();
+    Buffer<uint32_t> id_buffer;
 
-    // for each complete request, send the cells
-    for (int i = 0;i<n_req_complete;++i) {
-      comp_index = complete_indices[i];
-      off_rank = r_id_status[i].MPI_SOURCE;
-      std::vector<uint32_t>& needed_cells = r_id_buffers[comp_index].get_object();
+    for (uint32_t i=0; i<r_id_stack_size; ++i) {
+      if (s_cell_in_use.size() < max_reqs) {
 
-      // get actual number of ids received
-      MPI_Get_count(&r_id_status[i], MPI_UNSIGNED, &n_ids);
+        // pop a received ID buffer off stack
+        id_buffer = r_id_stack.front();
+        r_id_stack.pop();
 
-      // fill vector with all cells requested by off rank
-      std::vector<Cell> send_cells;
-      send_cells.resize(n_ids*grip_size);
-      uint32_t copy_index = 0;
-      uint32_t n_cells_to_send = 0;
-      uint32_t start_index;
-      for (uint32_t j=0; j<n_ids; ++j) {
-        g_index = needed_cells[j];
-        start_index = g_index;
-        if (int32_t(start_index) - int32_t(grip_size)/2 < int32_t(rank_start))
-          start_index = rank_start;
-        else
-          start_index -= grip_size/2;
+        off_rank = id_buffer.get_rank();
+        n_ids = id_buffer.get_receive_size();
+        std::vector<uint32_t> send_ids = id_buffer.get_object();
 
-        uint32_t n_cells_to_copy;
-        if (start_index + grip_size > rank_end)
-          n_cells_to_copy = rank_end - start_index;
-        else 
-          n_cells_to_copy = grip_size;
+        // pop off elements to get to actual receive size
+        while (send_ids.size() > n_ids) send_ids.pop_back();
 
-        // transform start index to local cell index
-        start_index-=rank_start;
+        // fill vector with all cells requested by off rank
+        std::vector<Cell> send_cells;
+        send_cells.resize(n_ids*grip_size);
+        uint32_t copy_index = 0;
+        uint32_t n_cells_to_send = 0;
+        uint32_t start_index;
+        for (uint32_t j=0; j<n_ids; ++j) {
+          g_index = send_ids[j];
+          start_index = g_index;
+          if (int32_t(start_index) - int32_t(grip_size)/2 < int32_t(rank_start))
+            start_index = rank_start;
+          else
+            start_index -= grip_size/2;
 
-        uint32_t n_bytes = sizeof(Cell)*n_cells_to_copy;
-        n_cells_to_send+=n_cells_to_copy;
-        memcpy(&send_cells[copy_index],&cells[start_index], n_bytes);
-        copy_index+=n_cells_to_copy;
-      } // end grip cell copy
+          uint32_t n_cells_to_copy;
+          if (start_index + grip_size > rank_end)
+            n_cells_to_copy = rank_end - start_index;
+          else 
+            n_cells_to_copy = grip_size;
 
-      // truncate send vector to actual size
-      while(send_cells.size() > n_cells_to_send) send_cells.pop_back();
+          // transform start index to local cell index
+          start_index-=rank_start;
 
-      // get next available request and buffer, fill buffer, post send
-      uint32_t s_cell_index = get_next_send_cell_request_and_buffer_index();
-      s_cell_buffers[s_cell_index].fill(send_cells);
+          if (g_index > rank_bounds.back()) 
+            std::cout<<"this is bad: g index > bounds"<<std::endl;
+          uint32_t n_bytes = sizeof(Cell)*n_cells_to_copy;
+          n_cells_to_send+=n_cells_to_copy;
+          memcpy(&send_cells[copy_index],&cells[start_index], n_bytes);
+          copy_index+=n_cells_to_copy;
+        } // end grip cell copy
 
-      // send with a custom tag with the number of grips in message
-      int custom_tag = cell_tag + n_ids;
+        // truncate send vector to actual size
+        while(send_cells.size() > n_cells_to_send) send_cells.pop_back();
 
-      MPI_Isend(s_cell_buffers[s_cell_index].get_buffer(), n_cells_to_send,
-        MPI_Cell, off_rank, custom_tag, MPI_COMM_WORLD, 
-        &s_cell_reqs[s_cell_index]);
-      mctr.n_sends_posted++;
-      mctr.n_cell_messages++;
-      mctr.n_cells_sent+=n_cells_to_send;
+        // get next available request and buffer, fill buffer, post send
+        uint32_t s_cell_index = get_next_send_cell_request_and_buffer_index();
+        s_cell_buffers[s_cell_index].fill(send_cells);
 
-      // repost the receive at this index
-      MPI_Irecv(r_id_buffers[comp_index].get_buffer(), max_reqs, MPI_UNSIGNED,
-        MPI_ANY_SOURCE, cell_id_tag, MPI_COMM_WORLD, &r_id_reqs[comp_index]);
-      mctr.n_receives_posted++;
-    } // end for
-  }
+        // send with a custom tag with the number of grips in message
+        int custom_tag = cell_tag + n_ids;
 
-  //! Test to see if remote data has been received, if so pack it into the
-  // new_cells vector
-  void test_receives_for_remote_mesh_data(Message_Counter& mctr) {
-    new_cells.clear();
-    // test all receives for needed cells
-    if (!r_cell_in_use.empty()) {
+        MPI_Isend(s_cell_buffers[s_cell_index].get_buffer(), n_cells_to_send,
+          MPI_Cell, off_rank, custom_tag, MPI_COMM_WORLD, 
+          &s_cell_reqs[s_cell_index]);
+        mctr.n_sends_posted++;
+        mctr.n_cell_messages++;
+        mctr.n_cells_sent+=n_cells_to_send;
 
-      MPI_Testsome(r_cell_max_index+1, &r_cell_reqs[0], &n_req_complete,
-        &complete_indices[0], &r_cell_status[0]);
-    
-      int comp_index, n_cell_recv;
-      uint32_t g_index;
-      int cells_in_req;
-
-      mctr.n_receives_completed+=n_req_complete;
-      // for each complete request, send the cells
-      for (int i = 0;i<n_req_complete;++i) {
-        comp_index = complete_indices[i];
-
-        MPI_Get_count(&r_cell_status[i], MPI_Cell, &n_cell_recv);
-
-        // remove request index from index_in_use set
-        r_cell_in_use.erase(comp_index);
-
-        // copy actual number of received cells from the buffer to the
-        // new_cells vector
-        std::vector<Cell>& complete_cells = 
-          r_cell_buffers[comp_index].get_object();
-        new_cells.insert(new_cells.begin(), complete_cells.begin(), 
-          complete_cells.begin() + n_cell_recv); 
-      }
-
-      // find the grip ID centers and remove them from the set of requested
-      // NOTE: occasionally, a request will also get the center of an adjacent
-      // grip--in the case when that grip was just requested this will 
-      // mistakenly delete that ID from the requested set. That's OK, it will 
-      // just be requested again
-      for (int i = 0;i<new_cells.size();++i) {
-        Cell& cell = new_cells[i];
-        if (cell.get_ID() == cell.get_grip_ID()) 
-          ids_requested.erase(cell.get_grip_ID());
-      }
-    } // end if !r_cell_in_use.empty()
+      } // end if send_cell requests available
+    } // end loop over stack of received ID buffers
   }
 
   public:
   std::vector<Cell>& process_mesh_requests(Message_Counter& mctr) {
     // first, test sends
-    test_sends(mctr);
+    test_sends_and_receives(mctr);
 
     // test requests for local (on-rank) mesh data and send it out
     process_requests_for_local_mesh(mctr);
     
     // send needed IDs to other ranks and post receive for data
     process_requests_for_remote_mesh(mctr);
-
-    // check for completion of remote mesh requests and fills new_cells with 
-    // remote data
-    test_receives_for_remote_mesh_data(mctr);
 
     return new_cells;
   }
@@ -395,14 +414,16 @@ class Mesh_Request_Manager
   void request_cell(const uint32_t& g_index, Message_Counter& mctr) {
     typedef std::pair<uint32_t, uint32_t> rpair;
     // store cell for requesting if not already stored
+    if (g_index > rank_bounds.back())
+      std::cout<<"this is bad: g index > bounds"<<std::endl;
     if (!mesh_is_requested(g_index)) {
       // get the rank of the global index, add to set if there are fewer than
       // max_ids for that rank
       uint32_t off_rank_id = get_off_rank_id(g_index);
-      if (ranks_to_ids.count(off_rank_id) < max_ids) {
-        ranks_to_ids.insert(rpair(off_rank_id, g_index));
+      if (s_rank_to_ids.count(off_rank_id) < max_ids) {
+        s_rank_to_ids.insert(rpair(off_rank_id, g_index));
         ids_requested.insert(g_index);
-        ranks_requested.insert(off_rank_id);
+        ranks_to_recv.insert(off_rank_id);
       }
     }
   }
@@ -489,6 +510,9 @@ class Mesh_Request_Manager
   uint32_t r_cell_max_index;
   uint32_t r_cell_count;
 
+  //! Stack of buffers to process IDs
+  std::queue<Buffer<uint32_t> > r_id_stack;
+
   //! Number of times a cell was requested 
   std::vector<uint32_t> n_requests_vec;
 
@@ -501,8 +525,14 @@ class Mesh_Request_Manager
   
   //! Stores global IDs of requested cells
   std::unordered_set<uint32_t> ids_requested;
-  std::unordered_set<uint32_t> ranks_requested;
-  std::unordered_multimap<uint32_t, uint32_t> ranks_to_ids;
+
+  //! Ranks to receive mesh data from
+  std::unordered_set<uint32_t> ranks_to_recv; 
+
+  std::unordered_set<uint32_t> ranks_to_send; //! Ranks to send mesh data to
+
+  //! Key is remote rank, value is non-local ID needed by this rank
+  std::unordered_multimap<uint32_t, uint32_t> s_rank_to_ids; 
 };
 
 #endif // def mesh_request_manager_h_

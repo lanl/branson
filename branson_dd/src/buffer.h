@@ -14,14 +14,17 @@
 #define buffer_h_
 
 #include <vector>
+#include <mpi.h>
 
 template<class T>
 class Buffer {
 
   public:
   Buffer() 
-  : status(EMPTY)
-    {}
+  : status(EMPTY),
+    buffer_recv_size(0),
+    rank(MPI_PROC_NULL) 
+  {}
   ~Buffer() {}
  
   void fill (std::vector<T> _object) {
@@ -48,16 +51,37 @@ class Buffer {
   bool ready(void) const {return status == READY;}
   bool received(void) const  {return status == RECEIVED;}
   bool empty(void) const {return status == EMPTY;}
-  uint32_t get_grip_ID(void) const {return grip_ID;}
+  const std::vector<uint32_t>& get_grip_IDs(void) const {return grip_IDs;}
+  uint32_t get_grip_ID(void) const {return grip_IDs[0];}
+  uint32_t get_rank(void) const {return rank;}
+  uint32_t get_receive_size(void) const {return buffer_recv_size;}
 
-  void set_grip_ID(uint32_t _grip_ID) {grip_ID = _grip_ID;}
+  void set_grip_ID(const uint32_t _grip_ID) {
+    grip_IDs = std::vector<uint32_t>(1,_grip_ID);
+  }
+
+  void set_grip_IDs(std::vector<uint32_t> _grip_IDs) {grip_IDs = _grip_IDs;}
+
+  void set_rank(uint32_t _rank) {rank=_rank;}
+  void set_receive_size(uint32_t _recv_size) {buffer_recv_size = _recv_size;}
 
   private:
-  std::vector<T> object;
-  uint32_t status;
-  uint32_t grip_ID; //! Only used in mesh passing
-  enum {EMPTY, READY, SENT, AWAITING, RECEIVED};
+  uint32_t status; //! Current status of the buffer
 
+  //! Actual elements sent over MPI (buffer is generally oversized) 
+  uint32_t buffer_recv_size; 
+
+  //! Rank (source for receive, destination for send) used for convenience in 
+  // mesh passing
+  uint32_t rank;
+
+  //! Grips received or sent, used for convenience in mesh passing
+  std::vector<uint32_t> grip_IDs; 
+
+  std::vector<T> object; //! Where sent/received data is stored
+
+  //! Buffer statuses, used in completion routine
+  enum {EMPTY, READY, SENT, AWAITING, RECEIVED};
 };
 
 #endif // buffer_h_

@@ -45,7 +45,6 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
   using Constants::finish_tag;
   using std::queue;
   using std::vector;
-  using Constants::proc_null;
   using Constants::event_type;
   //events
   using Constants::WAIT; using Constants::CENSUS;

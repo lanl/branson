@@ -65,6 +65,7 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
   cell_id=phtn.get_cell();
   cell = mesh->get_on_rank_cell(cell_id);
   bool active = true;
+
   //transport this photon
   while(active) {
     sigma_a = cell.get_op_a();
@@ -87,7 +88,7 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
     phtn.set_E(phtn.get_E() - absorbed_E);
 
     rank_abs_E[cell_id] += absorbed_E;
-    
+
     //update position
     phtn.move(dist_to_event);
 
@@ -158,7 +159,6 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   using Constants::finish_tag;
   using std::queue;
   using std::vector;
-  using Constants::proc_null;
   using Constants::event_type;
   //events
   using Constants::WAIT; using Constants::CENSUS;

@@ -174,6 +174,7 @@ class Source {
     n_in_packet = iwork->get_n_particles();
     census_index = iwork->get_census_index();
     iphoton = 0;
+    n_work= 1;
   }
 
   //! Get next particle, create it if it's an emission particle
@@ -187,17 +188,16 @@ class Source {
     }
     // get census photon
     else {
-      if (census_index > census_photons.size() ) {
-        std::cout<<"This is bad: "<<census_index<<std::endl;
-      }
       return_photon = census_photons[census_index];
       iphoton++;
       census_index++;
     }
  
     // if work packet is done, increment the work packet and reset quantities
-    if (iphoton == n_in_packet) {
-      iwork++;
+    // don't increment if this is the last photon
+    if (iphoton == n_in_packet && n_work!=work.size()) {
+      ++iwork;
+      ++n_work;
       n_emission = iwork->get_n_emission();
       phtn_E = iwork->get_photon_E();
       n_in_packet = iwork->get_n_particles();
@@ -236,6 +236,7 @@ class Source {
   std::vector<Photon>& census_photons; //! Reference to census photons on rank
   uint32_t n_emission; //! Number of emission particles created in this packet
   double phtn_E; //! Photon emission energy in this packet
+  uint32_t n_work; //! Work packet counter
   uint32_t n_in_packet; //! Number of total particles in this packet
   uint32_t census_index; //! Index of next census particle to return
   uint32_t iphoton;  //! Local photon counter

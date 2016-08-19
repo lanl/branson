@@ -21,7 +21,6 @@
 
 using std::cout;
 using std::endl;
-using Constants::proc_null;
 
 int main (int argc, char *argv[]) {
 

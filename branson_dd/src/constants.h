@@ -12,7 +12,6 @@
 #ifndef constants_h_
 #define constants_h_
 
-
 namespace Constants {
 const double pi(3.1415926535897932384626433832795); //! Pi
 const double c(299.792458); //! speed of light in cm/shake
@@ -37,7 +36,6 @@ const int work_tag(6); //! MPI tag for work packet messages
 //! MPI tag for cell messages NOTE: the number of grips in the message will
 // added to the end of this number
 const int cell_tag(7); 
-const int proc_null(1000000000); //! High number, unlikely to be used
 };
 
 #endif // constants_h_

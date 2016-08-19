@@ -163,7 +163,6 @@ std::vector<Photon> transport_particle_pass(Source& source,
   using std::vector;
   using std::stack;
   using std::unordered_map;
-  using Constants::proc_null;
   using Constants::count_tag;
   using std::cout;
   using std::endl;
