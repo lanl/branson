@@ -134,7 +134,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
       recv_photons[ir].begin(), recv_photons[ir].end());
   }
 
-  //Explicitly delete the MPI requests
+  // explicitly delete the MPI requests
   delete[] reqs;
 
   return new_on_rank_census;

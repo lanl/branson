@@ -9,13 +9,14 @@
     <photons>10000000</photons>
     <seed>14706</seed>
     <tilt>FALSE</tilt>
+    <stratified_sampling>FALSE</stratified_sampling>
+    <dd_transport_type>CELL_PASS_RMA</dd_transport_type>
+    <grip_size>100</grip_size>
+    <map_size>5000</map_size>
+    <batch_size>500</batch_size>
+    <particle_message_size>1000</particle_message_size>
     <output_frequency>1</output_frequency>
     <write_silo>TRUE</write_silo>
-    <stratified_sampling>FALSE</stratified_sampling>
-    <dd_transport_type>CELL_PASS</dd_transport_type>
-    <map_size>50000</map_size>
-    <batch_size>10000</batch_size>
-    <particle_message_size>1000</particle_message_size>
   </common>
 
   <debug_options>
@@ -32,8 +33,8 @@
 
     <x_division>
       <x_start>0.05</x_start>
-      <x_end> 1.0</x_end>
-      <n_x_cells>95</n_x_cells>
+      <x_end> 2.0</x_end>
+      <n_x_cells>195</n_x_cells>
     </x_division>
 
     <y_division>
@@ -44,8 +45,8 @@
 
     <y_division>
       <y_start>0.05</y_start>
-      <y_end>1.0</y_end>
-      <n_y_cells>95</n_y_cells>
+      <y_end>2.0</y_end>
+      <n_y_cells>195</n_y_cells>
     </y_division>
 
     <z_division>

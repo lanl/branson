@@ -12,6 +12,7 @@
 
 #include <iostream>
 
+#include "../constants.h"
 #include "../work_packet.h"
 
 int main (void) {
@@ -26,11 +27,18 @@ int main (void) {
     bool test_work_packet = true;
     Work_Packet work_packet;
 
-    // after construction, photons, cell ID and emission energy are zero
+    // after construction, photons, cell ID and creation energy are zero
     if (work_packet.get_global_cell_ID() != 0) test_work_packet = false;
     if (work_packet.get_global_grip_ID() != 0) test_work_packet = false;
     if (work_packet.get_n_particles() != 0) test_work_packet = false;
-    if (work_packet.get_emission_E() != 0) test_work_packet = false;
+    if (work_packet.get_create_E() != 0) test_work_packet = false;
+
+    // default source type is emission, set and check initial census type
+    if (work_packet.get_source_type() != Constants::EMISSION) 
+      test_work_packet = false;
+    work_packet.set_source_type(Constants::INITIAL_CENSUS);
+    if (work_packet.get_source_type() != Constants::INITIAL_CENSUS) 
+      test_work_packet = false;
 
     // set cell ID, emission energy and number of particles
     uint32_t cell_ID = 165470;
@@ -41,7 +49,7 @@ int main (void) {
 
     work_packet.set_global_cell_ID(cell_ID);
     work_packet.set_global_grip_ID(grip_ID);
-    work_packet.attach_emission_work(emission_E, n_particles);
+    work_packet.attach_creation_work(emission_E, n_particles);
     work_packet.set_coor(cell_coor);
 
     const double *work_packet_coor = work_packet.get_node_array();
@@ -49,7 +57,7 @@ int main (void) {
     if (work_packet.get_global_cell_ID() != cell_ID) test_work_packet = false;
     if (work_packet.get_global_grip_ID() != grip_ID) test_work_packet = false;
     if (work_packet.get_n_particles() != n_particles) test_work_packet = false;
-    if (work_packet.get_emission_E() != emission_E) test_work_packet = false;
+    if (work_packet.get_create_E() != emission_E) test_work_packet = false;
     for (uint32_t i=0;i<6;i++) {
       if (work_packet_coor[i] != cell_coor[i]) test_work_packet = false;
     }
@@ -80,7 +88,7 @@ int main (void) {
 
     big_work_packet.set_global_cell_ID(cell_ID);
     big_work_packet.set_global_grip_ID(grip_ID);
-    big_work_packet.attach_emission_work(emission_E, n_particles);
+    big_work_packet.attach_creation_work(emission_E, n_particles);
     big_work_packet.set_coor(cell_coor);
 
     // split work packet
@@ -98,7 +106,7 @@ int main (void) {
       test_split_work_packet = false;
     if (big_work_packet.get_n_particles() != n_remain) 
       test_split_work_packet = false;
-    if (big_work_packet.get_emission_E() != e_remain) 
+    if (big_work_packet.get_create_E() != e_remain) 
       test_split_work_packet = false;
     for (uint32_t i=0;i<6;i++) {
       if (big_work_coor[i] != cell_coor[i]) test_split_work_packet = false;
@@ -110,7 +118,7 @@ int main (void) {
       test_split_work_packet = false;
     if (leftover_work.get_n_particles() != n_particles - n_remain) 
       test_split_work_packet = false;
-    if (leftover_work.get_emission_E() != e_leftover) 
+    if (leftover_work.get_create_E() != e_leftover) 
       test_split_work_packet = false;
     for (uint32_t i=0;i<6;i++) {
       if (leftover_work_coor[i] != cell_coor[i]) test_split_work_packet = false;
@@ -120,7 +128,7 @@ int main (void) {
     if (leftover_work.get_n_particles()+big_work_packet.get_n_particles()
       != n_particles) 
       test_split_work_packet = false;
-    if (leftover_work.get_emission_E()+big_work_packet.get_emission_E() 
+    if (leftover_work.get_create_E()+big_work_packet.get_create_E() 
       != emission_E) 
       test_split_work_packet = false;
   

@@ -41,6 +41,10 @@ add_test(NAME test_mpi_types COMMAND ${MPI_EXEC} -n 1 ./test_mpi_types_exe)
 add_executable(test_completion_manager_exe test_completion_manager.cc)
 add_test(NAME test_completion_manager COMMAND ${MPI_EXEC} -n 7 ./test_completion_manager_exe)
 
+# remap_census functions test
+add_executable(test_remap_census_exe test_remap_census.cc)
+add_test(NAME test_remap_census COMMAND ${MPI_EXEC} -n 8 ./test_remap_census_exe)
+
 # Parmetis Test with 1 processor
 add_executable(test_parmetis_1_exe test_parmetis.cc)
 target_link_libraries(test_parmetis_1_exe parmetis)
@@ -52,7 +56,6 @@ add_executable(test_parmetis_4_exe test_parmetis.cc)
 target_link_libraries(test_parmetis_4_exe parmetis)
 target_link_libraries(test_parmetis_4_exe metis)
 add_test(NAME test_parmetis_4 COMMAND ${MPI_EXEC} -n 4 ./test_parmetis_4_exe)
-
 
 # copy these input files for Input, IMC_State, Mesh and write_silo tests
 configure_file(simple_input.xml ${CMAKE_CURRENT_BINARY_DIR}/simple_input.xml COPYONLY)

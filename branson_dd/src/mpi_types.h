@@ -36,11 +36,14 @@ class MPI_Types
       MPI_Datatype og_MPI_Particle;
 
       const int particle_entry_count = 2 ;
+
       // 7 uint32_t, 6 int, 13 double
       int particle_array_of_block_length[3] = { 2, 9};
+
       // Displacements of each type in the cell
       MPI_Aint particle_array_of_block_displace[2] = 
         {0, 2*sizeof(uint32_t)};
+
       //Type of each memory block
       MPI_Datatype particle_array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
 
@@ -88,10 +91,10 @@ class MPI_Types
       // make the Work Packet 
       const int wp_entry_count = 2 ; 
       // 7 uint32_t, 6 int, 13 double
-      int wp_array_of_block_length[3] = { 6, 7};
+      int wp_array_of_block_length[3] = { 8, 7};
       // Displacements of each type in the cell
       MPI_Aint wp_array_of_block_displace[2] = 
-        {0, 6*sizeof(uint32_t)};
+        {0, 8*sizeof(uint32_t)};
       //Type of each memory block
       MPI_Datatype wp_array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
 

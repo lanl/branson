@@ -13,6 +13,7 @@
 #ifndef work_packet_h_
 #define work_packet_h_
 
+#include "constants.h"
 #include "RNG.h"
 
 //==============================================================================
@@ -21,7 +22,9 @@
  * \brief Holds data to make particles 
  * 
  * A way to pass work between processors in mesh passing mode that avoids 
- * constructing the emission particles
+ * constructing the emission and initial census particles. In this class I
+ * use the word "creation" to describe generic particles that can be created
+ * at a later time (emission, intitial census or source).
  */
 //==============================================================================
 class Work_Packet {
@@ -31,10 +34,11 @@ class Work_Packet {
     : n_particles(0),
       g_cell_ID(0),
       g_grip_ID(0),
-      n_emission(0),
+      n_create(0),
       n_census(0),
+      source_type(0),
       census_index_start(0),
-      emission_E(0.0)
+      create_E(0.0)
       {}
   ~Work_Packet() {}
 
@@ -43,10 +47,11 @@ class Work_Packet {
   uint32_t get_global_grip_ID(void) const {return g_grip_ID;}
   uint32_t get_n_particles(void) const {return n_particles;}
   uint32_t get_n_census(void) const {return n_census;}
-  uint32_t get_n_emission(void) const {return n_emission;}
+  uint32_t get_n_create(void) const {return n_create;}
   uint32_t get_census_index(void) const {return census_index_start;}
-  double get_emission_E(void) const {return emission_E;}
-  double get_photon_E(void) const {return emission_E/n_emission;}
+  double get_create_E(void) const {return create_E;}
+  double get_photon_E(void) const {return create_E/n_create;}
+  uint32_t get_source_type(void) const {return source_type;}
 
   void uniform_position_in_cell(RNG* rng, double* pos) const {
     pos[0]= nodes[0] + rng->generate_random_number()*(nodes[1]-nodes[0]);
@@ -62,6 +67,7 @@ class Work_Packet {
   }
 
   // non-const functions
+
   void set_global_cell_ID(const uint32_t& _global_cell_ID) {
     g_cell_ID = _global_cell_ID;
   }
@@ -70,21 +76,27 @@ class Work_Packet {
     g_grip_ID = _global_grip_ID;
   }
 
-  //! Add emission energy and particles to this work packet
-  void attach_emission_work(const double& _emission_E, 
-    const uint32_t& _n_emission) 
+  //! Attach emission or initial census energy and particles to this work packet
+  void attach_creation_work(const double& _create_E, 
+    const uint32_t& _n_create) 
   {
-    emission_E = _emission_E;
-    n_emission = _n_emission;
-    n_particles += _n_emission;
+    create_E = _create_E;
+    n_create = _n_create;
+    n_particles += _n_create;
   }
 
+  //! Attach existing work in the form of index into large census particle array
   void attach_census_work(const uint32_t& _census_index_start, 
     const uint32_t& _n_census) 
   {
     census_index_start=_census_index_start;
     n_census = _n_census;
     n_particles += _n_census;
+  }
+
+  //! Set the particle type to be created by this work packet
+  void set_source_type(uint32_t _source_type) {
+    source_type=_source_type;
   }
 
   void set_coor(const double *cell_nodes) {
@@ -101,32 +113,33 @@ class Work_Packet {
     
     // calculate properies of return packet
     uint32_t n_return = n_particles - n_remain;
-    double return_E = emission_E*double(n_return)/double(n_particles);
+    double return_E = create_E*double(n_return)/double(n_particles);
     
     // set properties of this work packet
-    emission_E = emission_E - return_E;
+    create_E = create_E - return_E;
 
     // split work packets have no census particles yet
     n_particles = n_remain;
-    n_emission = n_remain;
+    n_create = n_remain;
 
     // set properties of return work packet
     return_work.set_global_cell_ID(g_cell_ID);
     return_work.set_global_grip_ID(g_grip_ID);
     return_work.set_coor(nodes);
-    return_work.attach_emission_work(return_E, n_return);
+    return_work.attach_creation_work(return_E, n_return);
     return return_work;
   }
 
   private:
-  uint32_t n_particles; //!< Total number of particles in work packet
-  uint32_t g_cell_ID; //!< Global index of cell containing this work
-  uint32_t g_grip_ID; //!< Global index of this cell's grip
-  uint32_t n_emission; //!< Emission photons in this cell
-  uint32_t n_census; //!< Census photons in this cell
-  uint32_t census_index_start; //!< Start index in census vector
-  double emission_E; //!< Emission energy in work packet
-  double nodes[6]; //!< Nodes forming 3D cell
+  uint32_t n_particles; //! Total number of particles in work packet
+  uint32_t g_cell_ID; //! Global index of cell containing this work
+  uint32_t g_grip_ID; //! Global index of this cell's grip
+  uint32_t n_create; //! Photons to create in this cell
+  uint32_t n_census; //! Census photons in this cell
+  uint32_t census_index_start; //! Start index in census vector
+  uint32_t source_type; //! Type of particles, census or emission 
+  double create_E; //! Emission or intial census energy in work packet
+  double nodes[6]; //! Nodes forming 3D cell
 };
 
 #endif // work_packet_h_

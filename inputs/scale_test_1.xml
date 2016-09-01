@@ -14,11 +14,11 @@
     <dd_transport_type>CELL_PASS_RMA</dd_transport_type>
     <completion_routine>RMA</completion_routine>
     <grip_size>100</grip_size>
-    <map_size>50000</map_size>
+    <map_size>10000</map_size>
     <batch_size>10000</batch_size>
     <particle_message_size>20000</particle_message_size>
     <output_frequency>1</output_frequency>
-    <write_silo>FALSE</write_silo>
+    <write_silo>TRUE</write_silo>
   </common>
 
   <debug_options>

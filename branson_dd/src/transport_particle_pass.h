@@ -178,6 +178,11 @@ std::vector<Photon> transport_particle_pass(Source& source,
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
+  // timing 
+  Timer t_transport;
+  Timer t_mpi;
+  t_transport.start_timer("timestep transport");
+
   // Number of particles to run between MPI communication 
   const uint32_t batch_size = imc_parameters->get_batch_size();
 
@@ -303,6 +308,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
     //------------------------------------------------------------------------//
     // process photon send and receives 
     //------------------------------------------------------------------------//
+    t_mpi.start_timer("timestep mpi");
     {
       int send_req_flag;
       int recv_req_flag;
@@ -387,7 +393,12 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
     finished = comp->is_finished();
 
+    t_mpi.stop_timer("timestep mpi");
+
   } // end while
+
+  // record time of transport work for this rank 
+  t_transport.stop_timer("timestep transport");
 
   // Milagro version sends completed count down, RMA version just resets
   comp->end_timestep(mctr);
@@ -438,6 +449,9 @@ std::vector<Photon> transport_particle_pass(Source& source,
   imc_state->set_post_census_E(census_E);
   imc_state->set_census_size(census_list.size());
   imc_state->set_network_message_counts(mctr);
+  imc_state->set_rank_transport_runtime(
+    t_transport.get_time("timestep transport"));
+  imc_state->set_rank_mpi_time(t_mpi.get_time("timestep mpi"));
 
   return census_list;
 }

@@ -18,6 +18,7 @@
 #include <functional>
 #include <vector>
 
+#include "census_creation.h"
 #include "completion_manager_milagro.h"
 #include "completion_manager_rma.h"
 #include "mesh_rma_manager.h"
@@ -30,7 +31,6 @@
 #include "mesh.h"
 #include "RNG.h"
 #include "source.h"
-#include "census_creation.h"
 #include "timer.h"
 #include "transport_particle_pass.h"
 #include "transport_mesh_pass.h"
@@ -79,23 +79,19 @@ void imc_cell_pass_driver(const int& rank,
     MPI_Allreduce(MPI_IN_PLACE, &global_source_energy, 1, MPI_DOUBLE,
       MPI_SUM, MPI_COMM_WORLD);
 
-    //make initial census photons
-    //on subsequent timesteps, this comes from transport
-    if (imc_state->get_step() == 1) {
-      census_photons = make_initial_census_photons(mesh, imc_state, 
-        global_source_energy, imc_parameters->get_n_user_photon());
-    }
-
-    imc_state->set_pre_census_E(get_photon_list_E(census_photons));
+    // this will be zero on first time step, source construction
+    // handles initial census
+    imc_state->set_pre_census_E(get_photon_list_E(census_photons)); 
 
     // setup source and load balance, time load balance
-    Source source(mesh, imc_parameters, global_source_energy, census_photons);
-    //Timer t_lb;
-    //t_lb.start_timer("load balance");
+    Source source(mesh, imc_state, imc_parameters->get_n_user_photon(),
+      global_source_energy, census_photons);
+    Timer t_lb;
+    t_lb.start_timer("load balance");
     load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
       census_photons, mpi_types);
-    //t_lb.stop_timer("load balance");
-    //imc_state->set_load_balance_time(t_lb.get_time("load balance"));
+    t_lb.stop_timer("load balance");
+    imc_state->set_load_balance_time(t_lb.get_time("load balance"));
 
     // get new particle count after load balance. Group particle work by cell
     source.post_lb_prepare_source();
@@ -175,23 +171,19 @@ void imc_rma_cell_pass_driver(const int& rank,
     MPI_Allreduce(MPI_IN_PLACE, &global_source_energy, 1, MPI_DOUBLE,
       MPI_SUM, MPI_COMM_WORLD);
 
-    //make initial census photons
-    //on subsequent timesteps, this comes from transport
-    if (imc_state->get_step() == 1) {
-      census_photons = make_initial_census_photons(mesh, imc_state, 
-        global_source_energy, imc_parameters->get_n_user_photon());
-    }
-
+    // this will be zero on first time step, source construction
+    // handles initial census
     imc_state->set_pre_census_E(get_photon_list_E(census_photons));
 
     // setup source and load balance, time load balance
-    Source source(mesh, imc_parameters, global_source_energy, census_photons);
-    //Timer t_lb;
-    //t_lb.start_timer("load balance");
+    Source source(mesh, imc_state, imc_parameters->get_n_user_photon(),
+      global_source_energy, census_photons);
+    Timer t_lb;
+    t_lb.start_timer("load balance");
     load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
       census_photons, mpi_types);
-    //t_lb.stop_timer("load balance");
-    //imc_state->set_load_balance_time(t_lb.get_time("load balance"));
+    t_lb.stop_timer("load balance");
+    imc_state->set_load_balance_time(t_lb.get_time("load balance"));
 
     // get new particle count after load balance, group particle work by cell
     source.post_lb_prepare_source();
@@ -273,17 +265,13 @@ void imc_particle_pass_driver(const int& rank,
     MPI_Allreduce(MPI_IN_PLACE, &global_source_energy, 1, MPI_DOUBLE,
       MPI_SUM, MPI_COMM_WORLD);
 
-    //make initial census photons
-    //on subsequent timesteps, this comes from transport
-    if (imc_state->get_step() ==1)
-      census_photons = make_initial_census_photons(mesh, imc_state, 
-        global_source_energy, imc_parameters->get_n_user_photon());
-
     imc_state->set_pre_census_E(get_photon_list_E(census_photons)); 
 
-    Source source(mesh, imc_parameters, global_source_energy, census_photons);
+    // setup source
+    Source source(mesh, imc_state, imc_parameters->get_n_user_photon(),
+      global_source_energy, census_photons);
     // no load balancing in particle passing method, just call the method
-    // to get accurate count
+    // to get accurate count and map census to work correctly
     source.post_lb_prepare_source();
 
     imc_state->set_transported_particles(source.get_n_photon());

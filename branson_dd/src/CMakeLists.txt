@@ -36,8 +36,8 @@ set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
 #set (DEBUG_FLAGS "${DEBUG_FLAGS} -h std=c++11")
 
 # append optimization flags
-#set( DEBUG_FLAGS "${DEBUG_FLAGS} -O0")
-set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
+set( DEBUG_FLAGS "${DEBUG_FLAGS} -O0")
+#set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
 
 set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${DEBUG_FLAGS}" )
 message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )

@@ -66,6 +66,13 @@ void load_balance(const int& rank, const int& n_rank,
   // Determine which ranks to send or reiceve work from  
   //--------------------------------------------------------------------------//
 
+  // first, ignore particle imbalance on the order of 5%
+  for (uint32_t ir=0; ir<n_rank; ir++) {
+    // ignore particle imbalance on the order of 5%
+    if ( domain_delta_p[ir]<0 && domain_particles[ir] > 0.95*n_balance_particles)
+      domain_delta_p[ir] = 0;
+  }
+
   unordered_map<int32_t, int32_t> n_send_rank;
   vector<uint32_t> work_donor_ranks;
 
@@ -82,7 +89,8 @@ void load_balance(const int& rank, const int& n_rank,
     }
     rank_delta_p = domain_delta_p[ir];
 
-    // allow overload on donor ranks (signed integer math)
+    // allow overload on donor ranks by effectively reducing the number of
+    // particles they can donate (signed integer math)
     if (rank_delta_p>0) {
       rank_delta_p = domain_particles[ir] - 
         (1.0 + overload_factor)*n_balance_particles;
@@ -253,14 +261,14 @@ void load_balance(const int& rank, const int& n_rank,
       MPI_Isend(&census_list[start_cut_index], n_send_census, MPI_Particle,
         dest_rank, photon_tag, MPI_COMM_WORLD, &phtn_send_request[ireq]);
 
+      // wait on this request so buffers are not invalidated when going
+      // out of loop scope
       MPI_Wait(&work_send_request[ireq], MPI_STATUS_IGNORE);
       MPI_Wait(&phtn_send_request[ireq], MPI_STATUS_IGNORE);
+
       // increment the request index counter
       ireq++; 
     }
-    // wait on all requests
-    //MPI_Waitall(n_acceptors, phtn_send_request, MPI_STATUSES_IGNORE);
-    //MPI_Waitall(n_acceptors, work_send_request, MPI_STATUSES_IGNORE);
 
     // remove census photons that were sent off
     census_list.erase(census_list.begin() + n_census_remain, 

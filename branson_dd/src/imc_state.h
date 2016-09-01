@@ -196,6 +196,11 @@ class IMC_State
     double g_post_census_E=0.0;
     double g_post_mat_E=0.0;
     double g_exit_E = 0.0;
+    // timing values
+    double max_mpi_time =0.0;
+    double min_mpi_time =0.0;
+    double max_transport_time = 0.0;
+    double min_transport_time = 0.0;
     // 64 bit global integers
     uint64_t g_census_size=0;
     uint64_t g_trans_particles=0;
@@ -224,6 +229,16 @@ class IMC_State
     MPI_Allreduce(&post_mat_E, &g_post_mat_E, 1, MPI_DOUBLE, MPI_SUM, 
       MPI_COMM_WORLD);
     MPI_Allreduce(&exit_E, &g_exit_E, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    //reduce timestep values
+    MPI_Allreduce(&rank_transport_runtime, &max_transport_time, 1, MPI_DOUBLE, 
+      MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&rank_transport_runtime, &min_transport_time, 1, MPI_DOUBLE, 
+      MPI_MIN, MPI_COMM_WORLD);
+    MPI_Allreduce(&rank_mpi_time, &max_mpi_time, 1, MPI_DOUBLE, MPI_MAX, 
+      MPI_COMM_WORLD);
+    MPI_Allreduce(&rank_mpi_time, &min_mpi_time, 1, MPI_DOUBLE, MPI_MIN, 
+      MPI_COMM_WORLD);
 
     // reduce diagnostic values
     // 64 bit integer reductions
@@ -289,6 +304,10 @@ class IMC_State
         cout<<"Step cells requested: "<<g_step_cells_requested<<endl;
         cout<<"Load balance time: "<<rank_load_balance_time<<endl;
       }
+      cout<<"Transport time max/min: "<<max_transport_time<<"/";
+      cout<<min_transport_time<<endl;
+      cout<<"MPI time max/min: "<<max_mpi_time<<"/";
+      cout<<min_mpi_time<<endl;
     } // if rank==0
   }
 
