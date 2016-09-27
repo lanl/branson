@@ -14,7 +14,6 @@
 #define mesh_h_
 
 #include <algorithm>
-#include <mpi.h>
 #include <iterator>
 #include <set>
 #include <string>
@@ -25,6 +24,7 @@
 #include "cell.h"
 #include "constants.h"
 #include "mpi_types.h"
+#include "info.h"
 #include "input.h"
 #include "imc_state.h"
 
@@ -47,12 +47,12 @@ class Mesh {
   public:
 
   //! constructor 
-  Mesh(Input* input, MPI_Types *mpi_types, int _rank, int _n_rank)
+  Mesh(Input* input, MPI_Types *mpi_types, const Info& mpi_info)
   : ngx(input->get_global_n_x_cells()),
     ngy(input->get_global_n_y_cells()),
     ngz(input->get_global_n_z_cells()),
-    rank(_rank),
-    n_rank(_n_rank),
+    rank(mpi_info.get_rank()),
+    n_rank(mpi_info.get_n_rank()),
     n_off_rank(n_rank-1),
     silo_x(input->get_silo_x_ptr()),
     silo_y(input->get_silo_y_ptr()),
@@ -234,7 +234,6 @@ class Mesh {
 
     total_photon_E = 0.0;
 
-    MPI_Cell = mpi_types->get_cell_type();
     mpi_cell_size = mpi_types->get_cell_size();
 
     mpi_window_set = false;
@@ -786,7 +785,6 @@ class Mesh {
 
   uint32_t max_map_size; //! Maximum size of map object
   uint32_t off_rank_reads; //! Number of off rank reads
-  MPI_Datatype MPI_Cell; //! MPI type, allows simpler parallel communication
   int32_t mpi_cell_size; //! Size of custom MPI_Cell type
 
   MPI_Win mesh_window; //! Handle to shared memory window of cell data

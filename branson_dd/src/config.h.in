@@ -15,6 +15,9 @@
 #define config_h_
 
 #cmakedefine VIZ_LIBRARIES_FOUND
+#cmakedefine MOONLIGHT_NODE
+#cmakedefine TRINITITE_NODE
+#cmakedefine CCS_NODE
 
 #endif // def config_h_
 //----------------------------------------------------------------------------//

@@ -25,6 +25,7 @@
 #include "mesh_request_manager.h"
 #include "message_counter.h"
 #include "mpi_types.h"
+#include "info.h"
 #include "imc_state.h"
 #include "imc_parameters.h"
 #include "load_balance.h"
@@ -37,18 +38,19 @@
 #include "transport_mesh_pass_rma.h"
 #include "write_silo.h"
 
-void imc_cell_pass_driver(const int& rank, 
-                          const int& n_rank,
-                          Mesh *mesh, 
+void imc_cell_pass_driver(Mesh *mesh, 
                           IMC_State *imc_state,
                           IMC_Parameters *imc_parameters,
-                          MPI_Types *mpi_types) 
+                          MPI_Types *mpi_types,
+                          const Info &mpi_info)
 {
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
   vector<uint32_t> needed_grip_ids; //! Grips needed after load balance
   Message_Counter mctr;
+  int rank = mpi_info.get_rank();
+  int n_rank = mpi_info.get_n_rank();
 
   // make object that handles requests for local and remote data
   Mesh_Request_Manager *req_manager = new Mesh_Request_Manager(rank, 
@@ -98,9 +100,9 @@ void imc_cell_pass_driver(const int& rank,
 
     imc_state->set_transported_particles(source.get_n_photon());
 
-    //cell properties are set in calculate_photon_energy. 
-    //make sure everybody gets here together so that windows are not changing 
-    //when transport starts
+    // cell properties are set in calculate_photon_energy.
+    // make sure everybody gets here together so that windows are not changing 
+    // when transport starts
     MPI_Barrier(MPI_COMM_WORLD);
 
     // set pending receives for cell data requests and completion tracker
@@ -108,7 +110,7 @@ void imc_cell_pass_driver(const int& rank,
 
     //transport photons
     census_photons = transport_mesh_pass(source, mesh, imc_state, 
-      imc_parameters, comp, req_manager, mctr, abs_E, mpi_types);
+      imc_parameters, comp, req_manager, mctr, abs_E, mpi_types, mpi_info);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
     MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(), 
@@ -137,18 +139,19 @@ void imc_cell_pass_driver(const int& rank,
 }
 
 
-void imc_rma_cell_pass_driver(const int& rank, 
-                              const int& n_rank,
-                              Mesh *mesh, 
+void imc_rma_cell_pass_driver(Mesh *mesh, 
                               IMC_State *imc_state,
                               IMC_Parameters *imc_parameters,
-                              MPI_Types *mpi_types)
+                              MPI_Types *mpi_types,
+                              const Info &mpi_info)
 {
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
   vector<uint32_t> needed_grip_ids; //! Grips needed after load balance
   Message_Counter mctr;
+  int rank = mpi_info.get_rank();
+  int n_rank = mpi_info.get_n_rank();
 
   //make object that handles RMA mesh requests and start access
   RMA_Manager *rma_manager = new RMA_Manager(rank, mesh->get_off_rank_bounds(),
@@ -195,9 +198,9 @@ void imc_rma_cell_pass_driver(const int& rank,
     //when transport starts
     MPI_Barrier(MPI_COMM_WORLD);
 
-    //transport photons
+    // transport photons
     census_photons = transport_mesh_pass_rma( source, mesh, imc_state,
-      imc_parameters, rma_manager, mctr, abs_E, mpi_types);
+      imc_parameters, rma_manager, mctr, abs_E, mpi_types, mpi_info);
 
     //using MPI_IN_PLACE allows the same vector to send and be overwritten
     MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(), 
@@ -230,17 +233,18 @@ void imc_rma_cell_pass_driver(const int& rank,
   delete rma_manager;
 }
 
-void imc_particle_pass_driver(const int& rank, 
-                              const int& n_rank,
-                              Mesh *mesh, 
+void imc_particle_pass_driver(Mesh *mesh, 
                               IMC_State *imc_state,
                               IMC_Parameters *imc_parameters,
-                              MPI_Types * mpi_types) 
+                              MPI_Types * mpi_types,
+                              const Info &mpi_info)
 {
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
   Message_Counter mctr;
+  int rank = mpi_info.get_rank();
+  int n_rank = mpi_info.get_n_rank();
 
   // make object that handles completion messages, completion
   // object set up the binary tree structure
@@ -277,11 +281,11 @@ void imc_particle_pass_driver(const int& rank,
     imc_state->set_transported_particles(source.get_n_photon());
 
     census_photons = transport_particle_pass(source, mesh, imc_state, 
-      imc_parameters, mpi_types, comp, mctr, abs_E);
+      imc_parameters, mpi_types, comp, mctr, abs_E, mpi_info);
           
     mesh->update_temperature(abs_E, imc_state);
 
-    //update time for next step    
+    // update time for next step    
     imc_state->print_conservation(imc_parameters->get_dd_mode());
     imc_state->next_time_step();
   }

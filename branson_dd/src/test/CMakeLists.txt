@@ -42,8 +42,12 @@ add_executable(test_completion_manager_exe test_completion_manager.cc)
 add_test(NAME test_completion_manager COMMAND ${MPI_EXEC} -n 7 ./test_completion_manager_exe)
 
 # remap_census functions test
-add_executable(test_remap_census_exe test_remap_census.cc)
-add_test(NAME test_remap_census COMMAND ${MPI_EXEC} -n 8 ./test_remap_census_exe)
+#add_executable(test_remap_census_exe test_remap_census.cc)
+#add_test(NAME test_remap_census COMMAND ${MPI_EXEC} -n 8 ./test_remap_census_exe)
+
+# Tally_Manager class test
+add_executable(test_tally_manager_exe test_tally_manager.cc)
+add_test(NAME test_tally_manager COMMAND ${MPI_EXEC} -n 8 ./test_tally_manager_exe)
 
 # Parmetis Test with 1 processor
 add_executable(test_parmetis_1_exe test_parmetis.cc)

@@ -64,7 +64,8 @@ void print_MPI_maps(Mesh *mesh, uint32_t rank, uint32_t size) {
 
 //! Generate new partitioning with ParMetis, send and receive cells, renumber
 // mesh and communicate renumbering
-void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const uint32_t& grip_size)
+void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
+  const uint32_t& grip_size)
 {
 
   using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
@@ -74,9 +75,8 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const uint32_t& grip_size)
   using std::unordered_set;
   using std::partial_sum;
   
-  int rank, nrank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &nrank);
+  int rank = mpi_info.get_rank();
+  int nrank = mpi_info.get_n_rank();
   MPI_Comm comm;
   MPI_Comm_dup(MPI_COMM_WORLD, &comm);
 

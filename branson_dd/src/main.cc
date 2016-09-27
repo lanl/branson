@@ -23,6 +23,7 @@
 #include "imc_parameters.h"
 #include "input.h"
 #include "mesh.h"
+#include "info.h"
 #include "mpi_types.h"
 #include "timer.h"
 
@@ -38,15 +39,14 @@ int main(int argc, char **argv)
 {
   MPI_Init(&argc, &argv);
 
-  int rank, n_rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
-
   //check to see if number of arguments is correct
   if (argc != 2) {
     cout<<"Usage: BRANSON <path_to_input_file>"<<endl;
     exit(EXIT_FAILURE); 
   }
+
+  // get MPI parmeters and set them in mpi_info
+  const Info mpi_info;
 
   // make MPI types object
   MPI_Types* mpi_types= new MPI_Types();
@@ -55,7 +55,7 @@ int main(int argc, char **argv)
   std::string filename( argv[1]);
   Input *input;
   input = new Input(filename);
-  if(rank ==0) input->print_problem_info();
+  if(mpi_info.get_rank()==0) input->print_problem_info();
 
   // IMC paramters setup
   IMC_Parameters *imc_p;
@@ -63,15 +63,15 @@ int main(int argc, char **argv)
 
   // IMC state setup
   IMC_State *imc_state;
-  imc_state = new IMC_State(input, rank);
+  imc_state = new IMC_State(input, mpi_info.get_rank());
 
   //timing 
   Timer * timers = new Timer();
 
   // make mesh from input object and decompose mesh with ParMetis
   timers->start_timer("Total setup");
-  Mesh *mesh = new Mesh(input, mpi_types, rank, n_rank);
-  decompose_mesh(mesh, mpi_types, imc_p->get_grip_size());
+  Mesh *mesh = new Mesh(input, mpi_types, mpi_info);
+  decompose_mesh(mesh, mpi_types, mpi_info, imc_p->get_grip_size());
   timers->stop_timer("Total setup");
 
   MPI_Barrier(MPI_COMM_WORLD);
@@ -84,15 +84,15 @@ int main(int argc, char **argv)
   timers->start_timer("Total transport");
 
   if (input->get_dd_mode() == PARTICLE_PASS)
-    imc_particle_pass_driver(rank, n_rank, mesh, imc_state, imc_p, mpi_types);
+    imc_particle_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
   else if (input->get_dd_mode() == CELL_PASS)
-    imc_cell_pass_driver(rank, n_rank, mesh, imc_state, imc_p, mpi_types);
-  else if (input->get_dd_mode() == CELL_PASS_RMA)
-    imc_rma_cell_pass_driver(rank, n_rank, mesh, imc_state, imc_p, mpi_types);
+    imc_cell_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
+  else if (input->get_dd_mode() == CELL_PASS_RMA) 
+    imc_rma_cell_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
 
   timers->stop_timer("Total transport");
   
-  if (rank==0) {
+  if (mpi_info.get_rank()==0) {
     cout<<"****************************************";
     cout<<"****************************************"<<endl;
     imc_state->print_simulation_footer(input->get_dd_mode());

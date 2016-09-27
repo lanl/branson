@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "info.h"
 #include "photon.h"
 #include "mpi_types.h"
 
@@ -134,9 +135,9 @@ void set_census_send_maps(const uint32_t rank, const uint32_t n_rank,
 
 //! Use a binary tree approach to send census particles back to their
 // owners
-std::vector<Photon> rebalance_census(const int32_t rank, const int32_t n_rank,
-  std::vector<Photon>& off_rank_census, 
-  const std::vector<uint32_t>& rank_bounds, MPI_Types* mpi_types)
+std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census, 
+  uint64_t& rank_photons, const std::vector<uint32_t>& rank_bounds,
+  MPI_Types* mpi_types, const Info& mpi_info)
 {
   using std::vector;
   using std::unordered_map;
@@ -144,9 +145,21 @@ std::vector<Photon> rebalance_census(const int32_t rank, const int32_t n_rank,
   const int n_tag(100);
   const int phtn_tag(200);
 
+  int rank = mpi_info.get_rank();
+  int n_rank = mpi_info.get_n_rank();
+
   MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
 
+  // split the communicator based on the node number
+  MPI_Comm local_comm;
+  MPI_Comm_split(MPI_COMM_WORLD, mpi_info.get_color(), rank, &local_comm);
+  int n_rank_local;
+  MPI_Comm_size(local_comm, &n_rank_local); 
+
   vector<Photon> new_on_rank_census;
+
+  // add the off_rank census to the number of node photons
+  rank_photons += off_rank_census.size();
 
   // sort the census vector by cell ID (global ID)
   sort(off_rank_census.begin(), off_rank_census.end());
@@ -162,8 +175,9 @@ std::vector<Photon> rebalance_census(const int32_t rank, const int32_t n_rank,
   unordered_map<uint32_t, uint32_t> census_start_index;
 
   // map the off-rank photons to their correct receiving rank
-  set_census_send_maps(rank, n_rank, rank_bounds, off_rank_census, 
-    census_on_rank, census_start_index);
+  set_census_send_maps(rank, n_rank, rank_bounds, 
+    off_rank_census, census_on_rank, census_start_index);
+
 
   uint32_t send_rank, start_index, count;
   for (uint32_t i=0;i<n_levels;++i) {
@@ -177,35 +191,61 @@ std::vector<Photon> rebalance_census(const int32_t rank, const int32_t n_rank,
         off_rank_census.begin() + start_index + count);
     }
   }
+  off_rank_census.clear();
  
-  // run the binary tree comm pattern in reverse, going from largest
-  // communication distance to smallest--this gets particles as close to their
-  // owner as possible in a step-by-step procedure
 
-  uint32_t r_partner, n_send, n_recv, n_max_recv, n_max_send;
+  // try to manage the memory at the node level, allow 75% of the node memory 
+  // to be photons
+  uint64_t node_photons = 0;
+  uint64_t n_recv_node = 0;
+  uint64_t max_node_photons = uint64_t(
+    0.75*(mpi_info.get_node_mem()/sizeof(Photon)));
+
+  uint32_t r_partner;
+  uint64_t  n_max_recv, n_max_send, n_recv, n_node_recv, n_send;
   vector<Photon> recv_buffer;
   std::vector<MPI_Request> reqs(4);
 
-  // for now just set n_recv to 300 million
-  n_max_recv = 300000000;
+  // get the current number of photons on this node
+  MPI_Allreduce(&rank_photons, &node_photons, 1, MPI_UNSIGNED_LONG, MPI_SUM,
+      local_comm);
 
-  // if you're in the 2**n_levels set, communicate your census photons
+  // run the binary tree comm pattern in reverse, going from largest
+  // communication distance to smallest--this gets particles as close to their
+  // owner as possible in a step-by-step procedure
   for (int32_t k=n_levels-1; k>=0;--k) {
+
     // get current communication partner
     r_partner = get_pairing(rank, n_rank, k);
     n_send = send_buffers[k].size();
 
     // send and receive number of photons that will be communicated
-    // send and receive max number you can receive
-    MPI_Isend(&n_send, 1, MPI_UNSIGNED, r_partner, n_tag, MPI_COMM_WORLD, 
+    MPI_Isend(&n_send, 1, MPI_UNSIGNED_LONG, r_partner, n_tag, MPI_COMM_WORLD, 
       &reqs[0]);
-    MPI_Isend(&n_max_recv, 1, MPI_UNSIGNED, r_partner, n_tag, MPI_COMM_WORLD,
-      &reqs[1]); 
-    MPI_Irecv(&n_recv, 1, MPI_UNSIGNED, r_partner, n_tag, MPI_COMM_WORLD, 
-      &reqs[2]);
-    MPI_Irecv(&n_max_send, 1, MPI_UNSIGNED, r_partner, n_tag, MPI_COMM_WORLD,
-      &reqs[3]);
-    MPI_Waitall(4, &reqs[0], MPI_STATUS_IGNORE);
+    MPI_Irecv(&n_recv, 1, MPI_UNSIGNED_LONG, r_partner, n_tag, MPI_COMM_WORLD, 
+      &reqs[1]);
+    MPI_Waitall(2, &reqs[0], MPI_STATUS_IGNORE);
+
+    // check to see how many photons this node can receive, if it will
+    // overrun the limits, only allow proc to receive 1/n_rank_local
+    // of the remaining particles
+    n_node_recv = 0;
+    MPI_Allreduce(&n_recv, &n_node_recv, 1, MPI_UNSIGNED_LONG, MPI_SUM,
+        local_comm);
+    if (node_photons > max_node_photons) {
+      n_max_recv = 0;
+    }
+    else if (node_photons + n_node_recv > max_node_photons) {
+      n_max_recv = (max_node_photons - node_photons)/n_rank_local;
+    }
+    else n_max_recv = max_node_photons;
+
+    // send and receive max number you can receive and send
+    MPI_Isend(&n_max_recv, 1, MPI_UNSIGNED_LONG, r_partner, n_tag, MPI_COMM_WORLD,
+      &reqs[0]);
+    MPI_Irecv(&n_max_send, 1, MPI_UNSIGNED_LONG, r_partner, n_tag, MPI_COMM_WORLD,
+      &reqs[1]);
+    MPI_Waitall(2, &reqs[0], MPI_STATUS_IGNORE);
 
     // send and receive photons
     if (n_max_send < n_send) n_send = n_max_send;
@@ -217,6 +257,12 @@ std::vector<Photon> rebalance_census(const int32_t rank, const int32_t n_rank,
     MPI_Irecv(&recv_buffer[0], n_recv, MPI_Particle, r_partner, phtn_tag,
       MPI_COMM_WORLD, &reqs[1]);
     MPI_Waitall(2, &reqs[0], MPI_STATUS_IGNORE);
+
+    // update the number of photons on this rank and get new node photon count
+    rank_photons = rank_photons - n_send + n_recv;
+    node_photons =0;
+    MPI_Allreduce(&rank_photons, &node_photons, 1, MPI_UNSIGNED_LONG, MPI_SUM,
+        local_comm);
 
     // if not all photons were sent, add them to this rank's census
     new_on_rank_census.insert(new_on_rank_census.end(),

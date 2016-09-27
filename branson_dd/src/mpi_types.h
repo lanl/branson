@@ -31,35 +31,6 @@ class MPI_Types
   //! constructor
   MPI_Types(void) {
 
-    // make and commit the MPI particle type
-    {
-      MPI_Datatype og_MPI_Particle;
-
-      const int particle_entry_count = 2 ;
-
-      // 7 uint32_t, 6 int, 13 double
-      int particle_array_of_block_length[3] = { 2, 9};
-
-      // Displacements of each type in the cell
-      MPI_Aint particle_array_of_block_displace[2] = 
-        {0, 2*sizeof(uint32_t)};
-
-      //Type of each memory block
-      MPI_Datatype particle_array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
-
-      MPI_Type_create_struct(particle_entry_count, 
-        particle_array_of_block_length, particle_array_of_block_displace, 
-        particle_array_of_types, &og_MPI_Particle);
-
-      // Commit the type to MPI so it recognizes it in communication calls
-      MPI_Type_commit(&og_MPI_Particle);
-
-      MPI_Type_size(og_MPI_Particle, &mpi_particle_size);
-      // Duplicate the type so it's recognized when returned out of this
-      // context (I don't know why this is necessary)
-      MPI_Type_dup(og_MPI_Particle, &MPI_Particle);
-    }
-
     // make and commit the MPI cell type
     {
       MPI_Datatype og_MPI_Cell;
@@ -86,11 +57,70 @@ class MPI_Types
       MPI_Type_dup(og_MPI_Cell, &MPI_Cell);
     }
 
+
+    // make and commit the MPI particle type
+    {
+      MPI_Datatype og_MPI_Particle;
+
+      const int particle_entry_count = 2 ;
+
+      // 2 uint32_t, 9 double
+      int particle_array_of_block_length[3] = { 2, 9};
+
+      // Displacements of each type in the cell
+      MPI_Aint particle_array_of_block_displace[2] = 
+        {0, 2*sizeof(uint32_t)};
+
+      //Type of each memory block
+      MPI_Datatype particle_array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
+
+      MPI_Type_create_struct(particle_entry_count, 
+        particle_array_of_block_length, particle_array_of_block_displace, 
+        particle_array_of_types, &og_MPI_Particle);
+
+      // Commit the type to MPI so it recognizes it in communication calls
+      MPI_Type_commit(&og_MPI_Particle);
+
+      MPI_Type_size(og_MPI_Particle, &mpi_particle_size);
+      // Duplicate the type so it's recognized when returned out of this
+      // context (I don't know why this is necessary)
+      MPI_Type_dup(og_MPI_Particle, &MPI_Particle);
+    }
+
+    // make and commit the MPI tally type
+    {
+      // make the Work Packet 
+      const int tally_entry_count = 2; 
+
+      // 1 uint32_t, 1 double
+      int tally_array_of_block_length[2] = { 2, 1};
+
+      // displacements of each type in the cell
+      MPI_Aint tally_array_of_block_displace[2] = 
+        {0, 2*sizeof(uint32_t)};
+
+      // type of each memory block
+      MPI_Datatype tally_array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
+
+      MPI_Datatype og_MPI_Tally;
+      MPI_Type_create_struct(tally_entry_count, tally_array_of_block_length,
+        tally_array_of_block_displace, tally_array_of_types, &og_MPI_Tally);
+
+      // Commit the type to MPI so it recognizes it in communication calls
+      MPI_Type_commit(&og_MPI_Tally);
+
+      MPI_Type_size(og_MPI_Tally, &mpi_tally_size);
+
+      // duplicate the type so it's recognized when returned out of this
+      // context (I don't know why this is necessary)
+      MPI_Type_dup(og_MPI_Tally, &MPI_Tally);
+    }
+
     // make and commit the MPI work packet type
     {
       // make the Work Packet 
       const int wp_entry_count = 2 ; 
-      // 7 uint32_t, 6 int, 13 double
+      // 7 uint32_t, 7 doubles
       int wp_array_of_block_length[3] = { 8, 7};
       // Displacements of each type in the cell
       MPI_Aint wp_array_of_block_displace[2] = 
@@ -128,14 +158,20 @@ class MPI_Types
   //! Return reference to MPI_Work_Packet for use in communication calls
   MPI_Datatype get_work_packet_type(void) const {return MPI_Work_Packet;}
 
+  //! Return reference to MPI_abs_E for use in communication calls
+  MPI_Datatype get_tally_type(void) const {return MPI_Tally;}
+
   //! Return size of MPI particle in bytes
-  int get_particle_size(void) {return mpi_particle_size;}
+  int get_particle_size(void) const {return mpi_particle_size;}
 
   //! Return size of MPI cell in bytes
-  int get_cell_size(void) {return mpi_cell_size;}
+  int get_cell_size(void) const {return mpi_cell_size;}
 
   //! Return size of MPI work packet in bytes
-  int get_work_packet_size(void) {return mpi_work_packet_size;}
+  int get_work_packet_size(void) const {return mpi_work_packet_size;}
+
+  //! Return size of MPI abs_E tally in bytes
+  int get_tally_size(void) const {return mpi_tally_size;}
 
   //--------------------------------------------------------------------------//
   // member data                                                              //
@@ -143,9 +179,11 @@ class MPI_Types
   private:
   MPI_Datatype MPI_Particle; //! Custom MPI datatype for particles
   MPI_Datatype MPI_Cell; //! Custom MPI datatype for mesh cell
+  MPI_Datatype MPI_Tally; //! Custom MPI datatype for tally
   MPI_Datatype MPI_Work_Packet; //! Custom MPI datatype for work packet
-  int mpi_particle_size; //! Size of MPI_Particle datatype
   int mpi_cell_size; //! Size of MPI_Cell datatype
+  int mpi_particle_size; //! Size of MPI_Particle datatype
+  int mpi_tally_size; //! Size of MPI_Tally datatype
   int mpi_work_packet_size; //! Size of MPI_Work_Packet datatype
 };
 

@@ -24,6 +24,7 @@
 #include "mesh_request_manager.h"
 #include "constants.h"
 #include "decompose_photons.h"
+#include "info.h"
 #include "message_counter.h"
 #include "mesh.h"
 #include "mpi_types.h"
@@ -154,7 +155,8 @@ std::vector<Photon> transport_mesh_pass(Source& source,
                                         Mesh_Request_Manager* req_manager,
                                         Message_Counter& mctr,
                                         std::vector<double>& rank_abs_E,
-                                        MPI_Types *mpi_types)
+                                        MPI_Types *mpi_types,
+                                        const Info& mpi_info)
 {
   using Constants::finish_tag;
   using std::queue;
@@ -177,10 +179,6 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   RNG *rng = imc_state->get_rng();
   Photon phtn;
 
-  int rank, n_rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
-
   //timing 
   Timer t_transport;
   Timer t_mpi;
@@ -188,7 +186,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
 
   //set global particles to be n_rank, every rank sets it completed particles
   //to 1 after finished local work
-  comp->set_timestep_global_particles(n_rank);
+  comp->set_timestep_global_particles(mpi_info.get_n_rank());
 
   // New data flag is initially false
   bool new_data = false;
@@ -319,6 +317,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   // set complete to be 1 (true) when all ranks set this in the tree,
   // the root will see n_complete == n_rank and finish
   uint64_t complete =1;
+
   //--------------------------------------------------------------------------//
   // While waiting for other ranks to finish, check for other messages
   //--------------------------------------------------------------------------//

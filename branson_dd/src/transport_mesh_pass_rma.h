@@ -21,6 +21,7 @@
 
 #include "constants.h"
 #include "decompose_photons.h"
+#include "info.h"
 #include "mesh.h"
 #include "mesh_rma_manager.h"
 #include "message_counter.h"
@@ -40,7 +41,8 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
                                             RMA_Manager* rma_manager,
                                             Message_Counter& mctr, 
                                             std::vector<double>& rank_abs_E,
-                                            MPI_Types *mpi_types)
+                                            MPI_Types *mpi_types,
+                                            const Info& mpi_info)
 {
   using Constants::finish_tag;
   using std::queue;
@@ -62,10 +64,6 @@ std::vector<Photon> transport_mesh_pass_rma(Source& source,
 
   RNG *rng = imc_state->get_rng();
   Photon phtn;
-
-  int rank, n_rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
   // timing 
   Timer t_transport;

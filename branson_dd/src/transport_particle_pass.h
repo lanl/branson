@@ -27,6 +27,7 @@
 #include "completion_manager_rma.h"
 #include "completion_manager_milagro.h"
 #include "constants.h"
+#include "info.h"
 #include "mesh.h"
 #include "message_counter.h"
 #include "mpi_types.h"
@@ -67,13 +68,13 @@ Constants::event_type
   cell = mesh->get_on_rank_cell(cell_id);
   bool active = true;
 
-  //transport this photon
+  // transport this photon
   while(active) {
     sigma_a = cell.get_op_a();
     sigma_s = cell.get_op_s();
     f = cell.get_f();
 
-    //get distance to event
+    // get distance to event
     dist_to_scatter = 
       -log(rng->generate_random_number())/((1.0-f)*sigma_a + sigma_s);
 
@@ -82,19 +83,19 @@ Constants::event_type
                                                       surface_cross);
     dist_to_census = phtn.get_distance_remaining();
 
-    //select minimum distance event
+    // select minimum distance event
     dist_to_event = min(dist_to_scatter, min(dist_to_boundary, dist_to_census));
 
-    //Calculate energy absorbed by material, update photon and material energy
+    // calculate energy absorbed by material, update photon and material energy
     absorbed_E = phtn.get_E()*(1.0 - exp(-sigma_a*f*dist_to_event));
     phtn.set_E(phtn.get_E() - absorbed_E);
 
     rank_abs_E[cell_id] += absorbed_E;
     
-    //update position
+    // update position
     phtn.move(dist_to_event);
 
-    //Apply variance/runtime reduction
+    // apply variance/runtime reduction
     if (phtn.below_cutoff(cutoff_fraction)) {
       rank_abs_E[cell_id] += phtn.get_E();
       active=false;
@@ -102,13 +103,13 @@ Constants::event_type
     }
     // or apply event
     else {
-      //Apply event
-      //EVENT TYPE: SCATTER
+      // apply event
+      // EVENT TYPE: SCATTER
       if(dist_to_event == dist_to_scatter) {
         get_uniform_angle(angle, rng);
         phtn.set_angle(angle);
       }
-      //EVENT TYPE: BOUNDARY CROSS
+      // EVENT TYPE: BOUNDARY CROSS
       else if(dist_to_event == dist_to_boundary) {
         boundary_event = cell.get_bc(surface_cross);
         if(boundary_event == ELEMENT ) {
@@ -119,7 +120,7 @@ Constants::event_type
         }
         else if(boundary_event == PROCESSOR) {
           active=false;
-          //set correct cell index with global cell ID
+          // set correct cell index with global cell ID
           next_cell = cell.get_next_cell(surface_cross);
           phtn.set_cell(next_cell);
           event=PASS;
@@ -131,14 +132,14 @@ Constants::event_type
         }
         else phtn.reflect(surface_cross); 
       }
-      //EVENT TYPE: REACH CENSUS
+      // EVENT TYPE: REACH CENSUS
       else if(dist_to_event == dist_to_census) {
         phtn.set_distance_to_census(c*next_dt);
         active=false;
         event=CENSUS;
         census_E+=phtn.get_E();
       }
-    } //end event loop
+    } // end event loop
   } // end while alive
   return event;
 }
@@ -152,7 +153,8 @@ std::vector<Photon> transport_particle_pass(Source& source,
                                             MPI_Types* mpi_types,
                                             Completion_Manager* comp,
                                             Message_Counter& mctr,
-                                            std::vector<double>& rank_abs_E)
+                                            std::vector<double>& rank_abs_E,
+                                            const Info& mpi_info)
 {
   using Constants::event_type;
   using Constants::PASS; using Constants::CENSUS;
@@ -169,14 +171,10 @@ std::vector<Photon> transport_particle_pass(Source& source,
 
   double census_E=0.0;
   double exit_E = 0.0;
-  double next_dt = imc_state->get_next_dt(); //!< Set for census photons
-  double dt = imc_state->get_next_dt(); //<! For making current photons
+  double next_dt = imc_state->get_next_dt(); //! Set for census photons
+  double dt = imc_state->get_next_dt(); //! For making current photons
 
   RNG *rng = imc_state->get_rng();
-
-  int rank, n_rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
   // timing 
   Timer t_transport;
@@ -403,8 +401,8 @@ std::vector<Photon> transport_particle_pass(Source& source,
   // Milagro version sends completed count down, RMA version just resets
   comp->end_timestep(mctr);
 
-  // wait for all ranks to finish then send empty photon messages.
-  // Do this because it's possible for a rank to receive the empty message
+  // wait for all ranks to finish then send empty photon messages
+  // do this because it's possible for a rank to receive the empty message
   // while it's still in the transport loop. In that case, it will post a 
   // receive again, which will never have a matching send
   MPI_Barrier(MPI_COMM_WORLD);
@@ -431,7 +429,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
     } // end loop over adjacent processors
   }
 
-  // Wait for receive requests
+  // wait for receive requests
   for (uint32_t i_b=0; i_b<n_adjacent; i_b++) {
     MPI_Wait(&phtn_recv_request[i_b], MPI_STATUS_IGNORE);
     mctr.n_receives_completed++;
@@ -440,11 +438,12 @@ std::vector<Photon> transport_particle_pass(Source& source,
   MPI_Barrier(MPI_COMM_WORLD);
 
   std::sort(census_list.begin(), census_list.end());
-  //All ranks have now finished transport
+
+  // all ranks have now finished transport
   delete[] phtn_recv_request;
   delete[] phtn_send_request;
 
-  //set diagnostic quantities
+  // set diagnostic quantities
   imc_state->set_exit_E(exit_E);
   imc_state->set_post_census_E(census_E);
   imc_state->set_census_size(census_list.size());

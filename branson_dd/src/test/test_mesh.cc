@@ -24,9 +24,7 @@ int main (int argc, char *argv[]) {
 
   MPI_Init(&argc, &argv);
   
-  int rank, n_rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
+  const Info mpi_info;
 
   MPI_Types *mpi_types = new MPI_Types();
 
@@ -43,7 +41,7 @@ int main (int argc, char *argv[]) {
     string filename("simple_input.xml");
     Input *input = new Input(filename);
 
-    Mesh mesh(input, mpi_types, rank, n_rank);
+    Mesh mesh(input, mpi_types, mpi_info);
 
     bool simple_mesh_pass = true;
 
@@ -73,7 +71,7 @@ int main (int argc, char *argv[]) {
     string three_reg_filename("three_region_mesh_input.xml");
     Input *three_reg_input = new Input(three_reg_filename);
 
-    Mesh mesh(three_reg_input, mpi_types, rank, n_rank);
+    Mesh mesh(three_reg_input, mpi_types, mpi_info);
 
     uint32_t n_cell = mesh.get_n_local_cells();
     if (n_cell != 21*10) three_region_mesh_pass =false;

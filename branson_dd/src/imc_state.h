@@ -48,44 +48,44 @@ class IMC_State
       m_step(1),
       m_dt_mult(input->get_time_mult()),
       m_dt_max(input->get_dt_max())
-    {
-      pre_census_E = 0.0;
-      post_census_E = 0.0;
-      pre_mat_E = 0.0;
-      post_mat_E = 0.0;
-      emission_E = 0.0;
-      exit_E = 0.0;
-      absorbed_E = 0.0;
-      source_E = 0.0;
+  {
+    pre_census_E = 0.0;
+    post_census_E = 0.0;
+    pre_mat_E = 0.0;
+    post_mat_E = 0.0;
+    emission_E = 0.0;
+    exit_E = 0.0;
+    absorbed_E = 0.0;
+    source_E = 0.0;
 
-      // 64 bit
-      trans_particles = 0;
-      census_size = 0;
-      step_particles_sent = 0;
-      total_particles_sent=0;
-      // 32 bit
-      total_cells_requested=0;
-      total_cells_sent=0;
-      total_cell_messages=0;
-      total_particle_messages=0;
+    // 64 bit
+    trans_particles = 0;
+    census_size = 0;
+    step_particles_sent = 0;
+    total_particles_sent=0;
+    // 32 bit
+    total_cells_requested=0;
+    total_cells_sent=0;
+    total_cell_messages=0;
+    total_particle_messages=0;
 
-      step_particle_messages=0;
-      step_cells_requested=0;
-      step_cell_messages=0;
-      step_cells_sent=0;
+    step_particle_messages=0;
+    step_cells_requested=0;
+    step_cell_messages=0;
+    step_cells_sent=0;
 
-      step_sends_posted=0;
-      step_sends_completed=0;
-      step_receives_posted=0;
-      step_receives_completed=0;
+    step_sends_posted=0;
+    step_sends_completed=0;
+    step_receives_posted=0;
+    step_receives_completed=0;
 
-      m_RNG = new RNG();
-      m_RNG->set_seed(input->get_rng_seed()+rank*4106);
+    m_RNG = new RNG();
+    m_RNG->set_seed(input->get_rng_seed()+rank*4106);
 
-      rank_transport_runtime = 0.0;
-      rank_mpi_time = 0.0;
-      rank_load_balance_time = 0.0;
-    }
+    rank_transport_runtime = 0.0;
+    rank_mpi_time = 0.0;
+    rank_load_balance_time = 0.0;
+  }
 
   //! Destructor
   ~IMC_State() { delete m_RNG;}
