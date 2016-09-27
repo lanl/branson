@@ -49,7 +49,7 @@ class Info
     color = std::stoi(result.str(1));
     node_mem = 32000000000;
     delete[] proc_name;
-#elseif TRINITITE_NODE
+#elif TRINITITE_NODE
     char * proc_name = new char[32];
     int result_length;
     MPI_Get_processor_name(proc_name, &result_length);
@@ -60,7 +60,7 @@ class Info
     color = std::stoi(result.str(1));
     node_mem = 128000000000;
     delete[] proc_name;
-#elseif CCS_NODE
+#elif CCS_NODE
     color = 1;
     node_mem = 16000000000;
 #else

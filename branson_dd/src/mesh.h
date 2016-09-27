@@ -315,7 +315,7 @@ class Mesh {
     return &cells[local_ID];
   }
 
-  const Cell * const get_const_cells_ptr(void) const {
+  const Cell * get_const_cells_ptr(void) const {
     return cells;
   }
 

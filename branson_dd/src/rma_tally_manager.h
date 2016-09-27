@@ -117,7 +117,8 @@ class Tally_Manager
     return s_i;
   }
 
-  double const * const get_tally_ptr(void) {return tally;}
+  //! Return a pointer to the constant tally data
+  double const * get_tally_ptr(void) {return tally;}
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
