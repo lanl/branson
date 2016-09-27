@@ -57,7 +57,7 @@ class Completion_Manager
     else if (child1 == last_node) child2 = MPI_PROC_NULL;
 
   }
-  ~Completion_Manager() {}
+  virtual ~Completion_Manager() {}
 
   //non-const functions
   void set_timestep_global_particles(uint64_t _n_particle_global) {
@@ -66,7 +66,7 @@ class Completion_Manager
 
   bool is_finished(void) {return finished;}
 
-  virtual void start_timestep(Message_Counter& mctr) =0; 
+  virtual void start_timestep(Message_Counter& mctr) =0;
 
   virtual void end_timestep(Message_Counter& mctr) = 0;
 
@@ -80,9 +80,9 @@ class Completion_Manager
   uint64_t n_complete_p; //! Completed particles in parent's tree
   uint64_t n_particle_global; //! Total particles across all ranks
   bool finished; //! Finished with transport flag
-  uint64_t child1; //! Rank ID of first child
-  uint64_t child2; //! Rank ID of second child
-  uint64_t parent; //! Rank ID of parent
+  int child1; //! Rank ID of first child
+  int child2; //! Rank ID of second child
+  int parent; //! Rank ID of parent
   int flag_c1; //! Return flag for MPI test of first child
   int flag_c2; //! Return flag for MPI test of second child
   int flag_p; //! Return flag for MPI test of parent

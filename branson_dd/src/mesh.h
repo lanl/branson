@@ -38,7 +38,7 @@
  * for each region. The mesh numbering and mapping between global IDs and local
  * indices are all determined with the aid of Parmetis in the decompose_mesh
  * function. The mesh class also manages two-sided messaging in the mesh-
- * passing method. 
+ * passing method.
  *
  */
 //==============================================================================
@@ -46,7 +46,7 @@ class Mesh {
 
   public:
 
-  //! constructor 
+  //! constructor
   Mesh(Input* input, MPI_Types *mpi_types, const Info& mpi_info)
   : ngx(input->get_global_n_x_cells()),
     ngy(input->get_global_n_y_cells()),
@@ -123,7 +123,7 @@ class Mesh {
           y_start = input->get_y_start(iy_div);
           for (uint32_t j=0; j<ny; j++) {
             g_i = 0;
-            for (uint32_t ix_div=0; ix_div<n_x_div; ix_div++) { 
+            for (uint32_t ix_div=0; ix_div<n_x_div; ix_div++) {
               dx = input->get_dx(ix_div);
               nx = input->get_x_division_cells(ix_div);
               x_start = input->get_x_start(ix_div);
@@ -133,26 +133,29 @@ class Mesh {
                   region_index = input->get_region_index(ix_div, iy_div, iz_div);
                   region = regions[region_index];
                   Cell e;
+
                   // set ending coordinates explicity to match the start of
                   // the next division to avoid weird roundoff errors
-
-                  if (i == nx-1 && ix_div != n_x_div-1) 
+                  if (i == nx-1 && ix_div != n_x_div-1)
                     x_cell_end = input->get_x_start(ix_div+1);
                   else x_cell_end = x_start+(i+1)*dx;
 
-                  if (i == nx-1 && ix_div != n_x_div-1) 
-                    x_cell_end = input->get_x_start(ix_div+1);
-                  else x_cell_end = x_start+(i+1)*dx;
+                  if (j == ny-1 && iy_div != n_y_div-1)
+                    y_cell_end = input->get_y_start(iy_div+1);
+                  else y_cell_end = y_start+(j+1)*dy;
 
-                  e.set_coor(x_start+i*dx, x_start+(i+1)*dx, 
-                             y_start+j*dy, y_start+(j+1)*dy, 
-                             z_start+k*dz, z_start+(k+1)*dz);
+                  if (k == nz-1 && iz_div != n_z_div-1)
+                    z_cell_end = input->get_z_start(iz_div+1);
+                  else z_cell_end = z_start+(k+1)*dz;
+
+                  e.set_coor(x_start+i*dx, x_cell_end, y_start+j*dy, y_cell_end,
+                    z_start+k*dz, z_cell_end);
                   e.set_ID(global_count);
                   e.set_region_ID(region.get_ID());
 
                   // set cell physical properties using region
                   e.set_cV(region.get_cV());
-                  e.set_T_e(region.get_T_e()); 
+                  e.set_T_e(region.get_T_e());
                   e.set_T_r(region.get_T_r());
                   e.set_T_s(region.get_T_s());
                   e.set_rho(region.get_rho());
@@ -163,29 +166,29 @@ class Mesh {
 
                   // set neighbors in x direction
                   if (g_i<(ngx-1)) {
-                    e.set_neighbor( X_POS, global_count+1); 
+                    e.set_neighbor( X_POS, global_count+1);
                     e.set_bc(X_POS, ELEMENT);
                   }
                   else {
-                    e.set_neighbor( X_POS, global_count); 
+                    e.set_neighbor( X_POS, global_count);
                     e.set_bc(X_POS, bc[X_POS]);
-                  } 
+                  }
                   if (g_i>0) {
-                    e.set_neighbor( X_NEG, global_count-1); 
+                    e.set_neighbor( X_NEG, global_count-1);
                     e.set_bc(X_NEG, ELEMENT);
                   }
                   else {
-                    e.set_neighbor( X_NEG, global_count); 
+                    e.set_neighbor( X_NEG, global_count);
                     e.set_bc(X_NEG, bc[X_NEG]);
                   }
 
                   // set neighbors in y direction
                   if (g_j<(ngy-1)) {
-                    e.set_neighbor(Y_POS, global_count+ngx); 
+                    e.set_neighbor(Y_POS, global_count+ngx);
                     e.set_bc(Y_POS, ELEMENT);
                   }
                   else {
-                    e.set_neighbor(Y_POS, global_count); 
+                    e.set_neighbor(Y_POS, global_count);
                     e.set_bc(Y_POS, bc[Y_POS]);
                   }
                   if (g_j>0) {
@@ -199,15 +202,15 @@ class Mesh {
 
                   // set neighbors in z direction
                   if (g_k<(ngz-1)) {
-                    e.set_neighbor(Z_POS, global_count+ngx*ngy); 
+                    e.set_neighbor(Z_POS, global_count+ngx*ngy);
                     e.set_bc(Z_POS, ELEMENT);
                   }
                   else {
-                    e.set_neighbor(Z_POS, global_count); 
+                    e.set_neighbor(Z_POS, global_count);
                     e.set_bc(Z_POS, bc[Z_POS]);
                   }
                   if (g_k>0) {
-                    e.set_neighbor(Z_NEG, global_count-ngx*ngy); 
+                    e.set_neighbor(Z_NEG, global_count-ngx*ngy);
                     e.set_bc(Z_NEG, ELEMENT);
                   }
                   else {
@@ -271,7 +274,7 @@ class Mesh {
   }
 
   void post_decomp_print(void) const {
-    for (uint32_t i= 0; i<n_cell; i++) 
+    for (uint32_t i= 0; i<n_cell; i++)
       cells[i].print();
   }
 
@@ -299,7 +302,7 @@ class Mesh {
   }
 
   //! Gets cell from vector list of cells before it's deleted
-  Cell get_pre_window_allocation_cell(const uint32_t& local_ID) const 
+  Cell get_pre_window_allocation_cell(const uint32_t& local_ID) const
   {
     return cell_list[local_ID];
   }
@@ -312,7 +315,7 @@ class Mesh {
     return &cells[local_ID];
   }
 
-  const Cell const* get_const_cells_ptr(void) const {
+  const Cell * const get_const_cells_ptr(void) const {
     return cells;
   }
 
@@ -348,14 +351,14 @@ class Mesh {
 
   Cell get_on_rank_cell(const uint32_t& index) {
     // this can only be called with valid on rank indexes
-    if (on_processor(index)) 
+    if (on_processor(index))
       return cells[index-on_rank_start];
-    else 
+    else
       return stored_cells[index];
   }
 
-  bool on_processor(const uint32_t& index) const { 
-    return  (index>=on_rank_start) && (index<=on_rank_end) ; 
+  bool on_processor(const uint32_t& index) const {
+    return  (index>=on_rank_start) && (index<=on_rank_end) ;
   }
 
   void print_map(void) {
@@ -369,9 +372,9 @@ class Mesh {
     if (on_processor(index)) return true;
     else if (stored_cells.find(index) != stored_cells.end())
       return true;
-    else 
-      return false; 
-  } 
+    else
+      return false;
+  }
 
   std::vector<double> get_census_E(void) const {return m_census_E;}
   std::vector<double> get_emission_E(void) const {return m_emission_E;}
@@ -391,12 +394,12 @@ class Mesh {
 
   //! set the grip ID to be the global index of the cell at the center of the
   // grip
-  void set_grip_ID_using_cell_index(void) 
+  void set_grip_ID_using_cell_index(void)
   {
     using std::max;
     using std::unordered_map;
 
-    uint32_t global_index, new_grip_ID, grip_end_index;
+    uint32_t new_grip_ID, grip_end_index;
     // start by looking at the first grip
     uint32_t current_grip_ID = cell_list.front().get_grip_ID();
     uint32_t grip_start_index = 0;
@@ -406,7 +409,7 @@ class Mesh {
 
     unordered_map<uint32_t, uint32_t> start_index_to_count;
 
-    // map the starting index of cells with the same grip to the number in 
+    // map the starting index of cells with the same grip to the number in
     // that grip
     for (uint32_t i=0; i<n_cell; i++) {
       Cell & cell = cell_list[i];
@@ -416,8 +419,8 @@ class Mesh {
       }
 
       // if in grip, incerement count...
-      if (start_index_to_count.find(grip_start_index) != 
-        start_index_to_count.end()) 
+      if (start_index_to_count.find(grip_start_index) !=
+        start_index_to_count.end())
       {
         start_index_to_count[grip_start_index]++;
       }
@@ -428,22 +431,21 @@ class Mesh {
     }
 
     // set grip ID using the map of start indices and number of cells
-    typedef unordered_map<uint32_t, uint32_t>::const_iterator map_citr;
-    for (map_citr map_i = start_index_to_count.begin(); 
-      map_i!=start_index_to_count.end(); map_i++) 
+    for (auto map_i = start_index_to_count.begin();
+      map_i!=start_index_to_count.end(); map_i++)
     {
       grip_start_index = map_i->first;
       grip_count = map_i->second;
       // set the new grip ID to be the index of the cell at the center of
-      // this grip for odd grip sizes and one above center for even grip 
+      // this grip for odd grip sizes and one above center for even grip
       // sizes (for convenience in parallel comm)
       new_grip_ID = on_rank_start + grip_start_index + grip_count/2;
-      // update max grip size 
+      // update max grip size
       max_grip_size = max(max_grip_size, grip_count);
-      // loop over cells in grip and set new ID 
+      // loop over cells in grip and set new ID
       grip_end_index = grip_start_index+grip_count;
-      for (uint32_t j=grip_start_index; j<grip_end_index;j++) 
-        cell_list[j].set_grip_ID(new_grip_ID); 
+      for (uint32_t j=grip_start_index; j<grip_end_index;j++)
+        cell_list[j].set_grip_ID(new_grip_ID);
     }
   }
 
@@ -464,7 +466,7 @@ class Mesh {
     return cell_list[local_ID];
   }
 
-  //! Calculate new physical properties and emission energy for each cell on 
+  //! Calculate new physical properties and emission energy for each cell on
   // the mesh
   void calculate_photon_energy(IMC_State* imc_s) {
     using Constants::c;
@@ -493,7 +495,7 @@ class Mesh {
 
       region_ID = e.get_region_ID();
       region =  regions[region_ID_to_index[region_ID]];
-          
+
       op_a = region.get_absorption_opacity(T);
       op_s = region.get_scattering_opacity();
       f =1.0/(1.0 + dt*op_a*c*(4.0*a*pow(T,3)/(cV*rho)));
@@ -502,8 +504,8 @@ class Mesh {
       e.set_f(f);
 
       m_emission_E[i] = dt*vol*f*op_a*a*c*pow(T,4);
-      if (step > 1) m_census_E[i] = 0.0;  
-      else m_census_E[i] =vol*a*pow(Tr,4); 
+      if (step > 1) m_census_E[i] = 0.0;
+      else m_census_E[i] =vol*a*pow(Tr,4);
       m_source_E[i] = dt*op_a*a*c*pow(Ts,4);
 
       pre_mat_E+=T*cV*vol*rho;
@@ -523,9 +525,9 @@ class Mesh {
 
   //! Correctly set the connectivity of cells given a new mesh numbering
   // after mesh decomposition. Also, determine adjacent ranks.
-  void update_off_rank_connectivity( 
-    std::unordered_map<uint32_t, uint32_t> off_map, 
-    std::unordered_map<uint32_t, uint32_t> off_grip_map, 
+  void update_off_rank_connectivity(
+    std::unordered_map<uint32_t, uint32_t> off_map,
+    std::unordered_map<uint32_t, uint32_t> off_grip_map,
     std::vector< std::vector<bool> >& remap_flag) {
 
     using Constants::PROCESSOR;
@@ -541,7 +543,7 @@ class Mesh {
       Cell& cell = cell_list[i];
       for (uint32_t d=0; d<6; d++) {
         next_index = cell.get_next_cell(d);
-        unordered_map<uint32_t, uint32_t>::iterator map_i = 
+        unordered_map<uint32_t, uint32_t>::iterator map_i =
           off_map.find(next_index);
         if (map_i != end && remap_flag[i][d] ==false ) {
           // update index and bc type, this will always be an off processor cell
@@ -559,17 +561,17 @@ class Mesh {
           if (adjacent_procs.find(off_rank) == adjacent_procs.end()) {
             uint32_t rank_count = adjacent_procs.size();
             adjacent_procs[off_rank] = rank_count;
-          } // if adjacent_proc.find(off_rank) 
+          } // if adjacent_proc.find(off_rank)
         }
       }
     }
   }
 
-  //! Renumber the local cell IDs and connectivity of local cells after 
+  //! Renumber the local cell IDs and connectivity of local cells after
   // decomposition using simple global  numbering
   void renumber_local_cell_indices(
     std::unordered_map<uint32_t, uint32_t> local_map,
-    std::unordered_map<uint32_t, uint32_t> local_grip_map) 
+    std::unordered_map<uint32_t, uint32_t> local_grip_map)
   {
 
     using Constants::PROCESSOR;
@@ -589,7 +591,7 @@ class Mesh {
       for (uint32_t d=0; d<6; d++) {
         current_bc = cell.get_bc(bc_type(d));
         next_index = cell.get_next_cell(d);
-        unordered_map<uint32_t, uint32_t>::iterator map_i = 
+        unordered_map<uint32_t, uint32_t>::iterator map_i =
           local_map.find(next_index);
         //if this index is not a processor boundary, update it
         if (local_map.find(next_index) != end && current_bc != PROCESSOR) {
@@ -610,15 +612,15 @@ class Mesh {
     for (uint32_t i =0; i< cell_list.size(); i++) {
       bool delete_flag = false;
       for (vector<uint32_t>::iterator rmv_itr= remove_cell_list.begin();
-        rmv_itr != remove_cell_list.end(); 
-        rmv_itr++) 
+        rmv_itr != remove_cell_list.end();
+        rmv_itr++)
       {
         if (*rmv_itr == i)  delete_flag = true;
       }
       if (delete_flag == false) new_mesh.push_back(cell_list[i]);
     }
 
-    for (uint32_t i =0; i< new_cell_list.size(); i++) 
+    for (uint32_t i =0; i< new_cell_list.size(); i++)
       new_mesh.push_back(new_cell_list[i]);
     cell_list = new_mesh;
     n_cell = cell_list.size();
@@ -641,7 +643,7 @@ class Mesh {
     sort(cell_list.begin(), cell_list.end(), Cell::sort_grip_ID);
   }
 
-  //! Use MPI allocation routines, copy in cell data and make the MPI window 
+  //! Use MPI allocation routines, copy in cell data and make the MPI window
   // object
   void make_MPI_window(void) {
     //make the MPI window with the sorted cell list
@@ -656,7 +658,7 @@ class Mesh {
     cell_list.clear();
   }
 
-  //! Use the absorbed energy and update the material temperature of each 
+  //! Use the absorbed energy and update the material temperature of each
   // cell on the mesh. Set diagnostic and conservation values.
   void update_temperature(std::vector<double>& abs_E, IMC_State* imc_s) {
     //abs E is a global vector
@@ -678,7 +680,7 @@ class Mesh {
       total_abs_E+=abs_E[i+on_rank_start];
       total_post_mat_E+= T_new*cV*vol*rho;
     }
-    //zero out absorption tallies for all cells (global) 
+    //zero out absorption tallies for all cells (global)
     for (uint32_t i=0; i<abs_E.size();++i) {
       abs_E[i] = 0.0;
     }
@@ -712,17 +714,17 @@ class Mesh {
       stored_cells.erase(i_start, stored_cells.end());
     }
 
-    // add received cells to the stored_cells map 
+    // add received cells to the stored_cells map
     for (uint32_t i=0; i<new_recv_cells.size();i++) {
       uint32_t index = new_recv_cells[i].get_ID();
       stored_cells[index] = new_recv_cells[i];
-    } 
+    }
   }
 
-  //! Remove the temporary off-rank mesh data after the end of a timestep 
+  //! Remove the temporary off-rank mesh data after the end of a timestep
   // (the properties will be updated so it can't be reused)
   void purge_working_mesh(void) {
-    stored_cells.clear(); 
+    stored_cells.clear();
   }
 
   //! Set maximum grip size
@@ -762,7 +764,7 @@ class Mesh {
 
   uint32_t n_cell; //! Number of local cells
   uint32_t n_global; //! Nuber of global cells
-  
+
   uint32_t on_rank_start; //! Start of global index on rank
   uint32_t on_rank_end; //! End of global index on rank
 
@@ -775,7 +777,7 @@ class Mesh {
   std::vector<Cell> new_cell_list; //! New received cells
   std::vector<uint32_t> remove_cell_list; //! Cells to be removed
   std::vector<uint32_t> off_rank_bounds; //! Ending value of global ID for each rank
- 
+
   std::unordered_map<uint32_t, uint32_t> adjacent_procs; //! List of adjacent processors
 
   std::vector<Region> regions; //! Vector of regions in the problem
@@ -790,13 +792,13 @@ class Mesh {
   MPI_Win mesh_window; //! Handle to shared memory window of cell data
 
   //! Cells that have been accessed off rank
-  std::unordered_map<uint32_t, Cell> stored_cells; 
+  std::unordered_map<uint32_t, Cell> stored_cells;
 
   std::unordered_map<int,int> proc_map; //! Maps number of off-rank processor to global rank
 
   uint32_t max_grip_size; //! Size of largest grip on this rank
 
-  bool mpi_window_set; //! Flag indicating if MPI_Window was created 
+  bool mpi_window_set; //! Flag indicating if MPI_Window was created
 
 };
 

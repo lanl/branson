@@ -17,8 +17,8 @@
 #include "photon.h"
 
 
-void print_MPI_photons( const std::vector<Photon>& phtn_vec, 
-                        const uint32_t& rank, 
+void print_MPI_photons( const std::vector<Photon>& phtn_vec,
+                        const uint32_t& rank,
                         const uint32_t& size) {
 
   using std::cout;
@@ -58,15 +58,15 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
 
   // make off processor map
   unordered_map<int,int> proc_map;
-  for (int32_t i=0; i<n_off_rank; i++) {
+  for (int i=0; i<int(n_off_rank); i++) {
     int r_index = i + int(i>=rank);
     proc_map[i] = r_index;
   }
 
   //sort the census vector by cell ID (global ID)
   sort(off_rank_census.begin(), off_rank_census.end());
- 
-  //size of census list 
+
+  //size of census list
   uint32_t n_census = off_rank_census.size();
 
   //count the photons belonging to each rank and the start index of each
@@ -102,15 +102,15 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
 
   for (uint32_t ir=0; ir<n_off_rank; ir++) {
     int off_rank = proc_map[ir];
-    MPI_Isend(&rank_count[off_rank], 1,  MPI_UNSIGNED, off_rank, 0, 
+    MPI_Isend(&rank_count[off_rank], 1,  MPI_UNSIGNED, off_rank, 0,
       MPI_COMM_WORLD, &reqs[ir]);
     MPI_Irecv(&recv_from_rank[ir], 1, MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD,
       &reqs[ir+n_off_rank]);
   }
-  
-  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE); 
 
-  // now send the buffers and post receives  
+  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
+
+  // now send the buffers and post receives
   // resize receive buffers with recv_from_rank
   for (uint32_t ir=0; ir<n_off_rank; ir++) {
     int off_rank = proc_map[ir];
@@ -118,19 +118,19 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
     MPI_Isend(&off_rank_census[start_copy], rank_count[off_rank], MPI_Particle,
       off_rank, 0, MPI_COMM_WORLD, &reqs[ir]);
     recv_photons[ir].resize(recv_from_rank[ir]);
-    MPI_Irecv(&recv_photons[ir][0], recv_from_rank[ir], MPI_Particle, off_rank, 
+    MPI_Irecv(&recv_photons[ir][0], recv_from_rank[ir], MPI_Particle, off_rank,
       0, MPI_COMM_WORLD, &reqs[ir+n_off_rank]);
   }
 
-  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE); 
+  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
 
   //free memory from off rank census list
   off_rank_census.clear();
 
   //copy received census photons to a new census list
   vector<Photon> new_on_rank_census;
-  for (uint32_t ir=0; ir<n_rank-1; ir++) {
-    new_on_rank_census.insert(new_on_rank_census.end(), 
+  for (uint32_t ir=0; ir<uint32_t(n_rank-1); ir++) {
+    new_on_rank_census.insert(new_on_rank_census.end(),
       recv_photons[ir].begin(), recv_photons[ir].end());
   }
 

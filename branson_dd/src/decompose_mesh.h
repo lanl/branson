@@ -74,17 +74,17 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   using std::unordered_map;
   using std::unordered_set;
   using std::partial_sum;
-  
+
   int rank = mpi_info.get_rank();
   int nrank = mpi_info.get_n_rank();
   MPI_Comm comm;
   MPI_Comm_dup(MPI_COMM_WORLD, &comm);
 
   // make off processor map
-  int n_off_rank = nrank -1;
+  uint32_t n_off_rank = nrank -1; // implicit conversion from int to uint32_t
   unordered_map<int,int> proc_map;
   for (uint32_t i=0; i<n_off_rank; i++) {
-    int r_index = i + int(i>=rank);
+    int r_index = i + int(int(i)>=rank);
     proc_map[i] = r_index;
   }
 
@@ -97,15 +97,15 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   vector<int> start_ncells(nrank, 0);
   vector<int> vtxdist(nrank, 0);
 
-  int ncell_on_rank = mesh->get_n_local_cells();
+  uint32_t ncell_on_rank = mesh->get_n_local_cells();
   start_ncells[rank] = ncell_on_rank;
 
   MPI_Allreduce(MPI_IN_PLACE, &start_ncells[0], nrank, MPI_INT, MPI_SUM,
     MPI_COMM_WORLD);
   partial_sum(start_ncells.begin(), start_ncells.end(), vtxdist.begin());
-  vtxdist.insert(vtxdist.begin(), 0); 
+  vtxdist.insert(vtxdist.begin(), 0);
 
-  // build adjacency list needed for ParMetis call for each rank also get 
+  // build adjacency list needed for ParMetis call for each rank also get
   // coordinates of cell centers for geometry based partitioning
   float *xyz = new float[ncell_on_rank*3];
   vector<int> xadj;
@@ -113,7 +113,7 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   int adjncy_ctr = 0;
   Cell cell;
   uint32_t g_ID; //! Global ID
-  for (uint32_t i=0; i<mesh->get_n_local_cells();i++) {
+  for (uint32_t i=0; i<ncell_on_rank;++i) {
     cell = mesh->get_pre_window_allocation_cell(i);
     g_ID = cell.get_ID();
     cell.get_center(&xyz[i*3]);
@@ -123,7 +123,7 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
     uint32_t yp_neighbor =cell.get_next_cell(Y_POS);
     uint32_t zm_neighbor =cell.get_next_cell(Z_NEG);
     uint32_t zp_neighbor =cell.get_next_cell(Z_POS);
-    
+
     xadj.push_back(adjncy_ctr); //starting index in xadj for this cell's nodes
     if (xm_neighbor != g_ID) {adjncy.push_back(xm_neighbor); adjncy_ctr++;}
     if (xp_neighbor != g_ID) {adjncy.push_back(xp_neighbor); adjncy_ctr++;}
@@ -137,7 +137,7 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   int ndim = 3;
   int wgtflag = 0; // no weights for cells
   int numflag = 0; // C-style numbering
-  int ncon = 1; 
+  int ncon = 1;
   int nparts = nrank; // sub-domains = nrank
 
   float *tpwgts = new float[nparts];
@@ -150,10 +150,10 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   options[0] = 1; // 0--use default values, 1--use the values in 1 and 2
   options[1] = 3; //output level
   options[2] = 1242; //random number seed
-  
-  int edgecut =0; 
+
+  int edgecut =0;
   int *part = new int[ncell_on_rank];
- 
+
   ParMETIS_V3_PartGeomKway( &vtxdist[0],   // array describing how cells are distributed
                         &xadj[0],   // how cells are stored locally
                         &adjncy[0], // how cells are stored loccaly
@@ -195,10 +195,10 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
       send_to_rank[ir] = send_list.size();
       send_cell[ir].fill(send_list);
 
-      MPI_Isend(&send_to_rank[ir], 1,  MPI_UNSIGNED, off_rank, 0, 
+      MPI_Isend(&send_to_rank[ir], 1,  MPI_UNSIGNED, off_rank, 0,
         MPI_COMM_WORLD, &reqs[ir]);
 
-      MPI_Irecv(&recv_from_rank[ir], 1, MPI_UNSIGNED, off_rank, 0, 
+      MPI_Irecv(&recv_from_rank[ir], 1, MPI_UNSIGNED, off_rank, 0,
         MPI_COMM_WORLD, &reqs[ir+n_off_rank]);
 
       // erase sent cells from the mesh
@@ -207,36 +207,37 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
       }
     }
 
-    MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE); 
+    MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
 
-    // now send the buffers and post receives  
+    // now send the buffers and post receives
     for (uint32_t ir=0; ir<n_off_rank; ir++) {
       int off_rank = proc_map[ir];
-      MPI_Isend(send_cell[ir].get_buffer(), send_to_rank[ir], MPI_Cell, 
+      MPI_Isend(send_cell[ir].get_buffer(), send_to_rank[ir], MPI_Cell,
         off_rank, 0, MPI_COMM_WORLD, &reqs[ir]);
 
       recv_cell[ir].resize(recv_from_rank[ir]);
 
-      MPI_Irecv(recv_cell[ir].get_buffer(), recv_from_rank[ir], MPI_Cell, 
+      MPI_Irecv(recv_cell[ir].get_buffer(), recv_from_rank[ir], MPI_Cell,
         off_rank, 0, MPI_COMM_WORLD, &reqs[ir+n_off_rank]);
     }
- 
-    MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE); 
+
+    MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
 
     for (uint32_t ir=0; ir<n_off_rank; ir++) {
       vector<Cell> new_cells = recv_cell[ir].get_object();
       for (uint32_t i = 0; i< new_cells.size(); i++) {
         mesh->add_mesh_cell(new_cells[i]);
       }
-    } 
+    }
   }
 
   // update the cell list on each processor
   mesh->set_post_decomposition_mesh_cells();
 
   // if using grips of cell data, get additional decomposition
-  { 
-    int n_cell_on_rank = mesh->get_n_local_cells();
+  {
+    // get post-decomposition number of cells on this rank
+    uint32_t n_cell_on_rank = mesh->get_n_local_cells();
 
     // make map of global IDs to local indices
     unordered_map<uint32_t, uint32_t> mesh_cell_ids;
@@ -259,28 +260,28 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
       uint32_t yp_neighbor =cell.get_next_cell(Y_POS);
       uint32_t zm_neighbor =cell.get_next_cell(Z_NEG);
       uint32_t zp_neighbor =cell.get_next_cell(Z_POS);
-     
+
        // starting index in xadj for this cell's nodes
-      xadj.push_back(adjncy_ctr); 
+      xadj.push_back(adjncy_ctr);
       // use local indices for the CSV to pass to METIS
       if (xm_neighbor != g_ID && mesh_cell_ids.find(xm_neighbor) != end ) {
-        adjncy.push_back(mesh_cell_ids[xm_neighbor]); 
+        adjncy.push_back(mesh_cell_ids[xm_neighbor]);
         adjncy_ctr++;
       }
       if (xp_neighbor != g_ID && mesh_cell_ids.find(xp_neighbor) != end ) {
-        adjncy.push_back(mesh_cell_ids[xp_neighbor]); 
+        adjncy.push_back(mesh_cell_ids[xp_neighbor]);
         adjncy_ctr++;
       }
       if (ym_neighbor != g_ID && mesh_cell_ids.find(ym_neighbor) != end ) {
-        adjncy.push_back(mesh_cell_ids[ym_neighbor]); 
+        adjncy.push_back(mesh_cell_ids[ym_neighbor]);
         adjncy_ctr++;
       }
       if (yp_neighbor != g_ID && mesh_cell_ids.find(yp_neighbor) != end ) {
-        adjncy.push_back(mesh_cell_ids[yp_neighbor]); 
+        adjncy.push_back(mesh_cell_ids[yp_neighbor]);
         adjncy_ctr++;
       }
       if (zm_neighbor != g_ID && mesh_cell_ids.find(zm_neighbor) != end ) {
-        adjncy.push_back(mesh_cell_ids[zm_neighbor]); 
+        adjncy.push_back(mesh_cell_ids[zm_neighbor]);
         adjncy_ctr++;
       }
       if (zp_neighbor != g_ID  && mesh_cell_ids.find(zp_neighbor) != end ) {
@@ -306,11 +307,15 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
     int *grip_index = new int[n_cell_on_rank];
     int metis_return;
 
-    // Metis does not seem to like partitioning with one part, so skip in 
+    // make a signed version of this for METIS call
+    int signed_n_cell_on_rank = int(n_cell_on_rank);
+
+    // Metis does not seem to like partitioning with one part, so skip in
     // that case
     if (n_grips > 1 && grip_size > 1) {
+
       metis_return =
-        METIS_PartGraphKway( &n_cell_on_rank, // number of on-rank vertices
+        METIS_PartGraphKway( &signed_n_cell_on_rank, // number of on-rank vertices
                               &ncon,  // weights per vertex
                               &xadj[0], // how cells are stored locally
                               &adjncy[0], // how cells are stored loccaly
@@ -322,21 +327,21 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
                               NULL, // unbalance in v-weight (NULL=1.001)
                               rank_options, // options array
                               &objval,  // OUTPUT: Number of edgecuts
-                              grip_index);  // OUTPUT: grip ID of each vertex 
+                              grip_index);  // OUTPUT: grip ID of each vertex
 
-      if (metis_return==METIS_ERROR_INPUT) 
+      if (metis_return==METIS_ERROR_INPUT)
         std::cout<<"METIS: Input error"<<std::endl;
-      else if (metis_return==METIS_ERROR_MEMORY) 
+      else if (metis_return==METIS_ERROR_MEMORY)
         std::cout<<"METIS: Memory error"<<std::endl;
-      else if (metis_return==METIS_ERROR) 
+      else if (metis_return==METIS_ERROR)
         std::cout<<"METIS: Input error"<<std::endl;
       //else if (metis_return==METIS_OK)
         //std::cout<<"METIS: Metis OK"<<std::endl;
-      //else 
+      //else
       //  std::cout<<"METIS: Output not recognized"<<std::endl;
 
       // set the grip index for each cell
-      for (uint32_t i =0; i<n_cell_on_rank;i++) {
+      for (uint32_t i =0; i<uint32_t(signed_n_cell_on_rank);i++) {
         Cell& cell = mesh->get_pre_window_allocation_cell_ref(i);
         cell.set_grip_ID(grip_index[i]);
       }
@@ -350,14 +355,14 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
     else if (n_grips == 1) {
       // one grip on this rank, all cells have the same grip index
       // set the grip index for each cell
-      for (uint32_t i =0; i<n_cell_on_rank;i++) {
+      for (uint32_t i =0; i<uint32_t(signed_n_cell_on_rank);i++) {
         Cell& cell = mesh->get_pre_window_allocation_cell_ref(i);
         cell.set_grip_ID(0);
       }
     }
 
     else if (grip_size ==1) {
-      for (uint32_t i =0; i<n_cell_on_rank;i++) {
+      for (uint32_t i =0; i<uint32_t(signed_n_cell_on_rank);i++) {
         Cell& cell = mesh->get_pre_window_allocation_cell_ref(i);
         cell.set_grip_ID(i);
       }
@@ -371,11 +376,11 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   uint32_t n_cell_post_decomp = mesh->get_n_local_cells();
   vector<uint32_t> out_cells_proc(nrank, 0);
   out_cells_proc[rank] = mesh->get_n_local_cells();
-  MPI_Allreduce(MPI_IN_PLACE, 
-                &out_cells_proc[0], 
-                nrank, 
-                MPI_UNSIGNED, 
-                MPI_SUM, 
+  MPI_Allreduce(MPI_IN_PLACE,
+                &out_cells_proc[0],
+                nrank,
+                MPI_UNSIGNED,
+                MPI_SUM,
                 MPI_COMM_WORLD);
 
   // prefix sum on out_cells to get global numbering
@@ -387,7 +392,7 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   uint32_t g_end = prefix_cells_proc[rank]-1;
   mesh->set_global_bound(g_start, g_end);
 
-  // set the grip ID to be the cells at the center of grips using global cell 
+  // set the grip ID to be the cells at the center of grips using global cell
   // indices
   mesh->set_grip_ID_using_cell_index();
 
@@ -395,10 +400,10 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   uint32_t max_grip_size = mesh->get_max_grip_size();
   uint32_t global_max_grip_size=0;
   uint32_t global_min_grip_size=10000000;
-  MPI_Allreduce(&max_grip_size, &global_max_grip_size, 1, MPI_UNSIGNED, 
-    MPI_MAX, MPI_COMM_WORLD); 
-  MPI_Allreduce(&max_grip_size, &global_min_grip_size, 1, MPI_UNSIGNED, 
-    MPI_MIN, MPI_COMM_WORLD); 
+  MPI_Allreduce(&max_grip_size, &global_max_grip_size, 1, MPI_UNSIGNED,
+    MPI_MAX, MPI_COMM_WORLD);
+  MPI_Allreduce(&max_grip_size, &global_min_grip_size, 1, MPI_UNSIGNED,
+    MPI_MIN, MPI_COMM_WORLD);
   mesh->set_max_grip_size(global_max_grip_size);
 
   if (rank==0) {
@@ -412,7 +417,7 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
 
   //make sure each off rank cell index and grip ID is remapped ONLY ONCE!
   vector< vector<bool> > remap_flag;
-  for (uint32_t i=0; i<n_cell_post_decomp; i++) 
+  for (uint32_t i=0; i<n_cell_post_decomp; i++)
     remap_flag.push_back(vector<bool> (6,false));
 
   // change global indices to match a simple number system for easy sorting,
@@ -425,10 +430,10 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   vector<Buffer<uint32_t> > recv_packed_grip_maps(n_off_rank);
 
   MPI_Request *grip_reqs = new MPI_Request[n_off_rank*2];
-  
+
   // pack up the index map
   uint32_t i_packed = 0;
-  for(unordered_map<uint32_t, uint32_t>::iterator map_i=local_map.begin(); 
+  for(unordered_map<uint32_t, uint32_t>::iterator map_i=local_map.begin();
     map_i!=local_map.end(); map_i++) {
     packed_map[i_packed] = map_i->first;
     i_packed++;
@@ -444,52 +449,52 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
     i_grip_packed++;
     packed_grip_map[i_grip_packed] = map_i->second;
     i_grip_packed++;
-  } 
+  }
 
   // Send and receive packed maps for remapping boundaries
   for (uint32_t ir=0; ir<n_off_rank; ir++) {
     int off_rank = proc_map[ir];
     // Send your packed index map
     MPI_Isend(&packed_map[0],
-              n_cell_post_decomp*2,  
+              n_cell_post_decomp*2,
               MPI_UNSIGNED,
-              off_rank, 
-              0, 
-              MPI_COMM_WORLD, 
+              off_rank,
+              0,
+              MPI_COMM_WORLD,
               &reqs[ir]);
     // Send your packed grip map
     MPI_Isend(&packed_grip_map[0],
-              n_cell_post_decomp*2,  
+              n_cell_post_decomp*2,
               MPI_UNSIGNED,
-              off_rank, 
-              1, 
-              MPI_COMM_WORLD, 
+              off_rank,
+              1,
+              MPI_COMM_WORLD,
               &grip_reqs[ir]);
 
     // Receive other packed index maps
     recv_packed_maps[ir].resize(out_cells_proc[off_rank]*2);
     MPI_Irecv(recv_packed_maps[ir].get_buffer(),
-              out_cells_proc[off_rank]*2 , 
-              MPI_UNSIGNED, 
-              off_rank, 
-              0, 
-              MPI_COMM_WORLD, 
+              out_cells_proc[off_rank]*2 ,
+              MPI_UNSIGNED,
+              off_rank,
+              0,
+              MPI_COMM_WORLD,
               &reqs[ir+n_off_rank]);
 
     // Receive other packed grip maps
     recv_packed_grip_maps[ir].resize(out_cells_proc[off_rank]*2);
     MPI_Irecv(recv_packed_grip_maps[ir].get_buffer(),
               out_cells_proc[off_rank]*2,
-              MPI_UNSIGNED, 
-              off_rank, 
+              MPI_UNSIGNED,
+              off_rank,
               1,
-              MPI_COMM_WORLD, 
+              MPI_COMM_WORLD,
               &grip_reqs[ir+n_off_rank]);
   }
 
-  // wait for completion of all sends/receives 
-  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE); 
-  MPI_Waitall(n_off_rank*2, grip_reqs, MPI_STATUS_IGNORE); 
+  // wait for completion of all sends/receives
+  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
+  MPI_Waitall(n_off_rank*2, grip_reqs, MPI_STATUS_IGNORE);
 
   // remake the map objects from the packed maps
   for (uint32_t ir=0; ir<n_off_rank; ir++) {

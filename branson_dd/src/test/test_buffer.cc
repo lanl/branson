@@ -51,8 +51,8 @@ int main (void) {
     if (buffer.ready()) test_buffer_construction = false;
 
     if (test_buffer_construction) cout<<"TEST PASSED: Buffer construction"<<endl;
-    else { 
-      cout<<"TEST FAILED: Buffer construction"<<endl; 
+    else {
+      cout<<"TEST FAILED: Buffer construction"<<endl;
       nfail++;
     }
   }
@@ -69,7 +69,7 @@ int main (void) {
     test_vector.push_back(4);
 
     buffer.fill(test_vector);
- 
+
     //test vector should be inside buffer
     if (buffer.get_object().size() != test_vector.size() )
       test_buffer_fill = false;
@@ -92,14 +92,14 @@ int main (void) {
     grip_ids.push_back(20);
     grip_ids.push_back(30);
     grip_ids.push_back(40);
-    uint32_t rank = 712;
+    int32_t rank = 712;
     uint32_t recv_size = 34;
 
     buffer.set_grip_IDs(grip_ids);
     buffer.set_rank(rank);
     buffer.set_receive_size(recv_size);
 
-    const vector<uint32_t>& buffer_grip_ids= buffer.get_grip_IDs(); 
+    const vector<uint32_t>& buffer_grip_ids= buffer.get_grip_IDs();
     if (buffer_grip_ids.size() != grip_ids.size()) test_buffer_fill = false;
     for (uint32_t i=0; i<buffer_grip_ids.size(); ++i)
       if (buffer_grip_ids[i] != grip_ids[i]) test_buffer_fill = false;
@@ -115,14 +115,14 @@ int main (void) {
     // clear buffer, buffer should be empty and buffer should have state == EMPTY
     buffer.reset();
     if (!buffer.empty() ) test_buffer_fill = false;
-    
+
     if (test_buffer_fill) cout<<"TEST PASSED: Buffer fill"<<endl;
-    else { 
-      cout<<"TEST FAILED: Buffer fill"<<endl; 
+    else {
+      cout<<"TEST FAILED: Buffer fill"<<endl;
       nfail++;
     }
   }
-  
+
   return nfail;
 }
 //---------------------------------------------------------------------------//

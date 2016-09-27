@@ -33,7 +33,7 @@
  * \brief Reads input data from an XML file and stores that data
  *
  * Boost's XML parser is used to read an XML input file. This class stores that
- * information and provides functions to access it. This class also prints the 
+ * information and provides functions to access it. This class also prints the
  * problem information.
  */
 //==============================================================================
@@ -57,13 +57,6 @@ class Input
     using std::endl;
     using std::vector;
 
-    double rho; //! Density (g/cc)
-    double CV; //! Heat capacity (jk/keV/g)
-    double opacA; //! Constant opacity
-    double opacB; //! Opacity temperature multiplier 
-    double opacC; //! Opacity temperature power
-    double opacS; //! Scattering opacity
-
     // default completion routine is RMA
     completion_routine = RMA_COMPLETION;
 
@@ -71,7 +64,7 @@ class Input
     // initialize nunmber of divisions in each dimension to zero
     uint32_t nx_divisions = 0;
     uint32_t ny_divisions = 0;
-    uint32_t nz_divisions = 0; 
+    uint32_t nz_divisions = 0;
     uint32_t region_ID;
 
     vector<float> x;
@@ -82,9 +75,9 @@ class Input
     read_xml(fileName, pt);
     std::string tempString;
     // traverse pt
-    BOOST_FOREACH( ptree::value_type const& v, pt.get_child("prototype") ) 
+    BOOST_FOREACH( ptree::value_type const& v, pt.get_child("prototype") )
     {
-      //read in basic problem parameters      
+      //read in basic problem parameters
       if(v.first =="common")
       {
         tFinish = v.second.get<double>("t_stop");
@@ -92,7 +85,7 @@ class Input
         tStart= v.second.get<double>("t_start");
         tMult = v.second.get<double>("t_mult" , 1.0);
         dtMax = v.second.get<double>("dt_max" , dt);
-        n_photons =v.second.get<uint64_t>("photons"); 
+        n_photons =v.second.get<uint64_t>("photons");
         seed = v.second.get<int>("seed");
         grip_size = v.second.get<int>("grip_size", 10);
         map_size = v.second.get<int>("map_size");
@@ -100,28 +93,28 @@ class Input
         tempString = v.second.get<std::string>("tilt", std::string("FALSE"));
         if (tempString == "TRUE") use_tilt = 1;
         else use_tilt = 0;
-        tempString = v.second.get<std::string>("use_combing", 
+        tempString = v.second.get<std::string>("use_combing",
                                                 std::string("TRUE"));
         if (tempString == "TRUE") use_comb= 1;
         else use_comb = 0;
 
         // stratified sampling
-        tempString = v.second.get<std::string>("stratified_sampling", 
+        tempString = v.second.get<std::string>("stratified_sampling",
                                                 std::string("FALSE"));
         if (tempString == "TRUE") use_strat= true;
         else use_strat = false;
 
         // write silo flag
-        tempString = v.second.get<std::string>("write_silo", 
+        tempString = v.second.get<std::string>("write_silo",
           std::string("FALSE"));
         if (tempString == "TRUE") write_silo = true;
         else write_silo = false;
 
         // completion message type
-        tempString = v.second.get<std::string>("completion_routine", 
+        tempString = v.second.get<std::string>("completion_routine",
           std::string("RMA"));
         if (tempString == "RMA") completion_routine = RMA_COMPLETION;
-        else if (tempString == "MILAGRO") 
+        else if (tempString == "MILAGRO")
           completion_routine = MILAGRO_COMPLETION;
         else {
           cout<<"Completion routine not recognized, setting to MILAGRO"<<endl;
@@ -135,7 +128,7 @@ class Input
         particle_message_size = v.second.get<uint32_t>("particle_message_size", 100);
 
         // domain decomposed transport aglorithm
-        tempString = v.second.get<std::string>("dd_transport_type", 
+        tempString = v.second.get<std::string>("dd_transport_type",
                                                std::string("CELL_PASS"));
         if (tempString == "CELL_PASS") dd_mode = CELL_PASS;
         else if (tempString == "CELL_PASS_RMA") dd_mode = CELL_PASS_RMA;
@@ -147,7 +140,7 @@ class Input
         }
       } //end common
 
-      // read in basic problem parameters      
+      // read in basic problem parameters
       else if(v.first =="debug_options")
       {
         tempString = v.second.get<std::string>("print_verbose", "FALSE");
@@ -163,14 +156,14 @@ class Input
         using_detailed_mesh = true;
         double d_x_start, d_x_end, d_y_start, d_y_end, d_z_start, d_z_end;
         uint32_t d_x_cells, d_y_cells, d_z_cells;
-        BOOST_FOREACH( ptree::value_type const& g, v.second ) 
+        BOOST_FOREACH( ptree::value_type const& g, v.second )
         {
           if(g.first == "x_division") {
             //x information for this region
             d_x_start =g.second.get<double>("x_start");
             d_x_end = g.second.get<double>("x_end");
             d_x_cells = g.second.get<uint32_t>("n_x_cells");
-            x_start.push_back(d_x_start); 
+            x_start.push_back(d_x_start);
             x_end.push_back(d_x_end);
             n_x_cells.push_back(d_x_cells);
             nx_divisions++;
@@ -184,7 +177,7 @@ class Input
             d_y_start =g.second.get<double>("y_start");
             d_y_end = g.second.get<double>("y_end");
             d_y_cells = g.second.get<uint32_t>("n_y_cells");
-            y_start.push_back(d_y_start); 
+            y_start.push_back(d_y_start);
             y_end.push_back(d_y_end);
             n_y_cells.push_back(d_y_cells);
             ny_divisions++;
@@ -198,7 +191,7 @@ class Input
             d_z_start =g.second.get<double>("z_start");
             d_z_end = g.second.get<double>("z_end");
             d_z_cells = g.second.get<uint32_t>("n_z_cells");
-            z_start.push_back(d_z_start); 
+            z_start.push_back(d_z_start);
             z_end.push_back(d_z_end);
             n_z_cells.push_back(d_z_cells);
             nz_divisions++;
@@ -215,7 +208,7 @@ class Input
             // make a unique key using the division ID of x,y and z
             // this mapping allows for 1000 unique divisions in
             // each dimension (way too many)
-            key = z_key*1000000 + y_key*1000 + x_key; 
+            key = z_key*1000000 + y_key*1000 + x_key;
             region_map[key] = region_ID;
           }
         }
@@ -226,15 +219,15 @@ class Input
       {
         using_simple_mesh = true;
 
-        x_start.push_back(v.second.get<double>("x_start")); 
+        x_start.push_back(v.second.get<double>("x_start"));
         x_end.push_back(v.second.get<double>("x_end"));
         n_x_cells.push_back(v.second.get<uint32_t>("n_x_cells"));
 
-        y_start.push_back(v.second.get<double>("y_start")); 
+        y_start.push_back(v.second.get<double>("y_start"));
         y_end.push_back(v.second.get<double>("y_end"));
         n_y_cells.push_back(v.second.get<uint32_t>("n_y_cells"));
 
-        z_start.push_back(v.second.get<double>("z_start")); 
+        z_start.push_back(v.second.get<double>("z_start"));
         z_end.push_back(v.second.get<double>("z_end"));
         n_z_cells.push_back(v.second.get<uint32_t>("n_z_cells"));
 
@@ -248,7 +241,7 @@ class Input
         for (uint32_t i=0;i<n_z_cells[0];i++)
           z.push_back(z_start[0]+i*(z_end[0]-z_start[0])/n_z_cells[0]);
 
-        // map zero key to region_ID 
+        // map zero key to region_ID
         region_map[0] = region_ID;
       }
 
@@ -259,32 +252,32 @@ class Input
         bool b_error = false;
         tempString = v.second.get<std::string>("bc_right");
         if      (tempString == "REFLECT") bc[X_POS] = REFLECT;
-        else if (tempString == "VACUUM")  bc[X_POS] = VACUUM; 
+        else if (tempString == "VACUUM")  bc[X_POS] = VACUUM;
         else    b_error = true;
-        
+
         tempString = v.second.get<std::string>("bc_left");
         if      (tempString == "REFLECT") bc[X_NEG] = REFLECT;
-        else if (tempString == "VACUUM")  bc[X_NEG] = VACUUM; 
+        else if (tempString == "VACUUM")  bc[X_NEG] = VACUUM;
         else    b_error = true;
 
         tempString = v.second.get<std::string>("bc_up");
         if      (tempString == "REFLECT") bc[Y_POS] = REFLECT;
-        else if (tempString == "VACUUM")  bc[Y_POS] = VACUUM; 
+        else if (tempString == "VACUUM")  bc[Y_POS] = VACUUM;
         else    b_error = true;
 
         tempString = v.second.get<std::string>("bc_down");
         if      (tempString == "REFLECT") bc[Y_NEG] = REFLECT;
-        else if (tempString == "VACUUM")  bc[Y_NEG] = VACUUM; 
+        else if (tempString == "VACUUM")  bc[Y_NEG] = VACUUM;
         else    b_error = true;
 
         tempString = v.second.get<std::string>("bc_top");
         if      (tempString == "REFLECT") bc[Z_POS] = REFLECT;
-        else if (tempString == "VACUUM")  bc[Z_POS] = VACUUM; 
+        else if (tempString == "VACUUM")  bc[Z_POS] = VACUUM;
         else    b_error = true;
 
         tempString = v.second.get<std::string>("bc_bottom");
         if      (tempString == "REFLECT") bc[Z_NEG] = REFLECT;
-        else if (tempString == "VACUUM")  bc[Z_NEG] = VACUUM; 
+        else if (tempString == "VACUUM")  bc[Z_NEG] = VACUUM;
         else    b_error = true;
 
         if (b_error) {
@@ -293,7 +286,7 @@ class Input
         }
       }
 
-      // read in region data 
+      // read in region data
       else if(v.first == "regions") {
         BOOST_FOREACH( ptree::value_type const& g, v.second ) {
           if(g.first == "region") {
@@ -306,7 +299,7 @@ class Input
             temp_region.set_opac_C(g.second.get<double>("opacC", 0.0));
             temp_region.set_opac_S(g.second.get<double>("opacS", 0.0));
             temp_region.set_T_e(g.second.get<double>("initial_T_e", 0.0));
-            // default T_r to T_e if not specified  
+            // default T_r to T_e if not specified
             temp_region.set_T_r(g.second.get<double>("initial_T_r", temp_region.get_T_e()));
             // map user defined ID to index in region vector
             region_ID_to_index[temp_region.get_ID()] = regions.size();
@@ -321,19 +314,19 @@ class Input
       if ( using_detailed_mesh && using_simple_mesh) {
         cout<<"ERROR: Spatial information cannot be specified in both";
         cout<<" simple and detailed XML regions. Exiting...\n";
-        exit(EXIT_FAILURE); 
+        exit(EXIT_FAILURE);
       }
     } //end xml parse
 
     //get global cell counts
-    n_global_x_cells = std::accumulate(n_x_cells.begin(), n_x_cells.end(), 0); 
-    n_global_y_cells = std::accumulate(n_y_cells.begin(), n_y_cells.end(), 0); 
+    n_global_x_cells = std::accumulate(n_x_cells.begin(), n_x_cells.end(), 0);
+    n_global_y_cells = std::accumulate(n_y_cells.begin(), n_y_cells.end(), 0);
     n_global_z_cells = std::accumulate(n_z_cells.begin(), n_z_cells.end(), 0);
 
     // set total number of divisions
     if (using_simple_mesh) n_divisions=1;
     else n_divisions = nx_divisions*ny_divisions*nz_divisions;
-  
+
     //make sure at least one region is specified
     if (!regions.size()) {
       cout<<"ERROR: No regions were specified. Exiting..."<<endl;
@@ -344,7 +337,7 @@ class Input
     if (using_simple_mesh && regions.size() != 1) {
       cout<<"ERROR: Only one region may be specified in simple mesh mode. ";
       cout<<" Exiting..."<<endl;
-      exit(EXIT_FAILURE); 
+      exit(EXIT_FAILURE);
     }
 
     // for simple spatial input, region ID must match region ID in region map
@@ -352,16 +345,16 @@ class Input
       if(regions[0].get_ID() != region_map[0]) {
         cout<<"ERROR: Region ID in simple spatial blocl must match region ID ";
         cout<<"in region block. Exiting..."<<endl;
-        exit(EXIT_FAILURE); 
+        exit(EXIT_FAILURE);
       }
     }
 
-    // for detailed meshes, the total number of divisions  must equal the 
+    // for detailed meshes, the total number of divisions  must equal the
     // number of unique region maps
     if (using_detailed_mesh && n_divisions != region_map.size()) {
       cout<<"ERROR: Number of total divisions must match the number of ";
       cout<<"unique region maps. Exiting..."<<endl;
-      exit(EXIT_FAILURE); 
+      exit(EXIT_FAILURE);
     }
 
     // append the last point values and allocate SILO array
@@ -375,17 +368,17 @@ class Input
     for (uint32_t j=0;j<y.size();j++) silo_y[j] = y[j];
     for (uint32_t k=0;k<z.size();k++) silo_z[k] = z[k];
   }
-  
+
   ~Input() {
     delete[] silo_x;
     delete[] silo_y;
     delete[] silo_z;
   };
-  
+
   void print_problem_info(void) const {
     using Constants::a;
     using Constants::c;
-    using std::cout;  
+    using std::cout;
     using std::endl;
     using Constants::PARTICLE_PASS;
     using Constants::CELL_PASS;
@@ -401,7 +394,7 @@ class Input
     cout<<" time multiplier: "<<tMult<<" , max dt:"<<dtMax;
     cout<<" (sh), Random number seed: "<<seed;
     cout<<" , output frequency: "<<output_freq<<endl;
-    
+
     cout<<"material temperature: "<<Tm_initial;
     cout<<" (keV), radiation temperature: "<<Tr_initial<<" (keV)"<<endl;
 
@@ -423,7 +416,7 @@ class Input
       if (write_silo) cout<<"SILO output enabled"<<endl;
       else cout<<"SILO output disabled (default)"<<endl;
     #else
-      if (write_silo) 
+      if (write_silo)
         cout<<"NOTE: SILO libraries not linked... no visualization"<<endl;
     #endif
     cout<<"Spatial Information -- cells x,y,z: "<<n_global_x_cells<<" ";
@@ -441,7 +434,7 @@ class Input
         <<" + "<<regions[r].get_opac_B()<<"^"<<regions[r].get_opac_C();
       cout<<", scattering opacity: "<<regions[r].get_scattering_opacity()<<endl;
     }
-    
+
     cout<<"--Parallel Information--"<<endl;
     cout<<"DD algorithm: ";
     if (dd_mode == CELL_PASS) {
@@ -468,7 +461,7 @@ class Input
     else {
       cout<<"ERROR: Parallel method not specific correctly";
       cout<<" Exiting..."<<endl;
-      exit(EXIT_FAILURE); 
+      exit(EXIT_FAILURE);
     }
 
     // cell pass RMA does not use completion routines
@@ -483,7 +476,7 @@ class Input
       else {
         cout<<"ERROR: Particle completion method not specific correctly";
         cout<<" Exiting..."<<endl;
-        exit(EXIT_FAILURE); 
+        exit(EXIT_FAILURE);
       }
     }
     else {
@@ -506,7 +499,7 @@ class Input
   uint32_t get_z_division_cells(const uint32_t& div) const {
     return n_z_cells[div];
   }
-  
+
   float* get_silo_x_ptr(void) {return silo_x;}
   float* get_silo_y_ptr(void) {return silo_y;}
   float* get_silo_z_ptr(void) {return silo_z;}
@@ -566,9 +559,9 @@ class Input
     uint32_t key = z_div*1000000 + y_div*1000 + x_div;
     return  region_ID_to_index[region_map[key]];
   }
-  
-  Constants::bc_type get_bc(const Constants::dir_type& direction) const 
-  { 
+
+  Constants::bc_type get_bc(const Constants::dir_type& direction) const
+  {
     return bc[direction];
   }
 
@@ -577,9 +570,9 @@ class Input
   // flags
   bool using_simple_mesh;
   bool using_detailed_mesh;
-  bool write_silo; 
+  bool write_silo;
 
-  Constants::bc_type bc[6]; //! Boundary condition array 
+  Constants::bc_type bc[6]; //! Boundary condition array
 
   // timing
   double tStart; //! Starting time
@@ -589,7 +582,7 @@ class Input
   double dtMax; //! Maximum timestep size
 
   // initial conditions
-  double Tm_initial; //! Initial material temperature 
+  double Tm_initial; //! Initial material temperature
   double Tr_initial; //! Initial radiation temperature
 
   //material

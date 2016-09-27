@@ -5,7 +5,7 @@
  * \date   March 3 2016
  * \brief  One-sided transport completion manager
  *
- * Manages completion of domain-decomposed IMC transport with one-sided 
+ * Manages completion of domain-decomposed IMC transport with one-sided
  * messaging and MPI windows. Uses a binary tree communication pattern
  *
  * \note   ***COPYRIGHT_GOES_HERE****
@@ -51,7 +51,7 @@ class Completion_Manager_RMA : public Completion_Manager
     // Get the size of MPI_UNSIGNED_LONG
     int size_mpi_uint64;
     MPI_Type_size(MPI_UNSIGNED_LONG, &size_mpi_uint64);
-    
+
     //MPI_Win_set_attr(completion_window, MPI_WIN_MODEL, MPI_WIN_UNIFIED);
 
     // Make the MPI window for the number of particles completed on this
@@ -70,7 +70,7 @@ class Completion_Manager_RMA : public Completion_Manager
   }
 
   //! destructor
-  ~Completion_Manager_RMA() {
+  virtual ~Completion_Manager_RMA() {
     // closes MPI window for one-sided messaging
     MPI_Win_unlock_all(completion_window);
   }
@@ -82,8 +82,8 @@ class Completion_Manager_RMA : public Completion_Manager
     return *memory_model;
   }
 
-  //! Get the number of completed particles 
-  int64_t get_n_complete_tree(void) const {
+  //! Get the number of completed particles
+  uint64_t get_n_complete_tree(void) const {
     return *n_complete_tree_data;
   }
 
@@ -94,7 +94,7 @@ class Completion_Manager_RMA : public Completion_Manager
 
   // non-const functions
 
-  //! Resets all particle counts and finishes open requests (send counts are 
+  //! Resets all particle counts and finishes open requests (send counts are
   // not used)
   virtual void end_timestep( Message_Counter& mctr)
   {
@@ -130,7 +130,7 @@ class Completion_Manager_RMA : public Completion_Manager
                                   Message_Counter& mctr)
   {
 
-    // only do this if rank has no particles to transport and received 
+    // only do this if rank has no particles to transport and received
     // buffers are empty
     if (waiting_for_work) {
       // Test for completion of non-blocking RMA requests
@@ -174,15 +174,15 @@ class Completion_Manager_RMA : public Completion_Manager
       }
 
       // update total count for this tree
-      *n_complete_tree_data =n_complete_tree + n_complete_c1 + n_complete_c2; 
+      *n_complete_tree_data =n_complete_tree + n_complete_c1 + n_complete_c2;
 
       // If parent is complete, test parent count for overall completion
       if (parent != MPI_PROC_NULL) {
-        if (p_req_flag) { 
+        if (p_req_flag) {
           MPI_Test(&req_p, &flag_p, MPI_STATUS_IGNORE);
           if (flag_p) {
             n_complete_p = buffer_p;
-            // If complete, set finished to true 
+            // If complete, set finished to true
             if (n_complete_p == n_particle_global) {
               finished=true;
               *n_complete_tree_data = n_complete_p;

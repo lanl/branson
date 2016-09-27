@@ -10,8 +10,11 @@
 // $Id$
 //---------------------------------------------------------------------------//
 
+
+
 #include <iostream>
 #include <numeric>
+#include <mpi.h>
 #include <parmetis.h>
 #include <vector>
 
@@ -37,17 +40,17 @@ int main (int argc, char *argv[]) {
 
     MPI_Comm comm;
     MPI_Comm_dup(MPI_COMM_WORLD, &comm);
-    
+
     //get the number of cells on each processor
     //vtxdist has number of vertices on each rank, same for all ranks
     const int n_cell_on_rank = 100;
     vector<int> start_ncells(n_rank, n_cell_on_rank); //cells on each rank
     vector<int> vtxdist(n_rank, 0);  //prefix sum for cells on rank
 
-    partial_sum(start_ncells.begin(), 
-                start_ncells.end(), 
+    partial_sum(start_ncells.begin(),
+                start_ncells.end(),
                 vtxdist.begin());
-    vtxdist.insert(vtxdist.begin(), 0); 
+    vtxdist.insert(vtxdist.begin(), 0);
 
     //build adjacency list needed for ParMetis call for each rank
     vector<int> xadj;
@@ -60,7 +63,7 @@ int main (int argc, char *argv[]) {
       g_ID = i + rank*n_cell_on_rank;
 
       //starting index in xadj for this cell's nodes
-      xadj.push_back(adjncy_counter); 
+      xadj.push_back(adjncy_counter);
 
       //first cell in row
       if (i == 0) {
@@ -104,11 +107,11 @@ int main (int argc, char *argv[]) {
         }
       }
     }  // end loop over cells to build adjacency lists
-    xadj.push_back(adjncy_counter);  
+    xadj.push_back(adjncy_counter);
 
     int wgtflag = 0; //no weights for cells
     int numflag = 0; //C-style numbering
-    int ncon = 1; 
+    int ncon = 1;
     int nparts = n_rank; //sub-domains = n_rank
 
     float *tpwgts = new float[nparts];
@@ -121,8 +124,8 @@ int main (int argc, char *argv[]) {
     options[0] = 1; // 0--use default values, 1--use the values in 1 and 2
     options[1] = 3; //output level
     options[2] = 1242; //random number seed
-    
-    int edgecut =0; 
+
+    int edgecut =0;
     int *part = new int[n_cell_on_rank];
 
     ParMETIS_V3_PartKway( &vtxdist[0],   // array describing how cells are distributed
@@ -141,7 +144,7 @@ int main (int argc, char *argv[]) {
                           part,       // OUTPUT: partition of each vertex
                           &comm); // MPI communicator
 
-    // ParMetis should not partition mesh if one rank is used (this is the 
+    // ParMetis should not partition mesh if one rank is used (this is the
     // edgecut parameter)
     if (n_rank == 1) {
       if (edgecut != 0) simple_partitioning_pass = false;
@@ -154,13 +157,13 @@ int main (int argc, char *argv[]) {
     vector<int> n_on_rank(n_rank);
     for (uint32_t i =0; i<n_cell_on_rank; i++)
       n_on_rank[part[i]]++;
-    
+
     cout<<"Cells on rank "<<rank<<": "<<n_on_rank[rank]<<endl;
     // Number of cells on this rank should be greater than zero
     if (n_on_rank[rank] <= 0) simple_partitioning_pass = false;
 
     if (simple_partitioning_pass) cout<<"TEST PASSED: simple ParMetis partitioning"<<endl;
-    else { 
+    else {
       cout<<"TEST FAILED: simple ParMetis partitioning"<<endl;
       nfail++;
     }

@@ -25,7 +25,7 @@ using std::endl;
 int main (int argc, char *argv[]) {
 
   MPI_Init(&argc, &argv);
-  
+
   int rank, n_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
@@ -37,8 +37,6 @@ int main (int argc, char *argv[]) {
   {
     bool construction_pass = true;
 
-    uint64_t rank_particles = 10000;
-    uint64_t global_count = n_rank*rank_particles;
     Completion_Manager_RMA comp(rank, n_rank);
 
     if (comp.get_mpi_window_memory_type() != MPI_WIN_UNIFIED) construction_pass = false;
@@ -97,7 +95,7 @@ int main (int argc, char *argv[]) {
     // should post/complete some receives
     if (mctr.n_receives_posted == 0) completion_routine_pass = false;
     if (mctr.n_receives_completed == 0) completion_routine_pass = false;
-    if (mctr.n_receives_posted != mctr.n_receives_completed) 
+    if (mctr.n_receives_posted != mctr.n_receives_completed)
       completion_routine_pass = false;
 
     // shold post/complete no sends
@@ -106,7 +104,7 @@ int main (int argc, char *argv[]) {
     if (mctr.n_sends_posted != mctr.n_sends_completed) completion_routine_pass = false;
 
     if (completion_routine_pass) {
-      cout<<"TEST PASSED: Completion_Manager_RMA "; 
+      cout<<"TEST PASSED: Completion_Manager_RMA ";
       cout<<"with "<<n_rank<<" ranks"<<endl;
     }
     else {
@@ -137,7 +135,7 @@ int main (int argc, char *argv[]) {
     Message_Counter mctr;
 
     comp.start_timestep(mctr);
-    
+
     while(!finished ) {
       // add completed work if there is work to do
       if (rank_sourced <rank_particles) {
@@ -163,7 +161,7 @@ int main (int argc, char *argv[]) {
     // should post/complete some receives and post should equal complete
     if (mctr.n_receives_posted == 0) milagro_completion_pass = false;
     if (mctr.n_receives_completed == 0) milagro_completion_pass = false;
-    if (mctr.n_receives_posted != mctr.n_receives_completed) 
+    if (mctr.n_receives_posted != mctr.n_receives_completed)
       milagro_completion_pass = false;
 
     // shold post/complete some sends and post should equal complete

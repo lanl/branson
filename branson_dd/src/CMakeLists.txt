@@ -1,7 +1,7 @@
 ################################################################################
 # NOTES ON COMPILATION
 ################################################################################
-# Load the modules for each libary and the environment variables will be set 
+# Load the modules for each libary and the environment variables will be set
 # correctly
 
 cmake_minimum_required (VERSION 2.8)
@@ -35,7 +35,8 @@ message("Machine name: ${SITENAME}")
 set( DEBUG_FLAGS -g)
 
 # Intel C++ 11 flags
-set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
+#set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
+set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++11")
 
 # Cray flag for C++11
 #set (DEBUG_FLAGS "${DEBUG_FLAGS} -h std=c++11")
@@ -52,7 +53,7 @@ set(BRANSON_VERSION_MAJOR 0)
 set(BRANSON_VERSION_MINOR 8)
 
 # set compiler
-if ("${SITENAME}" STREQUAL "Moonlight")
+if ("${SITENAME}" STREQUAL "Moonlight" OR ${SITENAME} MATCHES "ccscs[0-9]+")
   set(CMAKE_CXX_COMPILER mpic++)
 elseif ("${SITENAME}" STREQUAL "Trinitite")
   set(CMAKE_CXX_COMPILER cc)
@@ -65,7 +66,7 @@ include(ExternalProject)
 ###############################################################################
 #set(CALIPER_INSTALL_DIR ${CMAKE_BINARY_DIR}/caliper)
 #ExternalProject_Add(caliper_local SOURCE_DIR "${CMAKE_SOURCE_DIR}/Caliper" PREFIX ${CALIPER_INSTALL_DIR} CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CALIPER_INSTALL_DIR}")
-#include_directories(${CALIPER_INSTALL_DIR}/include/caliper) 
+#include_directories(${CALIPER_INSTALL_DIR}/include/caliper)
 #link_directories(${CALIPER_INSTALL_DIR}/lib)
 
 ###############################################################################

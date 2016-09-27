@@ -3,7 +3,7 @@
  * \file   rma_tally_manager.h
  * \author Alex Long
  * \date   September, 6 2016
- * \brief  Buffers and communicates tally data on other ranks 
+ * \brief  Buffers and communicates tally data on other ranks
  * \note   ***COPYRIGHT_GOES_HERE****
  */
 //----------------------------------------------------------------------------//
@@ -55,17 +55,17 @@ class Tally_Manager
 
   public:
   //! constructor
-  Tally_Manager(const int _rank, const std::vector<uint32_t>& _rank_bounds, 
+  Tally_Manager(const int _rank, const std::vector<uint32_t>& _rank_bounds,
     const uint32_t n_cell)
   : rank(_rank),
     rank_bounds(_rank_bounds),
     rank_start(rank_bounds[rank]),
-    rank_end(rank_bounds[rank+1]), 
+    rank_end(rank_bounds[rank+1]),
     max_reqs(20),
     max_tally_size(10000),
     write_size(200)
   {
-    // make the MPI window of size n_cell*double 
+    // make the MPI window of size n_cell*double
     int mpi_double_size;
     MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
     MPI_Aint n_bytes(n_cell*mpi_double_size);
@@ -93,7 +93,6 @@ class Tally_Manager
 
   //! destructor
   ~Tally_Manager() {
-    int assert =0;
     MPI_Win_unlock_all(tally_window);
     MPI_Win_free(&tally_window);
   }
@@ -118,7 +117,7 @@ class Tally_Manager
     return s_i;
   }
 
-  const double const* get_tally_ptr(void) {return tally;}
+  double const * const get_tally_ptr(void) {return tally;}
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
@@ -127,7 +126,7 @@ class Tally_Manager
   private:
 
   //! Returns the index of the next available send tally request and buffer
-  uint32_t get_next_send_tally_request_and_buffer_index(void) 
+  uint32_t get_next_send_tally_request_and_buffer_index(void)
   {
     // check to see if request at count is in use
     while(s_tally_in_use.find(s_tally_count) != s_tally_in_use.end() ) {
@@ -142,15 +141,15 @@ class Tally_Manager
     return s_tally_count;
   }
 
-  //! Test active send and receives request objects for completion (sent IDs 
+  //! Test active send and receives request objects for completion (sent IDs
   // and sent tallies)
-  void test_remote_writes(Message_Counter& mctr) 
+  void test_remote_writes(Message_Counter& mctr)
   {
     // test sends of tallies, don't test if no active requests
     if (!s_tally_in_use.empty()) {
       MPI_Testsome(s_tally_max_index+1, &s_tally_reqs[0], &n_req_complete,
         &complete_indices[0], MPI_STATUSES_IGNORE);
-      for (uint32_t i=0; i<n_req_complete;++i)
+      for (uint32_t i=0; i<uint32_t(n_req_complete);++i)
         s_tally_in_use.erase(complete_indices[i]);
       mctr.n_sends_completed+=n_req_complete;
     }
@@ -160,8 +159,6 @@ class Tally_Manager
     std::unordered_map<uint32_t, double>& off_rank_abs_E)
   {
     using std::vector;
-    using Constants::tally_tag;
-    using Constants::n_tally_tag;
 
     std::unordered_map<uint32_t, vector<Tally> > rank_tally;
     uint32_t off_rank;
@@ -181,10 +178,10 @@ class Tally_Manager
       }
     }
 
-    // clear the map, we'll write it back if we are at maximum number of 
+    // clear the map, we'll write it back if we are at maximum number of
     // remote writes
     off_rank_abs_E.clear();
- 
+
     for (auto map_i=rank_tally.begin(); map_i != rank_tally.end();++map_i) {
       vector<Tally>& send_tallies = map_i->second;
 
@@ -214,7 +211,6 @@ class Tally_Manager
       // add the last block of tallies
       grouped_tallies.push_back(tallies);
 
-      double energy_in_write = 0.0;
       for (uint32_t i=0; i<grouped_tallies.size();++i) {
         vector<double> write_buffer(write_size, 0.0);
         vector<Tally>& tallies = grouped_tallies[i];
@@ -254,21 +250,21 @@ class Tally_Manager
         }
 
       } // end loop over grouped tallies
-      
+
     } // end loop over ranks
   }
 
   public:
 
   void process_off_rank_tallies(Message_Counter& mctr,
-    std::unordered_map<uint32_t, double>& off_rank_abs_E, 
+    std::unordered_map<uint32_t, double>& off_rank_abs_E,
     const bool force_send)
   {
     // first, test sends and receives of tally data
     test_remote_writes(mctr);
 
     // then send off-rank tally data if map is full
-    if (off_rank_abs_E.size() > max_tally_size || force_send) 
+    if (off_rank_abs_E.size() > max_tally_size || force_send)
       remote_tally_accumulate(mctr, off_rank_abs_E);
   }
 
@@ -279,8 +275,8 @@ class Tally_Manager
     while(!off_rank_abs_E.empty() || !s_tally_in_use.empty()  ) {
       // first, test sends and receives of tally data
       test_remote_writes(mctr);
-     
-      // always send in finish mode 
+
+      // always send in finish mode
       remote_tally_accumulate(mctr, off_rank_abs_E);
     }
   }
@@ -296,10 +292,10 @@ class Tally_Manager
   std::vector<uint32_t> rank_bounds; //! Global tally ID bounds on each rank
 
   uint32_t rank_start; //! Index of first tally
-  uint32_t rank_end; //! Index of one after last tally 
+  uint32_t rank_end; //! Index of one after last tally
 
   const uint32_t max_reqs; //! Maximum number of concurrent requests
-  const uint32_t max_tally_size; //! Maximum number of tallies to write 
+  const uint32_t max_tally_size; //! Maximum number of tallies to write
   const uint32_t write_size; //! Number of indices to accumulate in remote write
 
   double *tally; //! Pointer to be allocated by MPI_Win_Allocate

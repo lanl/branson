@@ -19,9 +19,9 @@
 //==============================================================================
 /*!
  * \class Work_Packet
- * \brief Holds data to make particles 
- * 
- * A way to pass work between processors in mesh passing mode that avoids 
+ * \brief Holds data to make particles
+ *
+ * A way to pass work between processors in mesh passing mode that avoids
  * constructing the emission and initial census particles. In this class I
  * use the word "creation" to describe generic particles that can be created
  * at a later time (emission, intitial census or source).
@@ -77,8 +77,8 @@ class Work_Packet {
   }
 
   //! Attach emission or initial census energy and particles to this work packet
-  void attach_creation_work(const double& _create_E, 
-    const uint32_t& _n_create) 
+  void attach_creation_work(const double& _create_E,
+    const uint32_t& _n_create)
   {
     create_E = _create_E;
     n_create = _n_create;
@@ -86,8 +86,8 @@ class Work_Packet {
   }
 
   //! Attach existing work in the form of index into large census particle array
-  void attach_census_work(const uint32_t& _census_index_start, 
-    const uint32_t& _n_census) 
+  void attach_census_work(const uint32_t& _census_index_start,
+    const uint32_t& _n_census)
   {
     census_index_start=_census_index_start;
     n_census = _n_census;
@@ -110,11 +110,11 @@ class Work_Packet {
 
   Work_Packet split(const uint32_t& n_remain) {
     Work_Packet return_work;
-    
+
     // calculate properies of return packet
     uint32_t n_return = n_particles - n_remain;
     double return_E = create_E*double(n_return)/double(n_particles);
-    
+
     // set properties of this work packet
     create_E = create_E - return_E;
 
@@ -136,8 +136,8 @@ class Work_Packet {
   uint32_t g_grip_ID; //! Global index of this cell's grip
   uint32_t n_create; //! Photons to create in this cell
   uint32_t n_census; //! Census photons in this cell
+  uint32_t source_type; //! Type of particles, census or emission
   uint32_t census_index_start; //! Start index in census vector
-  uint32_t source_type; //! Type of particles, census or emission 
   double create_E; //! Emission or intial census energy in work packet
   double nodes[6]; //! Nodes forming 3D cell
 };

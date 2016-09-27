@@ -26,7 +26,7 @@ int main (int argc, char *argv[]) {
   using std::vector;
 
   MPI_Init(&argc, &argv);
-  
+
   int rank, n_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
@@ -39,8 +39,8 @@ int main (int argc, char *argv[]) {
   // make up cell bounds for this rank
   vector<uint32_t> rank_bounds(n_rank+1);
   uint32_t r_bound = 0;
-  for (uint32_t i=0; i<n_rank+1;++i) {
-    if (i!=n_rank) {
+  for (uint32_t i=0; i<uint32_t(n_rank+1);++i) {
+    if (i!=uint32_t(n_rank)) {
       rank_bounds[i] = r_bound;
       r_bound+=n_cell/n_rank;
     }
@@ -59,12 +59,12 @@ int main (int argc, char *argv[]) {
     Tally_Manager t_manager(rank, rank_bounds, n_cell_on_rank);
     Message_Counter mctr;
 
-    const double const * abs_E_from_other_ranks = t_manager.get_tally_ptr();
+    double const * const abs_E_from_other_ranks = t_manager.get_tally_ptr();
 
     // test to make sure all tallies are initially zero
     for (uint32_t i=0; i<n_cell_on_rank;++i) {
 
-      // test to make sure the energy in each cell is zero 
+      // test to make sure the energy in each cell is zero
       if (abs_E_from_other_ranks[i] != 0.0) test_tally_manager = false;
     }
 
@@ -77,7 +77,7 @@ int main (int argc, char *argv[]) {
     double E_event = 0.01;
     std::unordered_map<uint32_t, double> off_rank_abs_E;
     std::vector<double> E_to_rank(n_rank, 0.0);
-     
+
     // write tallies
     uint32_t cell_id, write_rank;
     for (uint32_t i=0; i<n_tally;++i) {
@@ -89,9 +89,9 @@ int main (int argc, char *argv[]) {
       cell_id = i;
       write_rank = t_manager.get_off_rank_id(cell_id);
       E_to_rank[write_rank] += E_event;
-      if (off_rank_abs_E.find(cell_id) == off_rank_abs_E.end()) 
+      if (off_rank_abs_E.find(cell_id) == off_rank_abs_E.end())
         off_rank_abs_E[cell_id] = E_event;
-      else 
+      else
         off_rank_abs_E[cell_id]+=E_event;
     }
 
@@ -104,7 +104,7 @@ int main (int argc, char *argv[]) {
     cout<<"Rank "<<rank<<" about to remote write"<<endl;
     t_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
     t_manager.finish_remote_writes(mctr, off_rank_abs_E);
-  
+
 
     cout<<"Rank "<<rank<<" finished"<<endl;
 
@@ -116,7 +116,7 @@ int main (int argc, char *argv[]) {
       actual_rank_abs_E += abs_E_from_other_ranks[i];
 
       // test to make sure the energy in each cell is valid (greater than zero
-      // and not a NaN) 
+      // and not a NaN)
       if (abs_E_from_other_ranks[i] < 0.0) test_tally_manager = false;
       if (abs_E_from_other_ranks[i] != abs_E_from_other_ranks[i])
         test_tally_manager = false;
@@ -124,33 +124,33 @@ int main (int argc, char *argv[]) {
 
     // reduce to get the actual energy absorbed across all ranks
     double actual_total_abs_E = 0.0;
-    MPI_Allreduce(&actual_rank_abs_E, &actual_total_abs_E, 1, MPI_DOUBLE, 
+    MPI_Allreduce(&actual_rank_abs_E, &actual_total_abs_E, 1, MPI_DOUBLE,
       MPI_SUM, MPI_COMM_WORLD);
 
-    // reduce the E_to_rank array to get the expected energy absorbed on each 
+    // reduce the E_to_rank array to get the expected energy absorbed on each
     // rank
     vector<double> expected_rank_abs_E(n_rank, 0.0);
-    MPI_Allreduce(&E_to_rank[0], &expected_rank_abs_E[0], n_rank, MPI_DOUBLE, 
+    MPI_Allreduce(&E_to_rank[0], &expected_rank_abs_E[0], n_rank, MPI_DOUBLE,
       MPI_SUM, MPI_COMM_WORLD);
 
     double tol = 1.0e-8;
 
-    // check to make sure the actual absorbed energy matches the expected 
+    // check to make sure the actual absorbed energy matches the expected
     // absorbed energy for this rank
-    if (!soft_equiv(actual_total_abs_E, expected_total_abs_E, tol)) 
+    if (!soft_equiv(actual_total_abs_E, expected_total_abs_E, tol))
       test_tally_manager = false;
 
     // check to make sure the total absorbed energy accross all ranks matches
     // the expected value
-    if (!soft_equiv(actual_rank_abs_E, expected_rank_abs_E[rank], tol)) 
+    if (!soft_equiv(actual_rank_abs_E, expected_rank_abs_E[rank], tol))
       test_tally_manager = false;
 
     if (test_tally_manager) {
       cout<<"TEST PASSED: Tally manager correctly moves energy back to origin ";
       cout<<"rank"<<endl;
     }
-    else { 
-      cout<<"TEST FAILED: Tally manager failed"<<endl; 
+    else {
+      cout<<"TEST FAILED: Tally manager failed"<<endl;
       nfail++;
     }
   }
