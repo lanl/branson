@@ -7,13 +7,6 @@
  * \note   ***COPYRIGHT_GOES_HERE****
  */
 //---------------------------------------------------------------------------//
-// $Id$
-//---------------------------------------------------------------------------//
-/*
-  completion_manager_milagro.h
-  by Alex Long
-  3/31/2016
-*/
 
 #ifndef completion_manager_milagro_h_
 #define completion_manager_milagro_h_

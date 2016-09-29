@@ -1,8 +1,14 @@
 ################################################################################
 # NOTES ON COMPILATION
 ################################################################################
+
 # Load the modules for each libary and the environment variables will be set
-# correctly
+# correctly (load compiler, mpi, boost, metis, parmetis and optionally hdf5 and
+# silo)
+
+# Enbable debug mode by passing -DCMAKE_BUILD_TYPE=Debug , default is Release
+
+
 
 cmake_minimum_required (VERSION 2.8)
 project (BRANSON)
@@ -30,29 +36,41 @@ set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
 message("Machine name: ${SITENAME}")
 ################################################################################
 
-
-# add compiler flags
-set( DEBUG_FLAGS -g)
-
-# Intel C++ 11 flags
-#set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
-set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++11")
-
-# Cray flag for C++11
-#set (DEBUG_FLAGS "${DEBUG_FLAGS} -h std=c++11")
-
-# append optimization flags
-set( DEBUG_FLAGS "${DEBUG_FLAGS} -O0")
-#set( DEBUG_FLAGS "${DEBUG_FLAGS} -O3")
-
-set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${DEBUG_FLAGS}" )
-message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
-
 #set version number
 set(BRANSON_VERSION_MAJOR 0)
 set(BRANSON_VERSION_MINOR 8)
 
-# set compiler
+# add compiler flags
+set (BRANSON_FLAGS "-g -Wall")
+
+# Intel/GCC C++ 11 flags (I think this works for both now)
+set( BRANSON_FLAGS "${BRANSON_FLAGS} -std=c++11")
+#set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
+# Cray flag for C++11
+#set (DEBUG_FLAGS "${DEBUG_FLAGS} -h std=c++11")
+
+
+set (BRANSON_BUILD_TYPE  ${CMAKE_BUILD_TYPE})
+if ("${BRANSON_BUILD_TYPE}x" STREQUAL "x")
+  message("CMAKE_BUILD_TYPE not set, setting to \"Release\"")
+  set(BRANSON_BUILD_TYPE "Release")
+else ()
+  message("CMAKE_BUILD_TYPE set on command line: ${CMAKE_BUILD_TYPE}")
+endif ()
+
+
+if ("${BRANSON_BUILD_TYPE}" STREQUAL "Debug")
+  message("CMake build type = Debug")
+  set( BRANSON_FLAGS "${BRANSON_FLAGS} -O0")
+else ()
+  message("CMake build type = Release")
+  set( BRANSON_FLAGS "${BRANSON_FLAGS} -O3")
+endif()
+
+set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${BRANSON_FLAGS}" )
+message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
+
+# set compiler 
 if ("${SITENAME}" STREQUAL "Moonlight" OR ${SITENAME} MATCHES "ccscs[0-9]+")
   set(CMAKE_CXX_COMPILER mpic++)
 elseif ("${SITENAME}" STREQUAL "Trinitite")
@@ -107,8 +125,11 @@ message("SILO_FOUND = ${SILO_FOUND}")
 
 find_package(HDF5)
 message("HDF5_FOUND = ${HDF5_FOUND}")
-message("HDF from: $ENV{HDF5_ROOT} ")
-link_directories($ENV{HDF5_ROOT}/lib)
+if (${HDF5_FOUND} STREQUAL "TRUE")
+  message("HDF5 from: ${HDF5_LIBRARY_DIRS}" )
+  include_directories(${HDF5_INCLUDE_DIRS})
+  link_directories(${HDF5_LIBRRARY_DIRS})
+endif ()
 
 if (HDF5_FOUND AND SILO_FOUND)
   set(VIZ_LIBRARIES_FOUND TRUE)
@@ -133,6 +154,7 @@ include_directories(${PROJECT_BINARY_DIR})
 add_executable(BRANSON main.cc)
 
 #add_dependencies(BRANSON caliper_local)
+
 # these lines link the Cray DMAPP library
 #first, create the dynamic version of dmapp library
 #target_link_libraries(BRANSON ${DMAPP_DYNAMIC})

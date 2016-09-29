@@ -1,6 +1,6 @@
 //----------------------------------*-C++-*-----------------------------------//
 /*!
- * \file   rma_tally_manager.h
+ * \file   tally_manager_rma.h
  * \author Alex Long
  * \date   September, 6 2016
  * \brief  Buffers and communicates tally data on other ranks
@@ -8,8 +8,8 @@
  */
 //----------------------------------------------------------------------------//
 
-#ifndef tally_manager_h_
-#define tally_manager_h_
+#ifndef tally_manager_rma_h_
+#define tally_manager_rma_h_
 
 #include <iostream>
 #include <mpi.h>
@@ -319,8 +319,8 @@ class Tally_Manager
   int n_req_complete; //! Number of completed requests after MPI_Testsome
 };
 
-#endif // def tally_manager_h_
+#endif // def tally_manager_rma_h_
 
 //----------------------------------------------------------------------------//
-// end of tally_manager.h
+// end of tally_manager_rma.h
 //----------------------------------------------------------------------------//

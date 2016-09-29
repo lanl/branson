@@ -7,8 +7,6 @@
  * \note   ***COPYRIGHT_GOES_HERE****
  */
 //---------------------------------------------------------------------------//
-// $Id$
-//---------------------------------------------------------------------------//
 
 #include <iostream>
 #include <unordered_map>
@@ -16,7 +14,7 @@
 
 #include "../message_counter.h"
 #include "../RNG.h"
-#include "../rma_tally_manager.h"
+#include "../tally_manager_rma.h"
 #include "testing_functions.h"
 
 int main (int argc, char *argv[]) {

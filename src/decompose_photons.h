@@ -1,8 +1,12 @@
-/* decompose_photons.h
- * This file includes functions to load balance census photons after a step
- * in the mesh-passing DD algotithm
- * 6/17/2015 by Alex Long
-*/
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   decompose_photons.h
+ * \author Alex Long
+ * \date   June 17 2015
+ * \brief  Load balance census photons after a step in mesh passing DD mode
+ * \note   ***COPYRIGHT_GOES_HERE****
+ */
+//---------------------------------------------------------------------------//
 
 #ifndef decompose_photons_h_
 #define decompose_photons_h_
@@ -141,3 +145,6 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
 }
 
 #endif // decompose_photons_h
+//---------------------------------------------------------------------------//
+// end of decompose_photons.h
+//---------------------------------------------------------------------------//
