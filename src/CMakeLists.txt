@@ -6,9 +6,8 @@
 # correctly (load compiler, mpi, boost, metis, parmetis and optionally hdf5 and
 # silo)
 
-# Enbable debug mode by passing -DCMAKE_BUILD_TYPE=Debug , default is Release
-
-
+# Enbable debug mode by passing -DCMAKE_BUILD_TYPE=Debug to CMake, default is 
+# Release
 
 cmake_minimum_required (VERSION 2.8)
 project (BRANSON)
@@ -113,7 +112,7 @@ include_directories(${Boost_INCLUDE_DIR})
 # Load modules for hdf5 and solo to get correct environment variables
 # use find package
 ###############################################################################
-message("Silo from: $ENV{SILO_ROOT} " )
+message("OPTIONAL: Silo from: $ENV{SILO_ROOT} " )
 include_directories($ENV{SILO_ROOT}/include)
 link_directories($ENV{SILO_ROOT}/lib)
 if ("$ENV{SILO_ROOT}x" STREQUAL "x")
@@ -121,12 +120,12 @@ if ("$ENV{SILO_ROOT}x" STREQUAL "x")
 else ()
   set(SILO_FOUND TRUE)
 endif ()
-message("SILO_FOUND = ${SILO_FOUND}")
+message("OPTIONAL: SILO_FOUND = ${SILO_FOUND}")
 
 find_package(HDF5)
-message("HDF5_FOUND = ${HDF5_FOUND}")
+message("OPTIONAL: HDF5_FOUND = ${HDF5_FOUND}")
 if (${HDF5_FOUND} STREQUAL "TRUE")
-  message("HDF5 from: ${HDF5_LIBRARY_DIRS}" )
+  message("OPTIONAL: HDF5 from: ${HDF5_LIBRARY_DIRS}" )
   include_directories(${HDF5_INCLUDE_DIRS})
   link_directories(${HDF5_LIBRRARY_DIRS})
 endif ()
@@ -134,7 +133,7 @@ endif ()
 if (HDF5_FOUND AND SILO_FOUND)
   set(VIZ_LIBRARIES_FOUND TRUE)
 else ()
-  message("Visualization libraries not loaded...skipping")
+  message("OPTIONAL: Visualization libraries not loaded...skipping")
 endif ()
 
 ###############################################################################
