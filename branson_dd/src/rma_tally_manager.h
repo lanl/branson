@@ -19,7 +19,6 @@
 
 #include "buffer.h"
 #include "constants.h"
-#include "mpi_types.h"
 #include "message_counter.h"
 
 
@@ -61,16 +60,21 @@ class Tally_Manager
     rank_bounds(_rank_bounds),
     rank_start(rank_bounds[rank]),
     rank_end(rank_bounds[rank+1]),
-    max_reqs(20),
+    max_reqs(100),
     max_tally_size(10000),
-    write_size(200)
+    write_size(20)
   {
-    // make the MPI window of size n_cell*double
+    // make the MPI window of size n_cell*double and MPI_INFO with 
+    // accumulate_ops set to "same_op"
+    MPI_Info tally_info;
+    MPI_Info_create(&tally_info);
+    MPI_Info_set(tally_info, "accumulate_ops", "same_op");
     int mpi_double_size;
     MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
     MPI_Aint n_bytes(n_cell*mpi_double_size);
-    MPI_Win_allocate(n_bytes, mpi_double_size, MPI_INFO_NULL,
+    MPI_Win_allocate(n_bytes, mpi_double_size, tally_info,
       MPI_COMM_WORLD, &tally, &tally_window);
+    MPI_Info_free(&tally_info);
 
     // initialize tally to zero
     for (uint32_t i=0; i<n_cell;++i)

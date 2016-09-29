@@ -34,7 +34,7 @@ int main (int argc, char *argv[]) {
   int nfail = 0;
 
   // setup the rank boundaries
-  uint32_t n_cell = 100000;
+  uint32_t n_cell = 1000;
 
   // make up cell bounds for this rank
   vector<uint32_t> rank_bounds(n_rank+1);
@@ -147,12 +147,21 @@ int main (int argc, char *argv[]) {
 
     if (test_tally_manager) {
       cout<<"TEST PASSED: Tally manager correctly moves energy back to origin ";
-      cout<<"rank"<<endl;
+      cout<<"rank: "<<rank<<endl;
     }
     else {
       cout<<"TEST FAILED: Tally manager failed"<<endl;
       nfail++;
     }
+
+    cout.flush();
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (!rank) {
+      cout.flush();
+      cout<<"Expected total abs E: "<<expected_total_abs_E<<" actual total";
+      cout<<" abs E: "<<actual_total_abs_E<<endl;
+    }
+
   }
 
   MPI_Finalize();
