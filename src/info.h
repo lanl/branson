@@ -19,12 +19,12 @@
 //==============================================================================
 /*!
  * \class Info
- * \brief Stores MPI information 
- * 
+ * \brief Stores MPI information
+ *
  * This class is used to store global and node based MPI information. This
  * keeps machine specific code in a high-level place. The name MPI_Info is
- * already used by MPI so this is just called Info.  
- * 
+ * already used by MPI so this is just called Info.
+ *
  * \example no test yet
  */
 //==============================================================================
@@ -36,6 +36,10 @@ class Info
   Info(void) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
+
+    // default values (CCS node)
+    color = 1;
+    node_mem = 16000000000;
 
     // these ifdef macros are messy but for some reason some compilers don't
     // like the #elif directive
@@ -65,13 +69,6 @@ class Info
     delete[] proc_name;
 #endif
 
-#ifdef CCS_NODE
-    color = 1;
-    node_mem = 16000000000;
-#else
-    color = 1;
-    node_mem = 16000000000;
-#endif
   }
 
   // destructor

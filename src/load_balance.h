@@ -19,8 +19,10 @@
 
 #include "buffer.h"
 #include "constants.h"
+#include "info.h"
 #include "mpi_types.h"
 #include "photon.h"
+#include "remap_census.h"
 #include "work_packet.h"
 
 //! Load balance the work on all ranks given an array of work packets and
@@ -37,7 +39,6 @@ void load_balance(const int& rank, const int& n_rank,
 
   // get MPI datatypes
   MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
-
   MPI_Datatype MPI_WPacket = mpi_types->get_work_packet_type();
 
   //--------------------------------------------------------------------------//
@@ -279,6 +280,197 @@ void load_balance(const int& rank, const int& n_rank,
   } // end if(n_acceptors)
 
 }
+
+
+
+//! Use a binary tree approach to load balance work and census particles
+void load_balance(std::vector<Work_Packet>& work,
+  std::vector<Photon>& census_list, const uint64_t n_particle_on_rank,
+  MPI_Types *mpi_types, const Info& mpi_info)
+{
+  using std::vector;
+  using std::unordered_map;
+  using Constants::photon_tag;
+  using Constants::work_tag;
+
+  const int n_tag(100);
+
+  int rank = mpi_info.get_rank();
+  int n_rank = mpi_info.get_n_rank();
+
+  MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
+  MPI_Datatype MPI_WPacket = mpi_types->get_work_packet_type();
+
+  // split the communicator based on the node number
+  MPI_Comm local_comm;
+  MPI_Comm_split(MPI_COMM_WORLD, mpi_info.get_color(), rank, &local_comm);
+  int n_rank_local;
+  MPI_Comm_size(local_comm, &n_rank_local);
+
+  // sort the census vector by cell ID (global ID)
+  sort(census_list.begin(), census_list.end());
+
+  // do the binary tree pattern to the nearest log2(rank), rounding down
+  int32_t n_levels = int32_t(ceil(log2(n_rank)));
+
+  int32_t r_partner;
+
+  vector<MPI_Request> n_p_reqs(2);
+  vector<MPI_Request> donor_send_reqs(2);
+  vector<MPI_Request> acceptor_recv_reqs(2);
+  vector<MPI_Status> acceptor_statuses(2);
+
+  // start with the current number of particles on this rank
+  uint64_t balanced_rank_particles = n_particle_on_rank;
+  uint64_t partner_rank_particles, avg_particles;
+  int64_t temp_n_send, temp_n_receive, n_send_census;
+  bool balanced = false;
+  uint32_t start_cut_index = 0; //! Begin slice of census list
+
+  vector<Work_Packet> work_to_send;
+  vector<Photon> census_to_send;
+
+  Buffer<Photon> recv_photon_buffer;
+  Buffer<Work_Packet> recv_work_buffer;
+
+  uint32_t n_census_remain = census_list.size(); //! Where to cut census list
+
+  // run the binary tree comm pattern going from smallest communication
+  // distance to largest. Don't communicate if your partner doesn't exist
+  // (this will occur if log_2(n_rank) is not an integer)
+  for (int32_t k=0; k<n_levels;++k) {
+
+    // get current communication partner
+    r_partner = get_pairing(rank, n_rank, k);
+
+    // only participate if the partner rank exists
+    if (r_partner <= n_rank) {
+      // send and receive number of photons on your rank
+      MPI_Isend(&balanced_rank_particles, 1, MPI_UNSIGNED_LONG, r_partner,
+        n_tag, MPI_COMM_WORLD, &n_p_reqs[0]);
+      MPI_Irecv(&partner_rank_particles, 1, MPI_UNSIGNED_LONG, r_partner,
+        n_tag, MPI_COMM_WORLD, &n_p_reqs[1]);
+      MPI_Waitall(2, &n_p_reqs[0], MPI_STATUSES_IGNORE);
+
+      // check for balance with unsigned integer math
+      avg_particles = 0.5*(partner_rank_particles + balanced_rank_particles);
+
+      // allow imbalance of 5%
+      if ( balanced_rank_particles > 1.05*avg_particles ||
+        balanced_rank_particles < 0.95*avg_particles) {
+        balanced= false;
+      }
+
+      // if ranks are not balanced, exchange work
+      if (!balanced) {
+
+        // logic for donor ranks
+        if (balanced_rank_particles > partner_rank_particles) {
+          temp_n_send = int64_t(balanced_rank_particles) -
+            int64_t(avg_particles);
+
+          Work_Packet temp_packet, leftover_packet;
+
+          // first, try to send work packets to the other ranks
+          while (!work.empty() && temp_n_send > 0) {
+            temp_packet = work.back();
+            // split work if it's larger than the number needed
+            if (temp_packet.get_n_particles() > temp_n_send) {
+              leftover_packet = temp_packet.split(temp_n_send);
+              work[work.size()-1] = leftover_packet;
+            }
+            // otherwise, pop the temp work packet off the stack
+            else work.pop_back();
+
+            // add packet to send list
+            work_to_send.push_back(temp_packet);
+            // subtract particle in packet from temp_n_send
+            temp_n_send -= temp_packet.get_n_particles();
+          }
+
+          // send census particles instead (not preferred, these photons are likely
+          // to travel farther and thus require more memory)
+          n_send_census =0;
+          if (temp_n_send > 0 && n_census_remain > temp_n_send) {
+            n_send_census = temp_n_send;
+            start_cut_index = n_census_remain - n_send_census;
+            n_census_remain -= n_send_census;
+          }
+
+          // send both work and photon vectors, even if they're empty
+          MPI_Isend(&work_to_send[0], work_to_send.size(), MPI_WPacket,
+            r_partner, work_tag, MPI_COMM_WORLD, &donor_send_reqs[0]);
+          MPI_Isend(&census_list[start_cut_index], n_send_census, MPI_Particle,
+            r_partner, photon_tag, MPI_COMM_WORLD, &donor_send_reqs[1]);
+
+          MPI_Waitall(2, &donor_send_reqs[0], MPI_STATUSES_IGNORE);
+
+          // remove census photons that were sent off
+          census_list.erase(census_list.begin() + n_census_remain,
+            census_list.end());
+          n_census_remain = census_list.size();
+        }
+
+        // logic for acceptor rank
+        else {
+          temp_n_receive = int64_t(avg_particles) -
+            int64_t(partner_rank_particles);
+
+          recv_work_buffer.resize(temp_n_receive);
+          recv_photon_buffer.resize(temp_n_receive);
+          // post work packet receives
+          MPI_Irecv(recv_work_buffer.get_buffer(), temp_n_receive, MPI_WPacket,
+            r_partner, work_tag, MPI_COMM_WORLD, &acceptor_recv_reqs[0]);
+
+          // post particle receives
+          MPI_Irecv(recv_photon_buffer.get_buffer(), temp_n_receive, MPI_Particle,
+            r_partner, photon_tag, MPI_COMM_WORLD, &acceptor_recv_reqs[1]);
+
+          MPI_Waitall(2, &donor_send_reqs[0], &acceptor_statuses[0]);
+
+          // get received count for work and photons from this rank
+          int32_t n_work_recv, n_phtn_recv;
+          MPI_Get_count(&acceptor_statuses[0], MPI_WPacket, &n_work_recv);
+          MPI_Get_count(&acceptor_statuses[1], MPI_Particle, &n_phtn_recv);
+
+          // add received work to your work
+          vector<Work_Packet> temp_work = recv_work_buffer.get_object();
+          work.insert(work.begin(), temp_work.begin(),
+            temp_work.begin() + n_work_recv);
+
+          // add received census photons
+          vector<Photon> temp_photons = recv_photon_buffer.get_object();
+          census_list.insert(census_list.begin(), temp_photons.begin(),
+            temp_photons.begin() + n_phtn_recv);
+        }
+      }
+    } // end if r_partner < n_rank
+  } // end loop over levels
+
+    // check to see how many photons this node can receive, if it will
+    // overrun the limits, only allow proc to receive 1/n_rank_local
+    // of the remaining particles
+    /*
+    n_node_recv = 0;
+    MPI_Allreduce(&n_recv, &n_node_recv, 1, MPI_UNSIGNED_LONG, MPI_SUM,
+        local_comm);
+    if (node_photons > max_node_photons) {
+      n_max_recv = 0;
+    }
+    else if (node_photons + n_node_recv > max_node_photons) {
+      n_max_recv = (max_node_photons - node_photons)/n_rank_local;
+    }
+    else n_max_recv = max_node_photons;
+
+    // send and receive max number you can receive and send
+    MPI_Isend(&n_max_recv, 1, MPI_UNSIGNED_LONG, r_partner, n_tag, MPI_COMM_WORLD,
+      &reqs[0]);
+    MPI_Irecv(&n_max_send, 1, MPI_UNSIGNED_LONG, r_partner, n_tag, MPI_COMM_WORLD,
+      &reqs[1]);
+    MPI_Waitall(2, &reqs[0], MPI_STATUS_IGNORE);
+    */
+}
+
 
 #endif // load_balance_h_
 

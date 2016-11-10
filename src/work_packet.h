@@ -75,8 +75,8 @@ class Work_Packet {
   }
 
   //! Attach emission or initial census energy and particles to this work packet
-  void attach_creation_work(const double& _create_E,
-    const uint32_t& _n_create)
+  void attach_creation_work(const double _create_E,
+    const uint32_t _n_create)
   {
     create_E = _create_E;
     n_create = _n_create;
@@ -84,8 +84,8 @@ class Work_Packet {
   }
 
   //! Attach existing work in the form of index into large census particle array
-  void attach_census_work(const uint32_t& _census_index_start,
-    const uint32_t& _n_census)
+  void attach_census_work(const uint32_t _census_index_start,
+    const uint32_t _n_census)
   {
     census_index_start=_census_index_start;
     n_census = _n_census;

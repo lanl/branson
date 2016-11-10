@@ -27,7 +27,7 @@
 /*!
  * \class Source
  * \brief Describes how to create emssion particles and return census particles
- * 
+ *
  * \example no test yet
  */
 //==============================================================================
@@ -61,12 +61,12 @@ class Source {
     for (uint32_t i = 0; i<n_cell; i++) {
       Work_Packet temp_cell_work;
       cell_ptr = mesh->get_cell_ptr(i);
-      //emission 
+      //emission
       if (E_cell_emission[i] > 0.0) {
-        uint32_t t_num_emission = 
+        uint32_t t_num_emission =
           int(user_photons*E_cell_emission[i]/total_E);
         // make at least one photon to represent emission energy
-        if (t_num_emission == 0) t_num_emission =1; 
+        if (t_num_emission == 0) t_num_emission =1;
         n_photon+=t_num_emission;
         // make work packet and add to vector
         temp_cell_work.set_global_cell_ID(cell_ptr->get_ID());
@@ -77,14 +77,14 @@ class Source {
         work.push_back(temp_cell_work);
       }
       // initial census
-      if (step ==0) {
+      if (step ==1) {
         if (E_cell_census[i] > 0.0) {
           Work_Packet temp_cell_work;
           cell_ptr = mesh->get_cell_ptr(i);
           if (E_cell_census[i] > 0.0) {
             uint32_t t_num_census = int(user_photons*E_cell_census[i]/total_E);
-            // make at least one photon to represent census energy 
-            if (t_num_census == 0) t_num_census =1; 
+            // make at least one photon to represent census energy
+            if (t_num_census == 0) t_num_census =1;
             // make work packet and add to vector
             temp_cell_work.set_global_cell_ID(cell_ptr->get_ID());
             temp_cell_work.set_global_grip_ID(cell_ptr->get_grip_ID());
@@ -122,16 +122,16 @@ class Source {
   void post_lb_prepare_source(void) {
     using std::vector;
     using std::unordered_map;
-    
+
     // recount number of photons
     n_photon = 0;
 
     unordered_map<uint32_t, Work_Packet*> work_map;
 
-    // map global cell ID to work packets to determine if census photons 
+    // map global cell ID to work packets to determine if census photons
     // can be attached to a work packet
-    for (vector<Work_Packet>::iterator work_itr =work.begin(); 
-      work_itr!=work.end();work_itr++) 
+    for (vector<Work_Packet>::iterator work_itr =work.begin();
+      work_itr!=work.end();work_itr++)
     {
       work_map[work_itr->get_global_cell_ID()] = &(*work_itr);
       n_photon+=work_itr->get_n_particles();
@@ -163,7 +163,7 @@ class Source {
 
       // now attach census particles to work packets or make new ones
       typedef unordered_map<uint32_t, uint32_t>::iterator mapi_t;
-      for (mapi_t mapi=census_start_index.begin(); 
+      for (mapi_t mapi=census_start_index.begin();
         mapi!=census_start_index.end(); ++mapi)
       {
         cell_ID = mapi->first;
@@ -174,7 +174,7 @@ class Source {
 
         // if a work packet for this cell exists, attach the census work
         if (work_map.find(cell_ID) != work_map.end()) {
-          work_map[cell_ID]->attach_census_work(mapi->second, 
+          work_map[cell_ID]->attach_census_work(mapi->second,
             census_in_cell[cell_ID]);
         }
         // otherwise, make a new work packet
@@ -204,13 +204,13 @@ class Source {
   //! Get next particle, create it if it's an emission particle
   Photon get_photon(RNG *rng, const double& dt) {
     Photon return_photon;
-    
+
     // get creation photon
     if (iphoton < n_create) {
       if (current_source == Constants::EMISSION)
         get_emission_photon(return_photon, *iwork, phtn_E, dt, rng);
       else if (current_source == Constants::INITIAL_CENSUS)
-        get_initial_census_photon(return_photon, *iwork, phtn_E, dt, rng);   
+        get_initial_census_photon(return_photon, *iwork, phtn_E, dt, rng);
       iphoton++;
     }
     // get census photon
@@ -219,7 +219,7 @@ class Source {
       iphoton++;
       census_index++;
     }
- 
+
     // if work packet is done, increment the work packet and reset quantities
     // don't increment if this is the last photon
     if (iphoton == n_in_packet && n_work!=work.size()) {
@@ -248,10 +248,10 @@ class Source {
 
   //! Set input photon to the next emission photon
   void get_emission_photon( Photon& emission_photon,
-                              Work_Packet& work, 
-                              const double& phtn_E, 
-                              const double& dt, 
-                              RNG *rng) 
+                              Work_Packet& work,
+                              const double& phtn_E,
+                              const double& dt,
+                              RNG *rng)
   {
     using Constants::c;
     double pos[3];
@@ -268,10 +268,10 @@ class Source {
 
   //! Set input photon to the next intiial census photon
   void get_initial_census_photon( Photon& census_photon,
-                                  Work_Packet& work, 
-                                  const double& phtn_E, 
-                                  const double& dt, 
-                                  RNG *rng) 
+                                  Work_Packet& work,
+                                  const double& phtn_E,
+                                  const double& dt,
+                                  RNG *rng)
   {
     using Constants::c;
     double pos[3];
@@ -291,7 +291,7 @@ class Source {
 
   //! Return reference to work vector
   std::vector<Work_Packet>& get_work_vector(void) {return work;}
- 
+
   private:
   const Mesh * const mesh; //! Pointer to mesh (source cannot change Mesh)
   std::vector<Photon>& census_photons; //! Reference to census photons on rank

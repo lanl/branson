@@ -22,7 +22,7 @@
 #include "mpi_types.h"
 
 //! Get the rank ID of a given cell index
-uint32_t get_rank(const std::vector<uint32_t>& rank_bounds, 
+uint32_t get_rank(const std::vector<uint32_t>& rank_bounds,
   const uint32_t index)
 {
   //find rank of index
@@ -39,10 +39,10 @@ uint32_t get_rank(const std::vector<uint32_t>& rank_bounds,
   return s_i;
 }
 
-//! At iteration k, return the communication partner for a rank in binary 
+//! At iteration k, return the communication partner for a rank in binary
 // tree communication pattern
-uint32_t get_pairing(const int32_t rank, const int32_t n_rank, const int32_t k) {
-  uint32_t r_partner;
+int32_t get_pairing(const int32_t rank, const int32_t n_rank, const int32_t k) {
+  int32_t r_partner;
   std::bitset<32> b_rank(rank);
   // if kth bit is 0, add 2**k otherwise subtract 2**k
   r_partner = rank + (-2*int(b_rank[k]) + 1)*pow(2,k);
@@ -58,12 +58,12 @@ uint32_t get_pairing(const int32_t rank, const int32_t n_rank, const int32_t k) 
 // tree algorithms processors do not communicate directly)
 uint32_t get_send_rank(const int32_t rank, const int32_t off_rank, const int32_t n_rank) {
 
-  // take exclusive or of the two numbers, the position of the highest 
-  // significant bit is the level of the binary tree where these two ranks 
+  // take exclusive or of the two numbers, the position of the highest
+  // significant bit is the level of the binary tree where these two ranks
   // effectively interact
   uint32_t x = uint32_t(rank)^uint32_t(off_rank);
 
-  // find the position of the highest significant bit 
+  // find the position of the highest significant bit
   int k = 32;
   if (!x)
     return 0;
@@ -98,7 +98,7 @@ uint32_t get_send_rank(const int32_t rank, const int32_t off_rank, const int32_t
 // partners
 void set_census_send_maps(const uint32_t rank, const uint32_t n_rank,
   const std::vector<uint32_t>& rank_bounds, const std::vector<Photon>& census,
-  std::unordered_map<uint32_t, uint32_t>& census_on_rank, 
+  std::unordered_map<uint32_t, uint32_t>& census_on_rank,
   std::unordered_map<uint32_t, uint32_t>& census_start_index)
 {
   using std::vector;
@@ -113,7 +113,7 @@ void set_census_send_maps(const uint32_t rank, const uint32_t n_rank,
     if (p_rank == 3) {
       uint32_t x=0;
     }
-    if (p_rank != rank) 
+    if (p_rank != rank)
       send_rank = get_send_rank(rank, p_rank, n_rank);
     else
       send_rank = rank;
@@ -133,7 +133,7 @@ void set_census_send_maps(const uint32_t rank, const uint32_t n_rank,
 
 //! Use a binary tree approach to send census particles back to their
 // owners
-std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census, 
+std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
   uint64_t& rank_photons, const std::vector<uint32_t>& rank_bounds,
   MPI_Types* mpi_types, const Info& mpi_info)
 {
@@ -152,7 +152,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
   MPI_Comm local_comm;
   MPI_Comm_split(MPI_COMM_WORLD, mpi_info.get_color(), rank, &local_comm);
   int n_rank_local;
-  MPI_Comm_size(local_comm, &n_rank_local); 
+  MPI_Comm_size(local_comm, &n_rank_local);
 
   vector<Photon> new_on_rank_census;
 
@@ -168,12 +168,12 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
 
   // make n_levels of send buffers
   vector< vector<Photon> > send_buffers(n_levels);
-  
+
   unordered_map<uint32_t, uint32_t> census_on_rank;
   unordered_map<uint32_t, uint32_t> census_start_index;
 
   // map the off-rank photons to their correct receiving rank
-  set_census_send_maps(rank, n_rank, rank_bounds, 
+  set_census_send_maps(rank, n_rank, rank_bounds,
     off_rank_census, census_on_rank, census_start_index);
 
 
@@ -190,16 +190,16 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
     }
   }
   off_rank_census.clear();
- 
 
-  // try to manage the memory at the node level, allow 75% of the node memory 
+
+  // try to manage the memory at the node level, allow 75% of the node memory
   // to be photons
   uint64_t node_photons = 0;
   uint64_t n_recv_node = 0;
   uint64_t max_node_photons = uint64_t(
     0.75*(mpi_info.get_node_mem()/sizeof(Photon)));
 
-  uint32_t r_partner;
+  int32_t r_partner;
   uint64_t  n_max_recv, n_max_send, n_recv, n_node_recv, n_send;
   vector<Photon> recv_buffer;
   std::vector<MPI_Request> reqs(4);
@@ -218,9 +218,9 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
     n_send = send_buffers[k].size();
 
     // send and receive number of photons that will be communicated
-    MPI_Isend(&n_send, 1, MPI_UNSIGNED_LONG, r_partner, n_tag, MPI_COMM_WORLD, 
+    MPI_Isend(&n_send, 1, MPI_UNSIGNED_LONG, r_partner, n_tag, MPI_COMM_WORLD,
       &reqs[0]);
-    MPI_Irecv(&n_recv, 1, MPI_UNSIGNED_LONG, r_partner, n_tag, MPI_COMM_WORLD, 
+    MPI_Irecv(&n_recv, 1, MPI_UNSIGNED_LONG, r_partner, n_tag, MPI_COMM_WORLD,
       &reqs[1]);
     MPI_Waitall(2, &reqs[0], MPI_STATUS_IGNORE);
 
@@ -273,7 +273,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
     // find the destination of these new photons
     unordered_map<uint32_t, uint32_t> recv_census_on_rank;
     unordered_map<uint32_t, uint32_t> recv_census_start_index;
-    set_census_send_maps(rank, n_rank, rank_bounds, recv_buffer, 
+    set_census_send_maps(rank, n_rank, rank_bounds, recv_buffer,
       recv_census_on_rank, recv_census_start_index);
 
     // first copy out the photons on this rank
@@ -281,11 +281,11 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
         start_index = recv_census_start_index[rank];
         count = recv_census_on_rank[rank];
         new_on_rank_census.insert(new_on_rank_census.end(),
-          recv_buffer.begin() + start_index, 
+          recv_buffer.begin() + start_index,
           recv_buffer.begin() + start_index + count);
     }
 
-    // now copy out photons going to other ranks to 
+    // now copy out photons going to other ranks to
     for (uint32_t i=0;i<n_levels;++i) {
       send_rank = get_pairing(rank, n_rank, i);
       if (recv_census_on_rank.find(send_rank) != recv_census_on_rank.end()) {
