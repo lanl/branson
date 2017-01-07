@@ -57,7 +57,7 @@ void imc_cell_pass_driver(Mesh *mesh,
   req_manager->start_simulation(mctr);
 
   // make object that handles completion messages, completion
-  // object set up the binary tree structure
+  // object sets up the binary tree structure
   Completion_Manager *comp;
   if (imc_parameters->get_completion_method() == Constants::RMA_COMPLETION)
     comp = new Completion_Manager_RMA(rank, n_rank);

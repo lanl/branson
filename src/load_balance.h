@@ -310,7 +310,7 @@ void load_balance(std::vector<Work_Packet>& work,
   // sort the census vector by cell ID (global ID)
   sort(census_list.begin(), census_list.end());
 
-  // do the binary tree pattern to the nearest log2(rank), rounding down
+  // do the binary tree pattern to the nearest log2(rank), rounding up
   int32_t n_levels = int32_t(ceil(log2(n_rank)));
 
   int32_t r_partner;
@@ -324,7 +324,7 @@ void load_balance(std::vector<Work_Packet>& work,
   uint64_t balanced_rank_particles = n_particle_on_rank;
   uint64_t partner_rank_particles, avg_particles;
   int64_t temp_n_send, temp_n_receive, n_send_census;
-  bool balanced = false;
+  bool balanced;
   uint32_t start_cut_index = 0; //! Begin slice of census list
 
   vector<Work_Packet> work_to_send;
@@ -360,6 +360,7 @@ void load_balance(std::vector<Work_Packet>& work,
         balanced_rank_particles < 0.95*avg_particles) {
         balanced= false;
       }
+      else balanced=true;
 
       // if ranks are not balanced, exchange work
       if (!balanced) {
@@ -384,8 +385,11 @@ void load_balance(std::vector<Work_Packet>& work,
 
             // add packet to send list
             work_to_send.push_back(temp_packet);
-            // subtract particle in packet from temp_n_send
+
+            // subtract particle in packet from temp_n_send and on rank 
+            // particles
             temp_n_send -= temp_packet.get_n_particles();
+            balanced_rank_particles-=temp_packet.get_n_particles();
           }
 
           // send census particles instead (not preferred, these photons are likely
@@ -397,6 +401,9 @@ void load_balance(std::vector<Work_Packet>& work,
             n_census_remain -= n_send_census;
           }
 
+          // reduce the number of particle on rank by the size of the census
+          balanced_rank_particles-=n_send_census; 
+
           // send both work and photon vectors, even if they're empty
           MPI_Isend(&work_to_send[0], work_to_send.size(), MPI_WPacket,
             r_partner, work_tag, MPI_COMM_WORLD, &donor_send_reqs[0]);
@@ -404,6 +411,9 @@ void load_balance(std::vector<Work_Packet>& work,
             r_partner, photon_tag, MPI_COMM_WORLD, &donor_send_reqs[1]);
 
           MPI_Waitall(2, &donor_send_reqs[0], MPI_STATUSES_IGNORE);
+
+          // clear buffer for sending work
+          work_to_send.clear();
 
           // remove census photons that were sent off
           census_list.erase(census_list.begin() + n_census_remain,
@@ -413,8 +423,8 @@ void load_balance(std::vector<Work_Packet>& work,
 
         // logic for acceptor rank
         else {
-          temp_n_receive = int64_t(avg_particles) -
-            int64_t(partner_rank_particles);
+          temp_n_receive = int64_t(partner_rank_particles) 
+            - int64_t(avg_particles);
 
           recv_work_buffer.resize(temp_n_receive);
           recv_photon_buffer.resize(temp_n_receive);
@@ -426,7 +436,7 @@ void load_balance(std::vector<Work_Packet>& work,
           MPI_Irecv(recv_photon_buffer.get_buffer(), temp_n_receive, MPI_Particle,
             r_partner, photon_tag, MPI_COMM_WORLD, &acceptor_recv_reqs[1]);
 
-          MPI_Waitall(2, &donor_send_reqs[0], &acceptor_statuses[0]);
+          MPI_Waitall(2, &acceptor_recv_reqs[0], &acceptor_statuses[0]);
 
           // get received count for work and photons from this rank
           int32_t n_work_recv, n_phtn_recv;
@@ -442,33 +452,17 @@ void load_balance(std::vector<Work_Packet>& work,
           vector<Photon> temp_photons = recv_photon_buffer.get_object();
           census_list.insert(census_list.begin(), temp_photons.begin(),
             temp_photons.begin() + n_phtn_recv);
+
+          // get current count photon count and update 
+          n_census_remain = census_list.size();
+          balanced_rank_particles=census_list.size();
+          for (auto i_w = work.begin();i_w!=work.end();++i_w) {
+            balanced_rank_particles+=i_w->get_n_particles();
+          }
         }
       }
     } // end if r_partner < n_rank
   } // end loop over levels
-
-    // check to see how many photons this node can receive, if it will
-    // overrun the limits, only allow proc to receive 1/n_rank_local
-    // of the remaining particles
-    /*
-    n_node_recv = 0;
-    MPI_Allreduce(&n_recv, &n_node_recv, 1, MPI_UNSIGNED_LONG, MPI_SUM,
-        local_comm);
-    if (node_photons > max_node_photons) {
-      n_max_recv = 0;
-    }
-    else if (node_photons + n_node_recv > max_node_photons) {
-      n_max_recv = (max_node_photons - node_photons)/n_rank_local;
-    }
-    else n_max_recv = max_node_photons;
-
-    // send and receive max number you can receive and send
-    MPI_Isend(&n_max_recv, 1, MPI_UNSIGNED_LONG, r_partner, n_tag, MPI_COMM_WORLD,
-      &reqs[0]);
-    MPI_Irecv(&n_max_send, 1, MPI_UNSIGNED_LONG, r_partner, n_tag, MPI_COMM_WORLD,
-      &reqs[1]);
-    MPI_Waitall(2, &reqs[0], MPI_STATUS_IGNORE);
-    */
 }
 
 

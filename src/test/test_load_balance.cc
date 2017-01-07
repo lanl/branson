@@ -69,7 +69,7 @@ int main (int argc, char *argv[]) {
         temp_work.set_global_cell_ID(g_cell_ID);
         temp_work.set_global_grip_ID(g_grip_ID);
         temp_work.attach_creation_work(packet_E, n_particles);
-        temp_work.set_source_type(Constants::EMISSION);
+        temp_work.set_source_type(Constants::INITIAL_CENSUS);
         work.push_back(temp_work);
         n_particles_on_rank+=n_particles;
       }
@@ -83,14 +83,18 @@ int main (int argc, char *argv[]) {
       n_post_balanced_particles += w_itr->get_n_particles();
     n_post_balanced_particles += census.size();
 
-    if (work.size() != 0) test_load_balance = false;
-    if (census.size() != 0) test_load_balance = false;
-    if (work.front().get_source_type() != Constants::INITIAL_CENSUS)
-      test_load_balance=false;
+    // test work packets, if present
+    if (work.size() != 0) {
+      if (work.front().get_source_type() != Constants::INITIAL_CENSUS)
+        test_load_balance=false;
+    }
+
+    // make sure there is either work packets or census particles
+    if (census.size() == 0 && work.size()==0) test_load_balance = false;
 
     // balanced particles should be n_particles_on_rank for 0 divided
     // by n_rank
-    if (n_post_balanced_particles != 20000) test_load_balance=false;
+    if (n_post_balanced_particles != 5000) test_load_balance=false;
 
     if (test_load_balance) {
       cout<<"TEST PASSED: load_balance all work on rank 0"<<endl;
