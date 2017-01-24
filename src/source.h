@@ -85,6 +85,7 @@ class Source {
             uint32_t t_num_census = int(user_photons*E_cell_census[i]/total_E);
             // make at least one photon to represent census energy
             if (t_num_census == 0) t_num_census =1;
+            n_photon+=t_num_census;
             // make work packet and add to vector
             temp_cell_work.set_global_cell_ID(cell_ptr->get_ID());
             temp_cell_work.set_global_grip_ID(cell_ptr->get_grip_ID());

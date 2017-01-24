@@ -260,7 +260,7 @@ int main (int argc, char *argv[]) {
       iphtn!=post_rebalance_full.cend(); ++iphtn)
     {
       phtn_cell =  iphtn->get_cell();
-      if(phtn_cell >= rank_start && phtn_cell < rank_end) 
+      if(phtn_cell < rank_start || phtn_cell >= rank_end) 
         test_large_imbalance=false;
       if(iphtn->get_distance_remaining() != c_dt)
         test_large_imbalance=false;

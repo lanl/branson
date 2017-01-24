@@ -316,7 +316,6 @@ void load_balance(std::vector<Work_Packet>& work,
   int32_t r_partner;
 
   vector<MPI_Request> n_p_reqs(2);
-  vector<MPI_Request> donor_send_reqs(2);
   vector<MPI_Request> acceptor_recv_reqs(2);
   vector<MPI_Status> acceptor_statuses(2);
 
@@ -405,12 +404,10 @@ void load_balance(std::vector<Work_Packet>& work,
           balanced_rank_particles-=n_send_census; 
 
           // send both work and photon vectors, even if they're empty
-          MPI_Isend(&work_to_send[0], work_to_send.size(), MPI_WPacket,
-            r_partner, work_tag, MPI_COMM_WORLD, &donor_send_reqs[0]);
-          MPI_Isend(&census_list[start_cut_index], n_send_census, MPI_Particle,
-            r_partner, photon_tag, MPI_COMM_WORLD, &donor_send_reqs[1]);
-
-          MPI_Waitall(2, &donor_send_reqs[0], MPI_STATUSES_IGNORE);
+          MPI_Send(&work_to_send[0], work_to_send.size(), MPI_WPacket,
+            r_partner, work_tag, MPI_COMM_WORLD);
+          MPI_Send(&census_list[start_cut_index], n_send_census, MPI_Particle,
+            r_partner, photon_tag, MPI_COMM_WORLD);
 
           // clear buffer for sending work
           work_to_send.clear();

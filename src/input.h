@@ -393,9 +393,6 @@ class Input
     cout<<" (sh), Random number seed: "<<seed;
     cout<<" , output frequency: "<<output_freq<<endl;
 
-    cout<<"material temperature: "<<Tm_initial;
-    cout<<" (keV), radiation temperature: "<<Tr_initial<<" (keV)"<<endl;
-
     //cout<<"Sampling -- Emission Position: ";
     //if (use_tilt) cout<<"source tilting (x only), ";
     //else cout<<"uniform (default), ";
@@ -578,10 +575,6 @@ class Input
   double tFinish; //! Finish time
   double tMult; //! Timestep multiplier
   double dtMax; //! Maximum timestep size
-
-  // initial conditions
-  double Tm_initial; //! Initial material temperature
-  double Tr_initial; //! Initial radiation temperature
 
   //material
   std::vector<Region> regions;

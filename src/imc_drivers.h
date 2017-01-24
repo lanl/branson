@@ -90,6 +90,7 @@ void imc_cell_pass_driver(Mesh *mesh,
     t_lb.start_timer("load balance");
     load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
       census_photons, mpi_types);
+    
     t_lb.stop_timer("load balance");
     imc_state->set_load_balance_time(t_lb.get_time("load balance"));
 

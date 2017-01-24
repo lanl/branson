@@ -162,10 +162,8 @@ int main (int argc, char *argv[]) {
     if (mctr.n_receives_posted != mctr.n_receives_completed)
       milagro_completion_pass = false;
 
-    // shold post/complete some sends and post should equal complete
-    if (mctr.n_sends_posted == 0) milagro_completion_pass = false;
+    // shold complete some sends 
     if (mctr.n_sends_completed == 0) milagro_completion_pass = false;
-    if (mctr.n_sends_posted != mctr.n_sends_completed) milagro_completion_pass = false;
 
     if (milagro_completion_pass) {
       cout<<"TEST PASSED: ";

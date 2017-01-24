@@ -44,7 +44,7 @@ class Info
     // these ifdef macros are messy but for some reason some compilers don't
     // like the #elif directive
 #ifdef MOONLIGHT_NODE
-    char * proc_name = new char[32];
+    char * proc_name = new char[MPI_MAX_PROCESSOR_NAME];
     int result_length;
     MPI_Get_processor_name(proc_name, &result_length);
     std::string p_name(proc_name, result_length);
@@ -57,7 +57,7 @@ class Info
 #endif
 
 #ifdef TRINITITE_NODE
-    char * proc_name = new char[32];
+    char * proc_name = new char[MPI_MAX_PROCESSOR_NAME];
     int result_length;
     MPI_Get_processor_name(proc_name, &result_length);
     std::string p_name(proc_name, result_length);
