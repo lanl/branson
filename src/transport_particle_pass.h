@@ -205,7 +205,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
   vector<vector<Photon> > send_list;
 
   //Get adjacent processor map (off_rank_id -> adjacent_proc_number)
-  unordered_map<uint32_t, uint32_t> adjacent_procs = mesh->get_proc_adjacency_list();
+  auto adjacent_procs = mesh->get_proc_adjacency_list();
   uint32_t n_adjacent = adjacent_procs.size();
   //Messsage requests for photon sends and receives
   MPI_Request *phtn_recv_request   = new MPI_Request[n_adjacent];
@@ -218,8 +218,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
   {
     uint32_t i_b; // buffer index
     int adj_rank; // adjacent rank
-    for ( std::unordered_map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin();
-      it != adjacent_procs.end(); ++it) {
+    for ( auto it=adjacent_procs.begin(); it != adjacent_procs.end(); ++it) {
       adj_rank = it->first;
       i_b = it->second;
       //push back send and receive lists
@@ -313,8 +312,7 @@ std::vector<Photon> transport_particle_pass(Source& source,
       MPI_Status recv_status;
       uint32_t i_b; // buffer index
       int adj_rank; // adjacent rank
-      for ( std::unordered_map<uint32_t, uint32_t>::iterator it=adjacent_procs.begin();
-        it != adjacent_procs.end(); ++it) {
+      for ( auto it=adjacent_procs.begin(); it != adjacent_procs.end(); ++it) {
         adj_rank = it->first;
         i_b = it->second;
         // test completion of send buffer

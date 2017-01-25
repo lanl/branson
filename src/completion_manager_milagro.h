@@ -122,6 +122,15 @@ class Completion_Manager_Milagro : public Completion_Manager
         finished = true;
       }
     }
+
+    // test sends to parent
+    if (p_send_buffer.sent() ) {
+      MPI_Test(&p_send_req, &flag_p, MPI_STATUS_IGNORE);
+      if (flag_p) {
+        mctr.n_sends_completed++;
+        p_send_buffer.reset();
+      }
+    }
   }
 
   //! For the Milagro method, send the completed count up the tree
@@ -135,10 +144,14 @@ class Completion_Manager_Milagro : public Completion_Manager
     check_messages(n_complete_tree, mctr);
 
     // non-root ranks send complete counts up the tree
-    if ((n_complete_tree && waiting_for_work) && (parent!=MPI_PROC_NULL)) {
-      MPI_Send(&n_complete_tree, 1, MPI_UNSIGNED_LONG, parent,
-        count_tag, MPI_COMM_WORLD);
-      mctr.n_sends_completed++;
+    if ((n_complete_tree && waiting_for_work) && (parent!=MPI_PROC_NULL &&
+      !p_send_buffer.sent()) ) {
+      p_send_buffer.fill(vector<uint64_t> (1,n_complete_tree));
+      MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
+        count_tag, MPI_COMM_WORLD, &p_send_req);
+      mctr.n_sends_posted++;
+      //n_complete_messages++;
+      p_send_buffer.set_sent();
       //reset tree count so work is not double counted
       n_complete_tree =0;
     }
@@ -154,23 +167,45 @@ class Completion_Manager_Milagro : public Completion_Manager
     using std::vector;
     using Constants::count_tag;
 
-    // send empty messages to complete awaiting receives and send finished 
-    // count down tree to children and wait for completion
+    // finish off sends and send empty messages to complete awaiting receives
+    //send finished count down tree to children and wait for completion
     if (child1 != MPI_PROC_NULL) {
-      MPI_Send(&n_particle_global, 1, MPI_UNSIGNED_LONG, child1,
-        count_tag, MPI_COMM_WORLD);
+      if (c1_send_buffer.sent()) {
+        MPI_Wait(&c1_send_req, MPI_STATUS_IGNORE);
+        mctr.n_sends_completed++;
+      }
+      c1_send_buffer.fill(vector<uint64_t> (1,n_particle_global));
+      MPI_Isend(c1_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1,
+        count_tag, MPI_COMM_WORLD, &c1_send_req);
+      mctr.n_sends_posted++;
+      MPI_Wait(&c1_send_req, MPI_STATUS_IGNORE);
       mctr.n_sends_completed++;
     }
     if (child2 != MPI_PROC_NULL)  {
-      MPI_Send(&n_particle_global, 1, MPI_UNSIGNED_LONG, child2,
-        count_tag, MPI_COMM_WORLD);
+      if (c2_send_buffer.sent()) {
+        MPI_Wait(&c2_send_req, MPI_STATUS_IGNORE);
+        mctr.n_sends_completed++;
+      }
+      c2_send_buffer.fill(vector<uint64_t> (1,n_particle_global));
+      MPI_Isend(c2_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child2,
+        count_tag, MPI_COMM_WORLD, &c2_send_req);
+      mctr.n_sends_posted++;
+      MPI_Wait(&c2_send_req, MPI_STATUS_IGNORE);
       mctr.n_sends_completed++;
     }
 
-    // finish off parent's receive calls (doesn't matter what the values is)
+    // wait for parent send to complete, if sent then finish off
+    // parent's receive calls
     if (parent!=MPI_PROC_NULL) {
-      MPI_Send(&n_particle_global, 1, MPI_UNSIGNED_LONG, parent, count_tag,
-        MPI_COMM_WORLD);
+      if (p_send_buffer.sent()) {
+        MPI_Wait(&p_send_req, MPI_STATUS_IGNORE);
+        mctr.n_sends_completed++;
+      }
+      p_send_buffer.fill(vector<uint64_t> (1,1));
+      MPI_Isend(p_send_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, parent,
+        count_tag, MPI_COMM_WORLD, &p_send_req);
+      mctr.n_sends_posted++;
+      MPI_Wait(&p_send_req, MPI_STATUS_IGNORE);
       mctr.n_sends_completed++;
     }
 
@@ -197,12 +232,18 @@ class Completion_Manager_Milagro : public Completion_Manager
   Buffer<uint64_t> c1_recv_buffer;
   Buffer<uint64_t> c2_recv_buffer;
   Buffer<uint64_t> p_recv_buffer;
+  Buffer<uint64_t> c1_send_buffer;
+  Buffer<uint64_t> c2_send_buffer;
+  Buffer<uint64_t> p_send_buffer;
   MPI_Request p_recv_req;
   MPI_Request c1_recv_req;
   MPI_Request c2_recv_req;
+  MPI_Request p_send_req;
+  MPI_Request c1_send_req;
+  MPI_Request c2_send_req;
 };
 
 #endif // def completion_manager_milagro_h_
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
 // end of completion_manager_milagro.h
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
