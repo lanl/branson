@@ -88,8 +88,8 @@ void imc_cell_pass_driver(Mesh *mesh,
       global_source_energy, census_photons);
     Timer t_lb;
     t_lb.start_timer("load balance");
-    load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
-      census_photons, mpi_types);
+    load_balance(source.get_work_vector(), census_photons,
+      source.get_n_photon(), mpi_types, mpi_info);
     
     t_lb.stop_timer("load balance");
     imc_state->set_load_balance_time(t_lb.get_time("load balance"));
@@ -182,8 +182,8 @@ void imc_rma_cell_pass_driver(Mesh *mesh,
       global_source_energy, census_photons);
     Timer t_lb;
     t_lb.start_timer("load balance");
-    load_balance(rank, n_rank, source.get_n_photon(), source.get_work_vector(),
-      census_photons, mpi_types);
+    load_balance(source.get_work_vector(), census_photons,
+      source.get_n_photon(), mpi_types, mpi_info);
     t_lb.stop_timer("load balance");
     imc_state->set_load_balance_time(t_lb.get_time("load balance"));
 

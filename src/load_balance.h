@@ -27,15 +27,18 @@
 
 //! Load balance the work on all ranks given an array of work packets and
 // census particles
-void load_balance(const int& rank, const int& n_rank,
-  const uint64_t n_particle_on_rank, std::vector<Work_Packet>& work,
-  std::vector<Photon>& census_list, MPI_Types *mpi_types)
+void load_balance(std::vector<Work_Packet>& work,
+  std::vector<Photon>& census_list, const uint64_t n_particle_on_rank,
+  MPI_Types *mpi_types, const Info& mpi_info)
 {
   using std::unordered_map;
   using std::unordered_set;
   using std::vector;
   using Constants::photon_tag;
   using Constants::work_tag;
+
+  int rank = mpi_info.get_rank();
+  int n_rank = mpi_info.get_n_rank();
 
   // get MPI datatypes
   MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
@@ -284,7 +287,7 @@ void load_balance(const int& rank, const int& n_rank,
 
 
 //! Use a binary tree approach to load balance work and census particles
-void load_balance(std::vector<Work_Packet>& work,
+void bt_load_balance(std::vector<Work_Packet>& work,
   std::vector<Photon>& census_list, const uint64_t n_particle_on_rank,
   MPI_Types *mpi_types, const Info& mpi_info)
 {

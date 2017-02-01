@@ -75,7 +75,7 @@ int main (int argc, char *argv[]) {
       }
     }
 
-    load_balance(work, census, n_particles_on_rank, mpi_types, mpi_info);
+    bt_load_balance(work, census, n_particles_on_rank, mpi_types, mpi_info);
 
     uint64_t n_post_balanced_particles = 0;
 

@@ -153,7 +153,8 @@ class RMA_Manager
 
   //! Open the MPI window associated with the cell array
   void start_access(void) {
-    int assert =0;
+    int assert = MPI_MODE_NOCHECK; // no conflicting locks on this window
+    //int assert =0; // no assertions, always valid
     MPI_Win_lock_all(assert,mesh_window);
   }
 
