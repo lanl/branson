@@ -34,8 +34,10 @@ void load_balance(std::vector<Work_Packet>& work,
   using std::unordered_map;
   using std::unordered_set;
   using std::vector;
-  using Constants::photon_tag;
   using Constants::work_tag;
+  using Constants::n_work_tag;
+  using Constants::photon_tag;
+  using Constants::n_photon_tag;
 
   int rank = mpi_info.get_rank();
   int n_rank = mpi_info.get_n_rank();
@@ -81,7 +83,7 @@ void load_balance(std::vector<Work_Packet>& work,
   int64_t max_particles = 0;
   uint32_t max_rank = 0;
 
-  double overload_factor = 0.0; // 40%
+  double overload_factor = 0.0;
 
   int send_to_nbr, rank_delta_p, left_node, right_node;
   for (uint32_t ir=0; ir<uint32_t(n_rank); ir++) {
@@ -152,56 +154,65 @@ void load_balance(std::vector<Work_Packet>& work,
   if (n_donors) {
     MPI_Request *work_recv_request = new MPI_Request[n_donors];
     MPI_Request *phtn_recv_request = new MPI_Request[n_donors];
-    MPI_Status *work_recv_status = new MPI_Status[n_donors];
-    MPI_Status *phtn_recv_status = new MPI_Status[n_donors];
+    MPI_Request *work_recv_size_request = new MPI_Request[n_donors];
+    MPI_Request *phtn_recv_size_request = new MPI_Request[n_donors];
     vector<int32_t> n_work_recv(n_donors);
     vector<int32_t> n_phtn_recv(n_donors);
     vector<Buffer<Photon> > photon_buffer(n_donors);
     vector<Buffer<Work_Packet> > work_buffer(n_donors);
-    // get the total number of particles deficient on this rank to size buffers
-    uint32_t n_deficient = n_balance_particles - n_particle_on_rank;
+
+    // post receives for sizes from ranks that are sending you work
+    for (uint32_t i=0; i<n_donors; i++) {
+      // post number of work packet receive
+      MPI_Irecv(&n_work_recv[i], 1, MPI_INT, work_donor_ranks[i], n_work_tag,
+        MPI_COMM_WORLD, &work_recv_size_request[i]);
+
+      // post number of particles receive
+      MPI_Irecv(&n_phtn_recv[i], 1, MPI_INT, work_donor_ranks[i], n_photon_tag,
+        MPI_COMM_WORLD, &phtn_recv_size_request[i]);
+    }
+
+    // wait on all requests
+    MPI_Waitall(n_donors, work_recv_size_request, MPI_STATUSES_IGNORE);
+    MPI_Waitall(n_donors, phtn_recv_size_request, MPI_STATUSES_IGNORE);
 
     // post receives from ranks that are sending you work
     for (uint32_t i=0; i<n_donors; i++) {
-      // make buffer maximum possible size
-      work_buffer[i].resize(n_deficient);
+
+      // size work packet buffer
+      work_buffer[i].resize(n_work_recv[i]);
 
       // post work packet receives
-      MPI_Irecv(work_buffer[i].get_buffer(), n_deficient, MPI_WPacket,
+      MPI_Irecv(work_buffer[i].get_buffer(), n_work_recv[i], MPI_WPacket,
         work_donor_ranks[i], work_tag, MPI_COMM_WORLD, &work_recv_request[i]);
 
-      // make buffer maximum possible size
-      photon_buffer[i].resize(n_deficient);
+      // size photon buffer
+      photon_buffer[i].resize(n_phtn_recv[i]);
 
       // post particle receives
-      MPI_Irecv(photon_buffer[i].get_buffer(), n_deficient, MPI_Particle,
+      MPI_Irecv(photon_buffer[i].get_buffer(), n_phtn_recv[i], MPI_Particle,
         work_donor_ranks[i], photon_tag, MPI_COMM_WORLD, &phtn_recv_request[i]);
     }
 
     // wait on all requests
-    MPI_Waitall(n_donors, work_recv_request, work_recv_status);
-    MPI_Waitall(n_donors, phtn_recv_request, phtn_recv_status);
+    MPI_Waitall(n_donors, work_recv_request, MPI_STATUSES_IGNORE);
+    MPI_Waitall(n_donors, phtn_recv_request, MPI_STATUSES_IGNORE);
 
     for (uint32_t i=0; i<n_donors; i++) {
-      // get received count for work and photons from this rank
-      MPI_Get_count(&work_recv_status[i], MPI_WPacket, &n_work_recv[i]);
-      MPI_Get_count(&phtn_recv_status[i], MPI_Particle, &n_phtn_recv[i]);
-
       // add received work to your work
-      vector<Work_Packet> temp_work = work_buffer[i].get_object();
+      vector<Work_Packet>& temp_work = work_buffer[i].get_object();
       work.insert(work.begin(), temp_work.begin(),
-        temp_work.begin() + n_work_recv[i]);
+        temp_work.end());
 
       // add received census photons
-      vector<Photon> temp_photons = photon_buffer[i].get_object();
+      vector<Photon>& temp_photons = photon_buffer[i].get_object();
       census_list.insert(census_list.begin(), temp_photons.begin(),
-        temp_photons.begin() + n_phtn_recv[i]);
+        temp_photons.end());
     }
     delete[] work_recv_request;
     delete[] phtn_recv_request;
-    delete[] work_recv_status;
-    delete[] phtn_recv_status;
-
+    delete[] work_recv_size_request;
+    delete[] phtn_recv_size_request;
   } // end if(n_donors)
 
   //--------------------------------------------------------------------------//
@@ -213,21 +224,20 @@ void load_balance(std::vector<Work_Packet>& work,
     // sort work to put larger work packets near the end of the vector
     sort(work.begin(), work.end());
 
+    MPI_Request *work_send_size_request = new MPI_Request[n_acceptors];
+    MPI_Request *phtn_send_size_request = new MPI_Request[n_acceptors];
     MPI_Request *work_send_request = new MPI_Request[n_acceptors];
     MPI_Request *phtn_send_request = new MPI_Request[n_acceptors];
-    uint32_t dest_rank;
-    uint32_t temp_n_send;
+    uint32_t dest_rank, temp_n_send;
     uint32_t ireq=0;  //! Request index
     uint32_t start_cut_index = 0; //! Begin slice of census list
     uint32_t n_census_remain = census_list.size(); //! Where to cut census list
 
     // iterate over unordered map and prepare work for other ranks
-    for (unordered_map<int32_t,int32_t>::iterator map_itr=n_send_rank.begin();
-      map_itr !=n_send_rank.end(); map_itr++)
+    for (auto imap=n_send_rank.begin(); imap !=n_send_rank.end(); ++imap)
     {
-
-      dest_rank = map_itr->first;
-      temp_n_send = map_itr->second;
+      dest_rank = imap->first;
+      temp_n_send = imap->second;
 
       vector<Work_Packet> work_to_send;
       Work_Packet temp_packet, leftover_packet;
@@ -257,14 +267,24 @@ void load_balance(std::vector<Work_Packet>& work,
         n_census_remain -= n_send_census;
       }
 
+      int32_t n_work_send = work_to_send.size();
+
+      // send sizes for work and photon vectors
+      MPI_Isend(&n_work_send, 1, MPI_INT, dest_rank, n_work_tag,
+        MPI_COMM_WORLD, &work_send_size_request[ireq]);
+      MPI_Isend(&n_send_census, 1, MPI_INT, dest_rank, n_photon_tag,
+        MPI_COMM_WORLD, &phtn_send_size_request[ireq]);
+
       // send both work and photon vectors, even if they're empty
-      MPI_Isend(&work_to_send[0], work_to_send.size(), MPI_WPacket,
+      MPI_Isend(&work_to_send[0], n_work_send, MPI_WPacket,
         dest_rank, work_tag, MPI_COMM_WORLD, &work_send_request[ireq]);
       MPI_Isend(&census_list[start_cut_index], n_send_census, MPI_Particle,
         dest_rank, photon_tag, MPI_COMM_WORLD, &phtn_send_request[ireq]);
 
-      // wait on this request so buffers are not invalidated when going
+      // wait on these requests so buffers are not invalidated when going
       // out of loop scope
+      MPI_Wait(&work_send_size_request[ireq], MPI_STATUS_IGNORE);
+      MPI_Wait(&phtn_send_size_request[ireq], MPI_STATUS_IGNORE);
       MPI_Wait(&work_send_request[ireq], MPI_STATUS_IGNORE);
       MPI_Wait(&phtn_send_request[ireq], MPI_STATUS_IGNORE);
 
@@ -277,13 +297,13 @@ void load_balance(std::vector<Work_Packet>& work,
       census_list.end());
 
     // clean up
+    delete[] work_send_size_request;
+    delete[] phtn_send_size_request;
     delete[] work_send_request;
     delete[] phtn_send_request;
 
   } // end if(n_acceptors)
-
 }
-
 
 
 //! Use a binary tree approach to load balance work and census particles
@@ -294,7 +314,9 @@ void bt_load_balance(std::vector<Work_Packet>& work,
   using std::vector;
   using std::unordered_map;
   using Constants::photon_tag;
+  using Constants::n_photon_tag;
   using Constants::work_tag;
+  using Constants::n_work_tag;
 
   const int n_tag(100);
 
@@ -313,6 +335,9 @@ void bt_load_balance(std::vector<Work_Packet>& work,
   // sort the census vector by cell ID (global ID)
   sort(census_list.begin(), census_list.end());
 
+  // sort work to put larger work packets near the end of the vector
+  sort(work.begin(), work.end());
+
   // do the binary tree pattern to the nearest log2(rank), rounding up
   int32_t n_levels = int32_t(ceil(log2(n_rank)));
 
@@ -321,12 +346,12 @@ void bt_load_balance(std::vector<Work_Packet>& work,
   vector<MPI_Request> n_p_reqs(2);
   vector<MPI_Request> donor_send_reqs(2);
   vector<MPI_Request> acceptor_recv_reqs(2);
-  vector<MPI_Status> acceptor_statuses(2);
 
   // start with the current number of particles on this rank
   uint64_t balanced_rank_particles = n_particle_on_rank;
   uint64_t partner_rank_particles, avg_particles;
-  int64_t temp_n_send, temp_n_receive, n_send_census;
+  int32_t n_send_census;
+  int64_t temp_n_send, temp_n_receive;
   bool balanced;
   uint32_t start_cut_index = 0; //! Begin slice of census list
 
@@ -407,6 +432,14 @@ void bt_load_balance(std::vector<Work_Packet>& work,
           // reduce the number of particle on rank by the size of the census
           balanced_rank_particles-=n_send_census; 
 
+          // send the size of each message
+          int32_t n_send_work=work_to_send.size();
+          MPI_Isend(&n_send_work, 1, MPI_INT, r_partner, n_work_tag,
+            MPI_COMM_WORLD,  &donor_send_reqs[0]);
+          MPI_Isend(&n_send_census, 1, MPI_INT, r_partner, n_photon_tag,
+            MPI_COMM_WORLD, &donor_send_reqs[1]);
+          MPI_Waitall(2, &donor_send_reqs[0], MPI_STATUSES_IGNORE);
+
           // send both work and photon vectors, even if they're empty
           MPI_Isend(&work_to_send[0], work_to_send.size(), MPI_WPacket,
             r_partner, work_tag, MPI_COMM_WORLD, &donor_send_reqs[0]);
@@ -426,35 +459,46 @@ void bt_load_balance(std::vector<Work_Packet>& work,
 
         // logic for acceptor rank
         else {
-          temp_n_receive = int64_t(partner_rank_particles) 
-            - int64_t(avg_particles);
 
-          recv_work_buffer.resize(temp_n_receive);
-          recv_photon_buffer.resize(temp_n_receive);
+          int32_t n_work_recv, n_census_recv;
+          MPI_Irecv(&n_work_recv, 1, MPI_INT, r_partner, n_work_tag, 
+            MPI_COMM_WORLD, &acceptor_recv_reqs[0]);
+          MPI_Irecv(&n_census_recv, 1, MPI_INT, r_partner, n_photon_tag, 
+            MPI_COMM_WORLD, &acceptor_recv_reqs[1]);
+          MPI_Waitall(2, &acceptor_recv_reqs[0], MPI_STATUSES_IGNORE);
+
+          // resize buffers
+          recv_work_buffer.resize(n_work_recv);
+          recv_photon_buffer.resize(n_census_recv);
+
           // post work packet receives
-          MPI_Irecv(recv_work_buffer.get_buffer(), temp_n_receive, MPI_WPacket,
+          MPI_Irecv(recv_work_buffer.get_buffer(), n_work_recv, MPI_WPacket,
             r_partner, work_tag, MPI_COMM_WORLD, &acceptor_recv_reqs[0]);
 
           // post particle receives
-          MPI_Irecv(recv_photon_buffer.get_buffer(), temp_n_receive, MPI_Particle,
-            r_partner, photon_tag, MPI_COMM_WORLD, &acceptor_recv_reqs[1]);
+          MPI_Irecv(recv_photon_buffer.get_buffer(), n_census_recv, 
+            MPI_Particle, r_partner, photon_tag, MPI_COMM_WORLD, 
+            &acceptor_recv_reqs[1]);
 
-          MPI_Waitall(2, &acceptor_recv_reqs[0], &acceptor_statuses[0]);
-
-          // get received count for work and photons from this rank
-          int32_t n_work_recv, n_phtn_recv;
-          MPI_Get_count(&acceptor_statuses[0], MPI_WPacket, &n_work_recv);
-          MPI_Get_count(&acceptor_statuses[1], MPI_Particle, &n_phtn_recv);
+          MPI_Waitall(2, &acceptor_recv_reqs[0], MPI_STATUSES_IGNORE);
 
           // add received work to your work
-          vector<Work_Packet> temp_work = recv_work_buffer.get_object();
+          vector<Work_Packet>& temp_work = recv_work_buffer.get_object();
           work.insert(work.begin(), temp_work.begin(),
             temp_work.begin() + n_work_recv);
 
+          // sort, if work was received
+          if (!temp_work.empty())
+            sort(work.begin(), work.end());
+
           // add received census photons
-          vector<Photon> temp_photons = recv_photon_buffer.get_object();
+          vector<Photon>& temp_photons = recv_photon_buffer.get_object();
           census_list.insert(census_list.begin(), temp_photons.begin(),
-            temp_photons.begin() + n_phtn_recv);
+            temp_photons.begin() + n_census_recv);
+
+          // sort, if census photons were received
+          if (!temp_photons.empty())
+            sort(census_list.begin(), census_list.end());
 
           // get current count photon count and update 
           n_census_remain = census_list.size();
@@ -462,12 +506,12 @@ void bt_load_balance(std::vector<Work_Packet>& work,
           for (auto i_w = work.begin();i_w!=work.end();++i_w) {
             balanced_rank_particles+=i_w->get_n_particles();
           }
+
         }
-      }
+      } // if balanced
     } // end if r_partner < n_rank
   } // end loop over levels
 }
-
 
 #endif // load_balance_h_
 

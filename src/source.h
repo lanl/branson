@@ -22,6 +22,31 @@
 #include "sampling_functions.h"
 #include "work_packet.h"
 
+//==============================================================================
+/*!
+ * \class Work_Local_Map
+ * \brief A class that's used as a functor in sorting local vs. non-local work
+ * packets
+ *
+ * \example no test yet
+ */
+//==============================================================================
+class Work_Local_Map {
+
+  public:
+
+  Work_Local_Map(std::unordered_map<uint32_t, bool> & _work_map)
+    : work_map(_work_map)
+    {}
+  ~Work_Local_Map() {}
+
+  bool operator() (const Work_Packet& a, const Work_Packet& b) {
+    return work_map[a.get_global_cell_ID()] < work_map[b.get_global_cell_ID()];
+  }
+
+  // member data
+  std::unordered_map<uint32_t, bool>& work_map;
+};
 
 //==============================================================================
 /*!
@@ -52,6 +77,7 @@ class Source {
 
     //reset the total number of photons before counting
     n_photon = 0;
+    n_sourced = 0;
 
     double total_census_E = 0.0;
 
@@ -127,15 +153,15 @@ class Source {
     // recount number of photons
     n_photon = 0;
 
-    unordered_map<uint32_t, Work_Packet*> work_map;
+    unordered_map<uint32_t, uint32_t> work_map;
 
     // map global cell ID to work packets to determine if census photons
     // can be attached to a work packet
-    for (vector<Work_Packet>::iterator work_itr =work.begin();
-      work_itr!=work.end();work_itr++)
+    for (uint32_t i=0; i<work.size();++i)
     {
-      work_map[work_itr->get_global_cell_ID()] = &(*work_itr);
-      n_photon+=work_itr->get_n_particles();
+      Work_Packet& work_ref = work[i];
+      work_map[work_ref.get_global_cell_ID()] = i;
+      n_photon+=work_ref.get_n_particles();
     }
 
     uint32_t cell_ID, grip_ID;
@@ -145,7 +171,7 @@ class Source {
 
     if (!census_photons.empty()) {
       uint32_t i=0;
-      for (vector<Photon>::iterator iphtn =census_photons.begin();
+      for (auto iphtn =census_photons.begin();
         iphtn!=census_photons.end(); ++iphtn)
       {
         cell_ID = iphtn->get_cell();
@@ -162,12 +188,12 @@ class Source {
         i++;
       }
 
+      uint32_t work_index;
       // now attach census particles to work packets or make new ones
-      typedef unordered_map<uint32_t, uint32_t>::iterator mapi_t;
-      for (mapi_t mapi=census_start_index.begin();
-        mapi!=census_start_index.end(); ++mapi)
+      for (auto imap=census_start_index.begin();
+        imap!=census_start_index.end(); ++imap)
       {
-        cell_ID = mapi->first;
+        cell_ID = imap->first;
         grip_ID = grip_index[cell_ID];
 
         // apppend count in this cell to the total
@@ -175,7 +201,8 @@ class Source {
 
         // if a work packet for this cell exists, attach the census work
         if (work_map.find(cell_ID) != work_map.end()) {
-          work_map[cell_ID]->attach_census_work(mapi->second,
+          work_index = work_map[cell_ID];
+          work[work_index].attach_census_work(imap->second, 
             census_in_cell[cell_ID]);
         }
         // otherwise, make a new work packet
@@ -183,13 +210,22 @@ class Source {
           Work_Packet temp_packet;
           temp_packet.set_global_cell_ID(cell_ID);
           temp_packet.set_global_grip_ID(grip_ID);
-          temp_packet.attach_census_work(mapi->second, census_in_cell[cell_ID]);
-
+          temp_packet.attach_census_work(imap->second, census_in_cell[cell_ID]);
           // add this work to the total work vector
           work.push_back(temp_packet);
         }
       }
     } // end if !census_photons.empty()
+
+    std::unordered_map<uint32_t, bool> on_proc_map;
+    uint32_t work_cell_ID;
+    for (auto iw = work.begin(); iw!=work.end(); ++iw) {
+      work_cell_ID = iw->get_global_cell_ID();
+      on_proc_map[work_cell_ID] = mesh->on_processor(work_cell_ID);
+    }
+
+    Work_Local_Map work_local_map(on_proc_map);
+    std::sort(work.begin(), work.end(), work_local_map);
 
     // set initial parameters and iterators
     iwork = work.begin();
@@ -235,14 +271,21 @@ class Source {
     }
 
     if (n_work > 1000000000) {
-      std::cout<<"this is bad: grip out of bounds"<<std::endl;
+      std::cout<<"this is bad: work out of bounds"<<std::endl;
     }
     if (return_photon.get_grip() > 100000000) {
       std::cout<<"this is bad: grip out of bounds"<<std::endl;
     }
     if (return_photon.get_cell() > 100000000) {
-      std::cout<<"this is bad: grip out of bounds"<<std::endl;
+      std::cout<<"this is bad: cell out of bounds"<<std::endl;
     }
+    
+    if (n_sourced >= n_photon) {
+      std::cout<<"this is bad: can't source more than this"<<std::endl; 
+    }
+
+    // increment count of sourced particles
+    ++n_sourced;
 
     return return_photon;
   }
@@ -303,6 +346,7 @@ class Source {
   uint32_t census_index; //! Index of next census particle to return
   uint32_t iphoton;  //! Local photon counter
   uint32_t current_source; //! Current source
+  uint32_t n_sourced; //! Number of particles returned by source
   std::vector<Work_Packet> work; //! Work packets
   std::vector<Work_Packet>::iterator iwork; //! Work iterator
   uint32_t n_photon;  //! Total photons in this source

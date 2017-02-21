@@ -199,7 +199,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
   // main loop over photons
   //--------------------------------------------------------------------------//
   vector<Photon> census_list; //! Local end of timestep census list
-  vector<Photon> off_rank_census_list; //! Off rank end of timestep census list
+  //vector<Photon> off_rank_census_list; //! Off rank end of timestep census list
   queue<Photon> wait_list; //! Photons waiting for mesh data
   while ( n_local_sourced < n_local) {
 
@@ -223,8 +223,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
       else event = WAIT;
 
       if (event==CENSUS) {
-        if (mesh->on_processor(cell_id)) census_list.push_back(phtn);
-        else off_rank_census_list.push_back(phtn);
+        census_list.push_back(phtn);
       }
       else if (event==WAIT) {
         t_mpi.start_timer("timestep mpi");
@@ -256,8 +255,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
         else event = WAIT;
 
         if (event==CENSUS) {
-            if (mesh->on_processor(cell_id)) census_list.push_back(phtn);
-            else off_rank_census_list.push_back(phtn);
+            census_list.push_back(phtn);
         }
         else if (event==WAIT) {
           t_mpi.start_timer("timestep mpi");
@@ -295,8 +293,7 @@ std::vector<Photon> transport_mesh_pass(Source& source,
         else event = WAIT;
 
         if (event==CENSUS) {
-          if (mesh->on_processor(cell_id)) census_list.push_back(phtn);
-          else off_rank_census_list.push_back(phtn);
+          census_list.push_back(phtn);
         }
         else if (event==WAIT) {
           t_mpi.start_timer("timestep mpi");
@@ -342,10 +339,10 @@ std::vector<Photon> transport_mesh_pass(Source& source,
 
   // send the off-rank census back to ranks that own the mesh its on and receive
   // census particles that are on your mesh
-  vector<Photon> rebalanced_census = rebalance_census(off_rank_census_list,
-                                                      mesh, mpi_types);
-  census_list.insert(census_list.end(), rebalanced_census.begin(),
-    rebalanced_census.end());
+  //vector<Photon> rebalanced_census = rebalance_census(off_rank_census_list,
+  //  mesh, mpi_types);
+  //census_list.insert(census_list.end(), rebalanced_census.begin(),
+  //  rebalanced_census.end());
 
   imc_state->set_rank_mpi_time(t_mpi.get_time("timestep mpi"));
 

@@ -30,13 +30,15 @@ const int grip_id_tag(1); //! MPI tag for grip ID messages
 const int cell_id_tag(2); //! MPI tag for requested cell ID messages
 const int count_tag(3); //! MPI tag for completion count messages
 const int photon_tag(4); //! MPI tag for photon messages
-const int work_tag(5); //! MPI tag for work packet messages
-const int tally_tag(6); //! MPI tag for tally messages
-const int n_tally_tag(7); //! MPI tag for number of tally messages
+const int n_photon_tag(5); //! MPI tag for work packet messages
+const int work_tag(6); //! MPI tag for work packet messages
+const int n_work_tag(7); //! MPI tag for work packet messages
+const int tally_tag(8); //! MPI tag for tally messages
+const int n_tally_tag(9); //! MPI tag for number of tally messages
 
 //! MPI tag for cell messages NOTE: the number of grips in the message will
 // added to the end of this number
-const int cell_tag(8);
+const int cell_tag(10);
 };
 
 #endif // constants_h_
