@@ -23,7 +23,7 @@ const double a_SO(1.0); //! Boltzmann constant for SO problems
 enum bc_type {REFLECT, VACUUM, ELEMENT, PROCESSOR}; //! Boundary conditions
 enum dir_type {X_NEG, X_POS, Y_NEG, Y_POS, Z_NEG, Z_POS}; //! Directions
 enum event_type {KILL, EXIT, PASS, CENSUS, WAIT}; //! Events
-enum {PARTICLE_PASS, CELL_PASS, CELL_PASS_RMA}; //! DD types
+enum {PARTICLE_PASS, CELL_PASS, CELL_PASS_RMA, REPLICATED}; //! Parallel types
 enum {RMA_COMPLETION, MILAGRO_COMPLETION}; //! Completion manager types
 enum {EMISSION, INITIAL_CENSUS}; //! Particle type for work packets
 const int grip_id_tag(1); //! MPI tag for grip ID messages

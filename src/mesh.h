@@ -238,6 +238,13 @@ class Mesh {
     mpi_cell_size = mpi_types->get_cell_size();
 
     mpi_window_set = false;
+
+    // for replicated mode, set the factor that reduces the emission
+    // energy and initial census energy
+    if (input->get_dd_mode() == Constants::REPLICATED)
+      replicated_factor = 1.0/n_rank;
+    else 
+      replicated_factor = 1.0;
   }
 
   // destructor, free buffers and delete MPI allocated cell
@@ -501,9 +508,9 @@ class Mesh {
       e.set_op_s(op_s);
       e.set_f(f);
 
-      m_emission_E[i] = dt*vol*f*op_a*a*c*pow(T,4);
+      m_emission_E[i] = replicated_factor*dt*vol*f*op_a*a*c*pow(T,4);
       if (step > 1) m_census_E[i] = 0.0;
-      else m_census_E[i] =vol*a*pow(Tr,4);
+      else m_census_E[i] =replicated_factor*vol*a*pow(Tr,4);
       m_source_E[i] = dt*op_a*a*c*pow(Ts,4);
 
       pre_mat_E+=T*cV*vol*rho;
@@ -673,7 +680,8 @@ class Mesh {
       Cell& e = cells[i];
       vol = e.get_volume();
       T = e.get_T_e();
-      T_new = T + (abs_E[i+on_rank_start] - m_emission_E[i])/(cV*vol*rho);
+      T_new = T + (abs_E[i+on_rank_start] - m_emission_E[i]/replicated_factor)
+        / (cV*vol*rho);
       e.set_T_e(T_new);
       total_abs_E+=abs_E[i+on_rank_start];
       total_post_mat_E+= T_new*cV*vol*rho;
@@ -756,6 +764,10 @@ class Mesh {
   uint32_t rank; //! MPI rank of this mesh
   uint32_t n_rank; //! Number of global ranks
   uint32_t n_off_rank; //! Number of other ranks
+
+  //! Factor to reduce emission and initial census in replicated mode
+  double replicated_factor;
+
   float *silo_x; //! Global array of x face locations for SILO
   float *silo_y; //! Global array of y face locations for SILO
   float *silo_z; //! Global array of z face locations for SILO

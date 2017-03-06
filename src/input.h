@@ -46,9 +46,9 @@ class Input
     using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT;
     using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
     using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
-    using Constants::PARTICLE_PASS;
-    using Constants::CELL_PASS;
-    using Constants::CELL_PASS_RMA;
+    // DD methods
+    using Constants::PARTICLE_PASS; using Constants::CELL_PASS; 
+    using Constants::CELL_PASS_RMA; using Constants::REPLICATED;
     using Constants::RMA_COMPLETION;
     using Constants::MILAGRO_COMPLETION;
     using std::cout;
@@ -131,6 +131,7 @@ class Input
         if (tempString == "CELL_PASS") dd_mode = CELL_PASS;
         else if (tempString == "CELL_PASS_RMA") dd_mode = CELL_PASS_RMA;
         else if (tempString == "PARTICLE_PASS") dd_mode = PARTICLE_PASS;
+        else if (tempString == "REPLICATED") dd_mode = REPLICATED;
         else {
           cout<<"WARNING: Domain decomposition method not recognized... ";
           cout<<"setting to PARTICLE PASSING method"<<endl;
@@ -365,6 +366,11 @@ class Input
     for (uint32_t i=0;i<x.size();i++) silo_x[i] = x[i];
     for (uint32_t j=0;j<y.size();j++) silo_y[j] = y[j];
     for (uint32_t k=0;k<z.size();k++) silo_z[k] = z[k];
+
+    // batch size should be very large in replicated mode since there is no
+    // need to check buffers
+    if (dd_mode == REPLICATED) 
+      batch_size = 100000000;
   }
 
   ~Input() {
@@ -378,9 +384,9 @@ class Input
     using Constants::c;
     using std::cout;
     using std::endl;
-    using Constants::PARTICLE_PASS;
-    using Constants::CELL_PASS;
-    using Constants::CELL_PASS_RMA;
+    // DD methods
+    using Constants::PARTICLE_PASS; using Constants::CELL_PASS;
+    using Constants::CELL_PASS_RMA; using Constants::REPLICATED;
     using Constants::RMA_COMPLETION;
     using Constants::MILAGRO_COMPLETION;
 
@@ -451,6 +457,11 @@ class Input
       cout<<"PARTICLE PASSING"<<endl;
       cout<<"Batch size: "<<batch_size;
       cout<<", particle message size: "<<particle_message_size;
+      cout<<endl;
+    }
+    else if (dd_mode == REPLICATED) {
+      cout<<"REPLICATED"<<endl;
+      cout<<"No parameters are needed in replicated mode";
       cout<<endl;
     }
     else {

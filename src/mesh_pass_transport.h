@@ -28,6 +28,8 @@
 #include "mpi_types.h"
 #include "RNG.h"
 #include "sampling_functions.h"
+#include "source.h"
+#include "timer.h"
 
 //! Transport a single photon until it has a terminating event (kill, exit,
 // wait for data, census)
@@ -145,7 +147,7 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
 
 //! Transport photons from a source object using the mesh-passing algorithm
 // and two-sided messaging to fulfill requests for mesh data
-std::vector<Photon> transport_mesh_pass(Source& source,
+std::vector<Photon> mesh_pass_transport(Source& source,
                                         Mesh* mesh,
                                         IMC_State* imc_state,
                                         IMC_Parameters* imc_parameters,

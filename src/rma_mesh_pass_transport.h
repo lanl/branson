@@ -24,17 +24,17 @@
 #include "info.h"
 #include "mesh.h"
 #include "mesh_rma_manager.h"
+#include "mesh_pass_transport.h"
 #include "message_counter.h"
 #include "mpi_types.h"
 #include "RNG.h"
 #include "sampling_functions.h"
 #include "timer.h"
-#include "transport_mesh_pass.h"
 
 
 //! Transport photons from a source object using the mesh-passing algorithm
 // and one-sided messaging to fulfill requests for mesh data
-std::vector<Photon> transport_mesh_pass_rma(Source& source,
+std::vector<Photon> rma_mesh_pass_transport(Source& source,
                                             Mesh* mesh,
                                             IMC_State* imc_state,
                                             IMC_Parameters* imc_parameters,

@@ -1,6 +1,6 @@
 //----------------------------------*-C++-*----------------------------------//
 /*!
- * \file   transport_particle_pass.h
+ * \file   particle_pass_transport.h
  * \author Alex Long
  * \date   December 1 2015
  * \brief  IMC transport with particle passing method
@@ -144,7 +144,7 @@ Constants::event_type
 
 
 
-std::vector<Photon> transport_particle_pass(Source& source,
+std::vector<Photon> particle_pass_transport(Source& source,
                                             Mesh* mesh,
                                             IMC_State* imc_state,
                                             IMC_Parameters* imc_parameters,
