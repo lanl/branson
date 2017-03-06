@@ -53,6 +53,8 @@ void imc_replicated_driver(Mesh *mesh,
     //all reduce to get total source energy to make correct number of
     //particles on each rank
     double global_source_energy = mesh->get_total_photon_E();
+    MPI_Allreduce(MPI_IN_PLACE, &global_source_energy, 1, MPI_DOUBLE,
+      MPI_SUM, MPI_COMM_WORLD);
 
     imc_state->set_pre_census_E(get_photon_list_E(census_photons)); 
 
