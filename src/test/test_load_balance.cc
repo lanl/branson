@@ -28,7 +28,6 @@ int main (int argc, char *argv[]) {
   const Info mpi_info;
 
   int rank = mpi_info.get_rank();
-  int n_rank = mpi_info.get_n_rank();
 
   int nfail = 0;
 

@@ -351,7 +351,7 @@ void bt_load_balance(std::vector<Work_Packet>& work,
   uint64_t balanced_rank_particles = n_particle_on_rank;
   uint64_t partner_rank_particles, avg_particles;
   int32_t n_send_census;
-  int64_t temp_n_send, temp_n_receive;
+  int64_t temp_n_send;
   bool balanced;
   uint32_t start_cut_index = 0; //! Begin slice of census list
 
@@ -414,7 +414,7 @@ void bt_load_balance(std::vector<Work_Packet>& work,
             // add packet to send list
             work_to_send.push_back(temp_packet);
 
-            // subtract particle in packet from temp_n_send and on rank 
+            // subtract particle in packet from temp_n_send and on rank
             // particles
             temp_n_send -= temp_packet.get_n_particles();
             balanced_rank_particles-=temp_packet.get_n_particles();
@@ -430,7 +430,7 @@ void bt_load_balance(std::vector<Work_Packet>& work,
           }
 
           // reduce the number of particle on rank by the size of the census
-          balanced_rank_particles-=n_send_census; 
+          balanced_rank_particles-=n_send_census;
 
           // send the size of each message
           int32_t n_send_work=work_to_send.size();
@@ -461,9 +461,9 @@ void bt_load_balance(std::vector<Work_Packet>& work,
         else {
 
           int32_t n_work_recv, n_census_recv;
-          MPI_Irecv(&n_work_recv, 1, MPI_INT, r_partner, n_work_tag, 
+          MPI_Irecv(&n_work_recv, 1, MPI_INT, r_partner, n_work_tag,
             MPI_COMM_WORLD, &acceptor_recv_reqs[0]);
-          MPI_Irecv(&n_census_recv, 1, MPI_INT, r_partner, n_photon_tag, 
+          MPI_Irecv(&n_census_recv, 1, MPI_INT, r_partner, n_photon_tag,
             MPI_COMM_WORLD, &acceptor_recv_reqs[1]);
           MPI_Waitall(2, &acceptor_recv_reqs[0], MPI_STATUSES_IGNORE);
 
@@ -476,8 +476,8 @@ void bt_load_balance(std::vector<Work_Packet>& work,
             r_partner, work_tag, MPI_COMM_WORLD, &acceptor_recv_reqs[0]);
 
           // post particle receives
-          MPI_Irecv(recv_photon_buffer.get_buffer(), n_census_recv, 
-            MPI_Particle, r_partner, photon_tag, MPI_COMM_WORLD, 
+          MPI_Irecv(recv_photon_buffer.get_buffer(), n_census_recv,
+            MPI_Particle, r_partner, photon_tag, MPI_COMM_WORLD,
             &acceptor_recv_reqs[1]);
 
           MPI_Waitall(2, &acceptor_recv_reqs[0], MPI_STATUSES_IGNORE);
@@ -500,7 +500,7 @@ void bt_load_balance(std::vector<Work_Packet>& work,
           if (!temp_photons.empty())
             sort(census_list.begin(), census_list.end());
 
-          // get current count photon count and update 
+          // get current count photon count and update
           n_census_remain = census_list.size();
           balanced_rank_particles=census_list.size();
           for (auto i_w = work.begin();i_w!=work.end();++i_w) {

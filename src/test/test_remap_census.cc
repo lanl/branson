@@ -1,4 +1,4 @@
-//----------------------------------*-C++-*----------------------------------//
+//----------------------------------*-C++-*-----------------------------------//
 /*!
  * \file   test_remap_census.cc
  * \author Alex Long
@@ -6,7 +6,7 @@
  * \brief  Test census remap functions
  * \note   ***COPYRIGHT_GOES_HERE****
  */
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
 
 #include <iostream>
 #include <vector>
@@ -24,7 +24,7 @@ int main (int argc, char *argv[]) {
   using std::vector;
 
   MPI_Init(&argc, &argv);
-  
+
   int rank, n_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
@@ -38,39 +38,39 @@ int main (int argc, char *argv[]) {
     bool test_helper_functions = true;
 
     // test get communication partner function against expected outputs
-    uint32_t t_rank = 2;
-    uint32_t t_n_rank = 32;
-    uint32_t k =0;
-    uint32_t r_partner = get_pairing(t_rank, t_n_rank, k);
+    int32_t t_rank = 2;
+    int32_t t_n_rank = 32;
+    int32_t k =0;
+    int32_t r_partner = get_pairing(t_rank, t_n_rank, k);
 
     if (r_partner != 3) test_helper_functions= false;
-    if (get_pairing(r_partner, t_n_rank, k) != t_rank) 
+    if (get_pairing(r_partner, t_n_rank, k) != t_rank)
       test_helper_functions= false;
 
     k=1;
     r_partner = get_pairing(t_rank, t_n_rank, k);
 
     if (r_partner != 0) test_helper_functions= false;
-    if (get_pairing(r_partner, t_n_rank, k) != t_rank) 
+    if (get_pairing(r_partner, t_n_rank, k) != t_rank)
       test_helper_functions= false;
 
     k=2;
     r_partner = get_pairing(t_rank, t_n_rank, k);
 
     if (r_partner != 6) test_helper_functions= false;
-    if (get_pairing(r_partner, t_n_rank, k) != t_rank) 
+    if (get_pairing(r_partner, t_n_rank, k) != t_rank)
       test_helper_functions= false;
 
     k=3;
     r_partner = get_pairing(t_rank, t_n_rank, k);
 
     if (r_partner != 10) test_helper_functions= false;
-    if (get_pairing(r_partner, t_n_rank, k) != t_rank) 
+    if (get_pairing(r_partner, t_n_rank, k) != t_rank)
       test_helper_functions= false;
 
-    if (test_helper_functions) 
+    if (test_helper_functions)
       cout<<"TEST PASSED: remap_census helper functions"<<endl;
-    else { 
+    else {
       cout<<"TEST FAILED: remap_census helper functions"<<endl;
       nfail++;
     }
@@ -83,7 +83,7 @@ int main (int argc, char *argv[]) {
   // make up cell bounds for this rank
   vector<uint32_t> rank_bounds(n_rank+1);
   uint32_t r_bound = 0;
-  for (uint32_t i=0; i<n_rank+1;++i) {
+  for (int32_t i=0; i<n_rank+1;++i) {
     if (i!=n_rank) {
       rank_bounds[i] = r_bound;
       r_bound+=n_cell/n_rank;
@@ -107,7 +107,7 @@ int main (int argc, char *argv[]) {
     // make up off-rank census data that ended up on this rank
     // test to make sure all post rebalance census particles are on this rank
     // also check to make sure data has not been corrupted
-    
+
     vector<Photon> off_rank_census;
     uint64_t rank_photons = 0;
     uint32_t new_cell;
@@ -115,19 +115,19 @@ int main (int argc, char *argv[]) {
     uint32_t n_off_rank_photons = 1000;
     for (uint32_t i=0;i<n_off_rank_photons;++i) {
       Photon temp_photon;
-      double pos[3] =   {0.0, 0.0, 0.0}; 
+      double pos[3] =   {0.0, 0.0, 0.0};
       double angle[3] = {1.0, 0.0, 0.0};
       temp_photon.set_position(pos);
       temp_photon.set_angle(angle);
       temp_photon.set_distance_to_census(c_dt);
       new_cell = uint32_t(rng->generate_random_number()*n_cell);
       while (new_cell > rank_start && new_cell < rank_end)
-        new_cell = uint32_t(rng->generate_random_number()*n_cell); 
+        new_cell = uint32_t(rng->generate_random_number()*n_cell);
       temp_photon.set_cell(new_cell);
       off_rank_census.push_back(temp_photon);
     }
 
-    vector<Photon> post_rebalance_census = rebalance_census(off_rank_census, 
+    vector<Photon> post_rebalance_census = rebalance_census(off_rank_census,
       rank_photons, rank_bounds, mpi_types, mpi_info);
 
     uint32_t phtn_cell;
@@ -135,15 +135,15 @@ int main (int argc, char *argv[]) {
       iphtn!=post_rebalance_census.cend(); ++iphtn)
     {
       phtn_cell =  iphtn->get_cell();
-      if(phtn_cell < rank_start || phtn_cell >= rank_end) 
+      if(phtn_cell < rank_start || phtn_cell >= rank_end)
         test_remap_to_rank=false;
       if(iphtn->get_distance_remaining() != c_dt)
         test_remap_to_rank=false;
     }
 
     if (test_remap_to_rank) cout<<"TEST PASSED: remap_census to rank"<<endl;
-    else { 
-      cout<<"TEST FAILED: remap_census to rank"<<endl; 
+    else {
+      cout<<"TEST FAILED: remap_census to rank"<<endl;
       nfail++;
     }
     delete rng;
@@ -166,8 +166,8 @@ int main (int argc, char *argv[]) {
     if(post_rebalance_empty.size() != 0) test_empty_census=false;
 
     if (test_empty_census) cout<<"TEST PASSED: remap_census with empty census"<<endl;
-    else { 
-      cout<<"TEST FAILED: remap_census with empty census"<<endl; 
+    else {
+      cout<<"TEST FAILED: remap_census with empty census"<<endl;
       nfail++;
     }
     delete rng;
@@ -189,14 +189,14 @@ int main (int argc, char *argv[]) {
     uint32_t n_off_rank_photons = 1000;
     for (uint32_t i=0;i<n_off_rank_photons;++i) {
       Photon temp_photon;
-      double pos[3] =   {0.0, 0.0, 0.0}; 
+      double pos[3] =   {0.0, 0.0, 0.0};
       double angle[3] = {1.0, 0.0, 0.0};
       temp_photon.set_position(pos);
       temp_photon.set_angle(angle);
       temp_photon.set_distance_to_census(c_dt);
       new_cell = uint32_t(rng->generate_random_number()*n_cell);
       while (new_cell > rank_start && new_cell < rank_end)
-        new_cell = uint32_t(rng->generate_random_number()*n_cell); 
+        new_cell = uint32_t(rng->generate_random_number()*n_cell);
       temp_photon.set_cell(new_cell);
       off_rank_census.push_back(temp_photon);
     }
@@ -209,15 +209,15 @@ int main (int argc, char *argv[]) {
       iphtn!=post_rebalance_full.cend(); ++iphtn)
     {
       phtn_cell =  iphtn->get_cell();
-      if(phtn_cell >= rank_start && phtn_cell < rank_end) 
+      if(phtn_cell >= rank_start && phtn_cell < rank_end)
         test_full_node=false;
       if(iphtn->get_distance_remaining() != c_dt)
         test_full_node=false;
     }
 
     if (test_full_node) cout<<"TEST PASSED: remap_census with full node"<<endl;
-    else { 
-      cout<<"TEST FAILED: remap_census with full node"<<endl; 
+    else {
+      cout<<"TEST FAILED: remap_census with full node"<<endl;
       nfail++;
     }
     delete rng;
@@ -233,7 +233,6 @@ int main (int argc, char *argv[]) {
 
     rng->set_seed(rank*4106);
     vector<Photon> off_rank_census;
-    uint32_t new_cell;
     double c_dt = 10.0;
     uint64_t rank_photons = 0;
     uint64_t n_off_rank_photons = uint64_t(
@@ -241,7 +240,7 @@ int main (int argc, char *argv[]) {
     if (rank != 0) {
       for (uint64_t i=0;i<n_off_rank_photons;++i) {
         Photon temp_photon;
-        double pos[3] =   {0.0, 0.0, 0.0}; 
+        double pos[3] =   {0.0, 0.0, 0.0};
         double angle[3] = {1.0, 0.0, 0.0};
         temp_photon.set_position(pos);
         temp_photon.set_angle(angle);
@@ -260,20 +259,20 @@ int main (int argc, char *argv[]) {
       iphtn!=post_rebalance_full.cend(); ++iphtn)
     {
       phtn_cell =  iphtn->get_cell();
-      if(phtn_cell < rank_start || phtn_cell >= rank_end) 
+      if(phtn_cell < rank_start || phtn_cell >= rank_end)
         test_large_imbalance=false;
       if(iphtn->get_distance_remaining() != c_dt)
         test_large_imbalance=false;
     }
 
     if (test_large_imbalance) cout<<"TEST PASSED: remap_census with full large imbalance"<<endl;
-    else { 
-      cout<<"TEST FAILED: remap_census with large imbalance"<<endl; 
+    else {
+      cout<<"TEST FAILED: remap_census with large imbalance"<<endl;
       nfail++;
     }
     delete rng;
   }
-  
+
 
   delete mpi_types;
 
@@ -281,6 +280,6 @@ int main (int argc, char *argv[]) {
 
   return nfail;
 }
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
 // end of test_remap_census.cc
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//

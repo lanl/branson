@@ -28,7 +28,7 @@
 #include "replicated_transport.h"
 #include "write_silo.h"
 
-void imc_replicated_driver(Mesh *mesh, 
+void imc_replicated_driver(Mesh *mesh,
                               IMC_State *imc_state,
                               IMC_Parameters *imc_parameters,
                               MPI_Types * mpi_types,
@@ -39,7 +39,6 @@ void imc_replicated_driver(Mesh *mesh,
   vector<Photon> census_photons;
   Message_Counter mctr;
   int rank = mpi_info.get_rank();
-  int n_rank = mpi_info.get_n_rank();
 
   while (!imc_state->finished())
   {
@@ -56,7 +55,7 @@ void imc_replicated_driver(Mesh *mesh,
     MPI_Allreduce(MPI_IN_PLACE, &global_source_energy, 1, MPI_DOUBLE,
       MPI_SUM, MPI_COMM_WORLD);
 
-    imc_state->set_pre_census_E(get_photon_list_E(census_photons)); 
+    imc_state->set_pre_census_E(get_photon_list_E(census_photons));
 
     // setup source
     Source source(mesh, imc_state, imc_parameters->get_n_user_photon(),
@@ -67,11 +66,11 @@ void imc_replicated_driver(Mesh *mesh,
 
     imc_state->set_transported_particles(source.get_n_photon());
 
-    census_photons = replicated_transport(source, mesh, imc_state, 
+    census_photons = replicated_transport(source, mesh, imc_state,
       imc_parameters, mpi_types, mctr, abs_E, mpi_info);
-          
+
     // using MPI_IN_PLACE allows the same vector to send and be overwritten
-    MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(), 
+    MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(),
       MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     mesh->update_temperature(abs_E, imc_state);
@@ -79,8 +78,8 @@ void imc_replicated_driver(Mesh *mesh,
     // for replicated, just let root do conservation
     if (rank) {
       imc_state->set_absorbed_E(0.0);
-      imc_state->set_pre_mat_E(0.0); 
-      imc_state->set_post_mat_E(0.0); 
+      imc_state->set_pre_mat_E(0.0);
+      imc_state->set_post_mat_E(0.0);
     }
 
     imc_state->print_conservation(imc_parameters->get_dd_mode());

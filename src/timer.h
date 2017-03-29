@@ -33,7 +33,7 @@ class Timer
 
   //! Stop timer with name (must be the last active timer)
   void stop_timer(std::string name) {
-    double time_seconds = 
+    double time_seconds =
       std::chrono::duration_cast<std::chrono::microseconds>(
       std::chrono::high_resolution_clock::now() - temp_start).count() / 1.0e6;
     times[name] += time_seconds;
@@ -53,8 +53,11 @@ class Timer
   }
 
   private:
-  //! Map of timer names to times
+
+  //! Starting time for the latest timing instance
   std::chrono::high_resolution_clock::time_point temp_start;
+
+  //! Map of timer names to times
   std::unordered_map<std::string, double> times;
 };
 
