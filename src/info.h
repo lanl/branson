@@ -40,10 +40,12 @@ class Info
     // default values (CCS node)
     color = 1;
     node_mem = 16000000000;
+    machine_name = "CCS";
 
     // these ifdef macros are messy but for some reason some compilers don't
     // like the #elif directive
 #ifdef MOONLIGHT_NODE
+    machine_name = "moonlight";
     char * proc_name = new char[MPI_MAX_PROCESSOR_NAME];
     int result_length;
     MPI_Get_processor_name(proc_name, &result_length);
@@ -57,6 +59,7 @@ class Info
 #endif
 
 #ifdef TRINITITE_NODE
+    machine_name = "trinitite";
     char * proc_name = new char[MPI_MAX_PROCESSOR_NAME];
     int result_length;
     MPI_Get_processor_name(proc_name, &result_length);
@@ -82,6 +85,7 @@ class Info
   int get_n_rank(void) const {return n_rank;}
   int get_color(void) const {return color;}
   int64_t get_node_mem(void) const {return node_mem;}
+  std::string get_machine_name(void) const {return machine_name;}
 
   //--------------------------------------------------------------------------//
   // member data                                                              //
@@ -91,6 +95,7 @@ class Info
   int n_rank; //!< Global number of ranks
   int color; //!< Unique identifier for this node
   int64_t node_mem; //!< Total memory available for this node
+  std::string machine_name; //!< Name of the machine compiled on
 };
 
 #endif // info_h_

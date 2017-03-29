@@ -50,6 +50,8 @@ int main(int argc, char **argv)
 
   // get MPI parmeters and set them in mpi_info
   const Info mpi_info;
+  if (mpi_info.get_rank()==0)
+    cout<<"Branson compiled on: "<<mpi_info.get_machine_name()<<endl;
 
   // make MPI types object
   MPI_Types* mpi_types= new MPI_Types();
