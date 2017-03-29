@@ -243,7 +243,7 @@ class Mesh {
     // energy and initial census energy
     if (input->get_dd_mode() == Constants::REPLICATED)
       replicated_factor = 1.0/n_rank;
-    else 
+    else
       replicated_factor = 1.0;
   }
 
@@ -366,11 +366,9 @@ class Mesh {
     return  (index>=on_rank_start) && (index<=on_rank_end) ;
   }
 
-  void print_map(void) {
-    for ( std::unordered_map<uint32_t,Cell>::iterator map_i =
-      stored_cells.begin();
-      map_i!=stored_cells.end(); map_i++)
-      (map_i->second).print();
+  void print_map(void) const {
+    for (auto const &map_i: stored_cells)
+      (map_i.second).print();
   }
 
   bool mesh_available(const uint32_t& index) const {
@@ -416,7 +414,7 @@ class Mesh {
 
     // map the starting index of cells with the same grip to the number in
     // that grip
-    for (uint32_t i=0; i<n_cell; i++) {
+    for (uint32_t i=0; i<n_cell; ++i) {
       Cell & cell = cell_list[i];
       if (cell.get_grip_ID() != current_grip_ID) {
         grip_start_index = i;
@@ -436,11 +434,10 @@ class Mesh {
     }
 
     // set grip ID using the map of start indices and number of cells
-    for (auto map_i = start_index_to_count.begin();
-      map_i!=start_index_to_count.end(); map_i++)
+    for (auto const &map_i : start_index_to_count)
     {
-      grip_start_index = map_i->first;
-      grip_count = map_i->second;
+      grip_start_index = map_i.first;
+      grip_count = map_i.second;
       // set the new grip ID to be the index of the cell at the center of
       // this grip for odd grip sizes and one above center for even grip
       // sizes (for convenience in parallel comm)
@@ -449,7 +446,7 @@ class Mesh {
       max_grip_size = max(max_grip_size, grip_count);
       // loop over cells in grip and set new ID
       grip_end_index = grip_start_index+grip_count;
-      for (uint32_t j=grip_start_index; j<grip_end_index;j++)
+      for (uint32_t j=grip_start_index; j<grip_end_index; ++j)
         cell_list[j].set_grip_ID(new_grip_ID);
     }
   }
@@ -544,9 +541,9 @@ class Mesh {
     unordered_map<uint32_t, uint32_t>::iterator end = off_map.end();
     uint32_t new_index, new_grip_index;
     // check to see if neighbors are on or off processor
-    for (uint32_t i=0; i<n_cell; i++) {
+    for (uint32_t i=0; i<n_cell; ++i) {
       Cell& cell = cell_list[i];
-      for (uint32_t d=0; d<6; d++) {
+      for (uint32_t d=0; d<6; ++d) {
         next_index = cell.get_next_cell(d);
         unordered_map<uint32_t, uint32_t>::iterator map_i =
           off_map.find(next_index);
@@ -573,7 +570,7 @@ class Mesh {
   }
 
   //! Renumber the local cell IDs and connectivity of local cells after
-  // decomposition using simple global  numbering
+  // decomposition using simple global numbering
   void renumber_local_cell_indices(
     std::unordered_map<uint32_t, uint32_t> local_map,
     std::unordered_map<uint32_t, uint32_t> local_grip_map)
@@ -590,10 +587,10 @@ class Mesh {
     bc_type current_bc;
     // renumber global cell and check to see if neighbors are on or off
     // processor
-    for (uint32_t i=0; i<n_cell; i++) {
+    for (uint32_t i=0; i<n_cell; ++i) {
       Cell& cell = cell_list[i];
       cell.set_ID(i+on_rank_start);
-      for (uint32_t d=0; d<6; d++) {
+      for (uint32_t d=0; d<6; ++d) {
         current_bc = cell.get_bc(bc_type(d));
         next_index = cell.get_next_cell(d);
         unordered_map<uint32_t, uint32_t>::iterator map_i =
@@ -610,17 +607,15 @@ class Mesh {
     } // end cell
   }
 
-  // Remove old mesh cells after decomposition and communication of new cells
+  //! Remove old mesh cells after decomposition and communication of new cells
   void set_post_decomposition_mesh_cells(void) {
     using std::vector;
     vector<Cell> new_mesh;
-    for (uint32_t i =0; i< cell_list.size(); i++) {
+    for (uint32_t i =0; i< cell_list.size(); ++i) {
       bool delete_flag = false;
-      for (vector<uint32_t>::iterator rmv_itr= remove_cell_list.begin();
-        rmv_itr != remove_cell_list.end();
-        rmv_itr++)
+      for (auto rmv_itr : remove_cell_list)
       {
-        if (*rmv_itr == i)  delete_flag = true;
+        if (rmv_itr == i)  delete_flag = true;
       }
       if (delete_flag == false) new_mesh.push_back(cell_list[i]);
     }
@@ -666,7 +661,7 @@ class Mesh {
   //! Use the absorbed energy and update the material temperature of each
   // cell on the mesh. Set diagnostic and conservation values.
   void update_temperature(std::vector<double>& abs_E, IMC_State* imc_s) {
-    //abs E is a global vector
+    // abs E is a global vector
     double total_abs_E = 0.0;
     double total_post_mat_E = 0.0;
     double vol,cV,rho,T, T_new;
@@ -686,7 +681,7 @@ class Mesh {
       total_abs_E+=abs_E[i+on_rank_start];
       total_post_mat_E+= T_new*cV*vol*rho;
     }
-    //zero out absorption tallies for all cells (global)
+    // zero out absorption tallies for all cells (global)
     for (uint32_t i=0; i<abs_E.size();++i) {
       abs_E[i] = 0.0;
     }
@@ -696,7 +691,7 @@ class Mesh {
     off_rank_reads = 0;
   }
 
-  //! Return reference to MPI window (used by rma_mesh_manager class)
+  //! Return a constant reference to MPI window (used by rma_mesh_manager class)
   MPI_Win& get_mesh_window_ref(void) {return mesh_window;}
 
   //! Add off-rank mesh data to the temporary mesh storage and manage the
@@ -758,57 +753,57 @@ class Mesh {
   //--------------------------------------------------------------------------//
   private:
 
-  uint32_t ngx; //! Number of global x sizes
-  uint32_t ngy; //! Number of global y sizes
-  uint32_t ngz; //! Number of global z sizes
-  uint32_t rank; //! MPI rank of this mesh
-  uint32_t n_rank; //! Number of global ranks
-  uint32_t n_off_rank; //! Number of other ranks
+  uint32_t ngx; //!< Number of global x sizes
+  uint32_t ngy; //!< Number of global y sizes
+  uint32_t ngz; //!< Number of global z sizes
+  uint32_t rank; //!< MPI rank of this mesh
+  uint32_t n_rank; //!< Number of global ranks
+  uint32_t n_off_rank; //!< Number of other ranks
 
   //! Factor to reduce emission and initial census in replicated mode
   double replicated_factor;
 
-  float *silo_x; //! Global array of x face locations for SILO
-  float *silo_y; //! Global array of y face locations for SILO
-  float *silo_z; //! Global array of z face locations for SILO
+  float *silo_x; //!< Global array of x face locations for SILO
+  float *silo_y; //!< Global array of y face locations for SILO
+  float *silo_z; //!< Global array of z face locations for SILO
 
-  uint32_t n_cell; //! Number of local cells
-  uint32_t n_global; //! Nuber of global cells
+  uint32_t n_cell; //!< Number of local cells
+  uint32_t n_global; //!< Nuber of global cells
 
-  uint32_t on_rank_start; //! Start of global index on rank
-  uint32_t on_rank_end; //! End of global index on rank
+  uint32_t on_rank_start; //!< Start of global index on rank
+  uint32_t on_rank_end; //!< End of global index on rank
 
-  std::vector<double> m_census_E; //! Census energy vector
-  std::vector<double> m_emission_E; //! Emission energy vector
-  std::vector<double> m_source_E; //! Source energy vector
+  std::vector<double> m_census_E; //!< Census energy vector
+  std::vector<double> m_emission_E; //!< Emission energy vector
+  std::vector<double> m_source_E; //!< Source energy vector
 
-  Cell *cells; //! Cell data allocated with MPI_Alloc
-  std::vector<Cell> cell_list; //! On processor cells
-  std::vector<Cell> new_cell_list; //! New received cells
-  std::vector<uint32_t> remove_cell_list; //! Cells to be removed
-  std::vector<uint32_t> off_rank_bounds; //! Ending value of global ID for each rank
+  Cell *cells; //!< Cell data allocated with MPI_Alloc
+  std::vector<Cell> cell_list; //!< On processor cells
+  std::vector<Cell> new_cell_list; //!< New received cells
+  std::vector<uint32_t> remove_cell_list; //!< Cells to be removed
+  std::vector<uint32_t> off_rank_bounds; //!< Ending value of global ID for each rank
 
-  std::unordered_map<uint32_t, uint32_t> adjacent_procs; //! List of adjacent processors
+  std::unordered_map<uint32_t, uint32_t> adjacent_procs; //!< List of adjacent processors
 
-  std::vector<Region> regions; //! Vector of regions in the problem
-  std::unordered_map<uint32_t, uint32_t> region_ID_to_index; //! Maps region ID to index
+  std::vector<Region> regions; //!< Vector of regions in the problem
+  std::unordered_map<uint32_t, uint32_t> region_ID_to_index; //!< Maps region ID to index
 
-  double total_photon_E; //! Total photon energy on the mesh
+  double total_photon_E; //!< Total photon energy on the mesh
 
-  uint32_t max_map_size; //! Maximum size of map object
-  uint32_t off_rank_reads; //! Number of off rank reads
-  int32_t mpi_cell_size; //! Size of custom MPI_Cell type
+  uint32_t max_map_size; //!< Maximum size of map object
+  uint32_t off_rank_reads; //!< Number of off rank reads
+  int32_t mpi_cell_size; //!< Size of custom MPI_Cell type
 
-  MPI_Win mesh_window; //! Handle to shared memory window of cell data
+  MPI_Win mesh_window; //!< Handle to shared memory window of cell data
 
   //! Cells that have been accessed off rank
   std::unordered_map<uint32_t, Cell> stored_cells;
 
-  std::unordered_map<int,int> proc_map; //! Maps number of off-rank processor to global rank
+  std::unordered_map<int,int> proc_map; //!< Maps number of off-rank processor to global rank
 
-  uint32_t max_grip_size; //! Size of largest grip on this rank
+  uint32_t max_grip_size; //!< Size of largest grip on this rank
 
-  bool mpi_window_set; //! Flag indicating if MPI_Window was created
+  bool mpi_window_set; //!< Flag indicating if MPI_Window was created
 
 };
 

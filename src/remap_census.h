@@ -110,9 +110,6 @@ void set_census_send_maps(const uint32_t rank, const uint32_t n_rank,
   {
     cell_ID = iphtn->get_cell();
     p_rank = get_rank(rank_bounds, cell_ID);
-    if (p_rank == 3) {
-      uint32_t x=0;
-    }
     if (p_rank != rank)
       send_rank = get_send_rank(rank, p_rank, n_rank);
     else
@@ -164,7 +161,6 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
 
   // do the binary tree pattern to the nearest log2(rank), rounding down
   int32_t n_levels = int32_t(log2(n_rank));
-  uint32_t max_rank = pow(2, n_levels) - 1;
 
   // make n_levels of send buffers
   vector< vector<Photon> > send_buffers(n_levels);
@@ -178,7 +174,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
 
 
   uint32_t send_rank, start_index, count;
-  for (uint32_t i=0;i<n_levels;++i) {
+  for (int32_t i=0;i<n_levels;++i) {
     send_rank = get_pairing(rank, n_rank, i);
     // if send_rank is in the map, add photons to buffer
     if (census_on_rank.find(send_rank) != census_on_rank.end()) {
@@ -195,7 +191,6 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
   // try to manage the memory at the node level, allow 75% of the node memory
   // to be photons
   uint64_t node_photons = 0;
-  uint64_t n_recv_node = 0;
   uint64_t max_node_photons = uint64_t(
     0.75*(mpi_info.get_node_mem()/sizeof(Photon)));
 
@@ -286,7 +281,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
     }
 
     // now copy out photons going to other ranks to
-    for (uint32_t i=0;i<n_levels;++i) {
+    for (int32_t i=0;i<n_levels;++i) {
       send_rank = get_pairing(rank, n_rank, i);
       if (recv_census_on_rank.find(send_rank) != recv_census_on_rank.end()) {
         start_index = recv_census_start_index[send_rank];

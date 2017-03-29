@@ -47,7 +47,7 @@ class Input
     using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
     using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
     // DD methods
-    using Constants::PARTICLE_PASS; using Constants::CELL_PASS; 
+    using Constants::PARTICLE_PASS; using Constants::CELL_PASS;
     using Constants::CELL_PASS_RMA; using Constants::REPLICATED;
     using Constants::RMA_COMPLETION;
     using Constants::MILAGRO_COMPLETION;
@@ -369,7 +369,7 @@ class Input
 
     // batch size should be very large in replicated mode since there is no
     // need to check buffers
-    if (dd_mode == REPLICATED) 
+    if (dd_mode == REPLICATED)
       batch_size = 100000000;
   }
 
@@ -574,18 +574,18 @@ class Input
   private:
 
   // flags
-  bool using_simple_mesh;
-  bool using_detailed_mesh;
-  bool write_silo;
+  bool using_simple_mesh; //!< Use the simple mesh specification
+  bool using_detailed_mesh; //!< Use the detailed mesh specification
+  bool write_silo; //!< Dump SILO output files
 
-  Constants::bc_type bc[6]; //! Boundary condition array
+  Constants::bc_type bc[6]; //!< Boundary condition array
 
   // timing
-  double tStart; //! Starting time
-  double dt; //! Timestep size
-  double tFinish; //! Finish time
-  double tMult; //! Timestep multiplier
-  double dtMax; //! Maximum timestep size
+  double tStart; //!< Starting time
+  double dt; //!< Timestep size
+  double tFinish; //!< Finish time
+  double tMult; //!< Timestep multiplier
+  double dtMax; //!< Maximum timestep size
 
   //material
   std::vector<Region> regions;
@@ -593,49 +593,49 @@ class Input
   std::unordered_map<uint32_t, uint32_t> region_ID_to_index;
 
   //source
-  double T_source; //! Temperature of source
+  double T_source; //!< Temperature of source
 
   // Monte Carlo parameters
-  uint64_t n_photons; //! Photons to source each timestep
-  uint32_t seed; //! Random number seed
+  uint64_t n_photons; //!< Photons to source each timestep
+  uint32_t seed; //!< Random number seed
 
   // Method parameters
-  bool use_tilt; //! Use tilting for emission sampling
-  bool use_comb; //! Comb census photons
-  bool use_strat; //! Use strafifed sampling
-  uint32_t dd_mode; //! Mode of domain decomposed transport algorithm
-  uint32_t completion_routine; //! Method for handling transport completion
+  bool use_tilt; //!< Use tilting for emission sampling
+  bool use_comb; //!< Comb census photons
+  bool use_strat; //!< Use strafifed sampling
+  uint32_t dd_mode; //!< Mode of domain decomposed transport algorithm
+  uint32_t completion_routine; //!< Method for handling transport completion
 
   // Debug parameters
-  int output_freq; //! How often to print temperature information
-  bool print_verbose; //! Verbose printing flag
-  bool print_mesh_info; //! Mesh information printing flag
+  int output_freq; //!< How often to print temperature information
+  bool print_verbose; //!< Verbose printing flag
+  bool print_mesh_info; //!< Mesh information printing flag
 
   // parallel performance parameters
-  uint32_t grip_size; //! Preferred number of cells in a parallel communication
-  uint32_t map_size; //! Size of stored off-rank mesh cells
-  uint32_t batch_size; //! Particles to run between MPI message checks
-  uint32_t particle_message_size; //! Preferred number of particles in MPI sends
+  uint32_t grip_size; //!< Preferred number of cells in a parallel communication
+  uint32_t map_size; //!< Size of stored off-rank mesh cells
+  uint32_t batch_size; //!< Particles to run between MPI message checks
+  uint32_t particle_message_size; //!< Preferred number of particles in MPI sends
 
   // detailed mesh specifications
-  uint32_t n_divisions;
-  std::vector<double> x_start;
-  std::vector<double> x_end;
-  std::vector<double> y_start;
-  std::vector<double> y_end;
-  std::vector<double> z_start;
-  std::vector<double> z_end;
-  std::vector<uint32_t> n_x_cells;
-  std::vector<uint32_t> n_y_cells;
-  std::vector<uint32_t> n_z_cells;
-  uint32_t n_global_x_cells;
-  uint32_t n_global_y_cells;
-  uint32_t n_global_z_cells;
+  uint32_t n_divisions; //!< Number of divisions in the mesh
+  std::vector<double> x_start; //!< x starting positions for each division
+  std::vector<double> x_end; //!< x ending positions for each division
+  std::vector<double> y_start; //!< y starting positions for each division
+  std::vector<double> y_end; //!< y ending positions for each division
+  std::vector<double> z_start; //!< z starting positions for each division
+  std::vector<double> z_end; //!< z ending positions for each division
+  std::vector<uint32_t> n_x_cells; //!< Number of x cells in each division
+  std::vector<uint32_t> n_y_cells; //!< Number of y cells in each division
+  std::vector<uint32_t> n_z_cells; //!< Number of z cells in each division
+  uint32_t n_global_x_cells; //!< Total number of x cells over all divisions
+  uint32_t n_global_y_cells; //!< Total number of y cells over all divisions
+  uint32_t n_global_z_cells; //!< Total number of z cells over all divisions
 
   // arrays for silo
-  float *silo_x;
-  float *silo_y;
-  float *silo_z;
+  float *silo_x; //!< x positions for SILO arrays (i + nx*j + nx*ny*k)
+  float *silo_y; //!< y positions for SILO arrays (i + nx*j + nx*ny*k)
+  float *silo_z; //!< z positions for SILO arrays (i + nx*j + nx*ny*k)
 };
 
 #endif // input_h_

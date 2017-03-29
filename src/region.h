@@ -17,9 +17,9 @@
 /*!
  * \class Region
  * \brief Contains data necessary to physically define a region of the problem
- * 
- * This class holds heat capcaity, density, opacity and initial temperature 
- * conditions. All of these are necessary to initialize cells created in 
+ *
+ * This class holds heat capcaity, density, opacity and initial temperature
+ * conditions. All of these are necessary to initialize cells created in
  * this spatial region.
  */
 //==============================================================================
@@ -31,9 +31,9 @@ class Region
   }
   ~Region(void) {}
 
-/*****************************************************************************/
-/* const functions                                                           */
-/*****************************************************************************/
+//----------------------------------------------------------------------------//
+// const functions                                                            //
+//----------------------------------------------------------------------------//
   uint32_t get_ID(void) const {return ID;}
   double get_cV(void) const {return cv;}
   double get_rho(void) const {return rho;}
@@ -47,9 +47,9 @@ class Region
     return opacA + opacB*std::pow(T, opacC);
   }
   double get_scattering_opacity(void) const {return opacS;}
-/*****************************************************************************/
-/* non-const functions                                                       */
-/*****************************************************************************/
+//----------------------------------------------------------------------------//
+// non-const functions                                                        //
+//----------------------------------------------------------------------------//
   void set_ID(const uint32_t& _ID) {ID = _ID;}
   void set_cV(const double& _cv) {cv = _cv;}
   void set_rho(const double& _rho) {rho = _rho;}
@@ -61,23 +61,23 @@ class Region
   void set_T_r(const double& _T_r) {T_r = _T_r;}
   void set_T_s(const double& _T_s) {T_s = _T_s;}
 
-/*****************************************************************************/
-/* member variables and private functions                                    */
-/*****************************************************************************/
+//----------------------------------------------------------------------------//
+// member variables and private functions                                     //
+//----------------------------------------------------------------------------//
   private:
-  uint32_t ID; //! User defined ID of this region 
-  double cv; //! Heat capacity in this region
-  double rho; //! Density in this region (g/cc)
-  double opacA; //! A in A + B * T ^ C
-  double opacB; //! B in A + B * T ^ C
-  double opacC; //! C in A + B * T ^ C
-  double opacS; //! Physical scattering constant coefficient
-  double T_e; //! Initial electron temperature in region
-  double T_r; //! Initial radiation temperature in region
-  double T_s; //! Temperature of source in region
+  uint32_t ID; //!< User defined ID of this region
+  double cv; //!< Heat capacity in this region
+  double rho; //!< Density in this region (g/cc)
+  double opacA; //!< A in A + B * T ^ C
+  double opacB; //!< B in A + B * T ^ C
+  double opacC; //!< C in A + B * T ^ C
+  double opacS; //!< Physical scattering constant coefficient
+  double T_e; //!< Initial electron temperature in region
+  double T_r; //!< Initial radiation temperature in region
+  double T_s; //!< Temperature of source in region
 };
 
 #endif
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
 // end of region.h
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//

@@ -1,4 +1,4 @@
-//----------------------------------*-C++-*----------------------------------//
+//----------------------------------*-C++-*-----------------------------------//
 /*!
  * \file   info.h
  * \author Alex Long
@@ -6,7 +6,7 @@
  * \brief  Stores MPI information to compress function signatures
  * \note   ***COPYRIGHT_GOES_HERE****
  */
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
 
 #ifndef info_h_
 #define info_h_
@@ -87,13 +87,13 @@ class Info
   // member data                                                              //
   //--------------------------------------------------------------------------//
   private:
-  int rank; //! Global rank ID
-  int n_rank; //! Global number of ranks
-  int color; //! Unique identifier for this node
-  int64_t node_mem; //! Total memory available for this node
+  int rank; //!< Global rank ID
+  int n_rank; //!< Global number of ranks
+  int color; //!< Unique identifier for this node
+  int64_t node_mem; //!< Total memory available for this node
 };
 
 #endif // info_h_
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//
 // end of info.h
-//---------------------------------------------------------------------------//
+//----------------------------------------------------------------------------//

@@ -27,7 +27,7 @@
 /*!
  * \class IMC_State
  * \brief Holds high level information and diagnostic data
- * 
+ *
  * Keeps track of the simulation time, step, particle counts and
  * energy conservation qualities. Also holds the RNG pointer.
  * \example no test yet
@@ -130,7 +130,7 @@ class IMC_State
     if (m_time + next_dt > m_time_stop) next_dt = m_time_stop - m_time;
 
     return next_dt;
-  }  
+  }
 
   //! Check to see if simulation has completed
   bool finished(void) const {
@@ -187,7 +187,7 @@ class IMC_State
     using Constants::CELL_PASS;
 
     //define global value
-    double g_absorbed_E=0.0; 
+    double g_absorbed_E=0.0;
     double g_emission_E=0.0;
     double g_pre_census_E=0.0;
     double g_pre_mat_E=0.0;
@@ -214,58 +214,58 @@ class IMC_State
     uint32_t g_step_receives_completed=0;
 
     //reduce energy conservation values (double)
-    MPI_Allreduce(&absorbed_E, &g_absorbed_E, 1, MPI_DOUBLE, MPI_SUM, 
-      MPI_COMM_WORLD); 
-    MPI_Allreduce(&emission_E, &g_emission_E, 1, MPI_DOUBLE, MPI_SUM, 
-      MPI_COMM_WORLD); 
-    MPI_Allreduce(&pre_census_E, &g_pre_census_E, 1, MPI_DOUBLE, MPI_SUM, 
+    MPI_Allreduce(&absorbed_E, &g_absorbed_E, 1, MPI_DOUBLE, MPI_SUM,
       MPI_COMM_WORLD);
-    MPI_Allreduce(&pre_mat_E, &g_pre_mat_E, 1, MPI_DOUBLE, MPI_SUM, 
+    MPI_Allreduce(&emission_E, &g_emission_E, 1, MPI_DOUBLE, MPI_SUM,
       MPI_COMM_WORLD);
-    MPI_Allreduce(&post_census_E, &g_post_census_E, 1, MPI_DOUBLE, MPI_SUM, 
+    MPI_Allreduce(&pre_census_E, &g_pre_census_E, 1, MPI_DOUBLE, MPI_SUM,
       MPI_COMM_WORLD);
-    MPI_Allreduce(&post_mat_E, &g_post_mat_E, 1, MPI_DOUBLE, MPI_SUM, 
+    MPI_Allreduce(&pre_mat_E, &g_pre_mat_E, 1, MPI_DOUBLE, MPI_SUM,
+      MPI_COMM_WORLD);
+    MPI_Allreduce(&post_census_E, &g_post_census_E, 1, MPI_DOUBLE, MPI_SUM,
+      MPI_COMM_WORLD);
+    MPI_Allreduce(&post_mat_E, &g_post_mat_E, 1, MPI_DOUBLE, MPI_SUM,
       MPI_COMM_WORLD);
     MPI_Allreduce(&exit_E, &g_exit_E, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     //reduce timestep values
-    MPI_Allreduce(&rank_transport_runtime, &max_transport_time, 1, MPI_DOUBLE, 
+    MPI_Allreduce(&rank_transport_runtime, &max_transport_time, 1, MPI_DOUBLE,
       MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&rank_transport_runtime, &min_transport_time, 1, MPI_DOUBLE, 
+    MPI_Allreduce(&rank_transport_runtime, &min_transport_time, 1, MPI_DOUBLE,
       MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(&rank_mpi_time, &max_mpi_time, 1, MPI_DOUBLE, MPI_MAX, 
+    MPI_Allreduce(&rank_mpi_time, &max_mpi_time, 1, MPI_DOUBLE, MPI_MAX,
       MPI_COMM_WORLD);
-    MPI_Allreduce(&rank_mpi_time, &min_mpi_time, 1, MPI_DOUBLE, MPI_MIN, 
+    MPI_Allreduce(&rank_mpi_time, &min_mpi_time, 1, MPI_DOUBLE, MPI_MIN,
       MPI_COMM_WORLD);
 
     // reduce diagnostic values
     // 64 bit integer reductions
-    MPI_Allreduce(&trans_particles, &g_trans_particles, 1, MPI_UNSIGNED_LONG, 
+    MPI_Allreduce(&trans_particles, &g_trans_particles, 1, MPI_UNSIGNED_LONG,
       MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_particles_sent, &g_step_particles_sent, 1, 
+    MPI_Allreduce(&step_particles_sent, &g_step_particles_sent, 1,
       MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&census_size, &g_census_size, 1, MPI_UNSIGNED_LONG, MPI_SUM, 
+    MPI_Allreduce(&census_size, &g_census_size, 1, MPI_UNSIGNED_LONG, MPI_SUM,
       MPI_COMM_WORLD);
 
     // 32 bit integer reductions
-    MPI_Allreduce(&step_cells_requested, &g_step_cells_requested, 1, 
+    MPI_Allreduce(&step_cells_requested, &g_step_cells_requested, 1,
       MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_particle_messages, &g_step_particle_messages, 1, 
+    MPI_Allreduce(&step_particle_messages, &g_step_particle_messages, 1,
       MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_cell_messages, &g_step_cell_messages, 1, MPI_UNSIGNED, 
+    MPI_Allreduce(&step_cell_messages, &g_step_cell_messages, 1, MPI_UNSIGNED,
       MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_cells_sent, &g_step_cells_sent, 1, MPI_UNSIGNED, 
+    MPI_Allreduce(&step_cells_sent, &g_step_cells_sent, 1, MPI_UNSIGNED,
       MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_sends_posted, &g_step_sends_posted, 1, MPI_UNSIGNED, 
+    MPI_Allreduce(&step_sends_posted, &g_step_sends_posted, 1, MPI_UNSIGNED,
       MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_sends_completed, &g_step_sends_completed, 1, 
+    MPI_Allreduce(&step_sends_completed, &g_step_sends_completed, 1,
       MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_receives_posted, &g_step_receives_posted, 1, 
+    MPI_Allreduce(&step_receives_posted, &g_step_receives_posted, 1,
       MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_receives_completed, &g_step_receives_completed, 1, 
+    MPI_Allreduce(&step_receives_completed, &g_step_receives_completed, 1,
       MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
-    
-    double rad_conservation = (g_absorbed_E + g_post_census_E + g_exit_E) - 
+
+    double rad_conservation = (g_absorbed_E + g_post_census_E + g_exit_E) -
       (g_pre_census_E + g_emission_E + source_E);
 
     double mat_conservation = g_post_mat_E - (g_pre_mat_E + g_absorbed_E -
@@ -277,7 +277,7 @@ class IMC_State
     total_cell_messages+=g_step_cell_messages;
     total_particles_sent+=g_step_particles_sent;
     total_particle_messages+=g_step_particle_messages;
-    
+
 
     if (rank == 0) {
       cout<<"Total Photons transported: "<<g_trans_particles<<endl;
@@ -342,7 +342,7 @@ class IMC_State
   //! Set absorbed energy for current timestep (diagnostic)
   void set_absorbed_E(double _absorbed_E) {absorbed_E = _absorbed_E;}
 
-  //! Set exit energy from transport (diagnostic) 
+  //! Set exit energy from transport (diagnostic)
   void set_exit_E(double _exit_E) {exit_E = _exit_E;}
 
   //! set particles transported for current timestep (diagnostic, 64 bit)
@@ -382,44 +382,44 @@ class IMC_State
 
   //! Set load balance time for this timestep
   void set_load_balance_time(double _load_balance_time) {
-   rank_load_balance_time = _load_balance_time; 
+   rank_load_balance_time = _load_balance_time;
   }
 
   //--------------------------------------------------------------------------//
   // member data                                                              //
   //--------------------------------------------------------------------------//
   private:
-  uint32_t rank; //! Rank owning this states object
+  uint32_t rank; //!< Rank owning this states object
   //time
-  double m_dt; //! Current time step size (sh)
-  double m_time; //! Current time (sh)
-  double m_time_stop; //! End time (sh)
-  uint32_t m_step; //! Time step (start at 1)
-  double m_dt_mult; //! Time step multiplier
-  double m_dt_max;  //! Max time step
+  double m_dt; //!< Current time step size (sh)
+  double m_time; //!< Current time (sh)
+  double m_time_stop; //!< End time (sh)
+  uint32_t m_step; //!< Time step (start at 1)
+  double m_dt_mult; //!< Time step multiplier
+  double m_dt_max;  //!< Max time step
 
   //conservation
-  double pre_census_E; //! Census energy at the beginning of the timestep
-  double post_census_E; //! Census energy at the end of the timestep
-  double pre_mat_E; //! Material energy at the beginning of timestep
-  double post_mat_E; //! Material energy at the end of timestep
-  double emission_E; //! Energy emitted this timestep
-  double exit_E; //! Energy exiting problem
-  double absorbed_E; //! Total absorbed energy 
-  double source_E; //! Sourced energy
+  double pre_census_E; //!< Census energy at the beginning of the timestep
+  double post_census_E; //!< Census energy at the end of the timestep
+  double pre_mat_E; //!< Material energy at the beginning of timestep
+  double post_mat_E; //!< Material energy at the end of timestep
+  double emission_E; //!< Energy emitted this timestep
+  double exit_E; //!< Energy exiting problem
+  double absorbed_E; //!< Total absorbed energy
+  double source_E; //!< Sourced energy
 
   //diagnostic 64 bit integers relating to particle counts
-  uint64_t trans_particles; //! Particles transported
-  uint64_t census_size; //! Number of particles in census
+  uint64_t trans_particles; //!< Particles transported
+  uint64_t census_size; //!< Number of particles in census
 
-  uint64_t step_particles_sent; //! Number of particles passed
+  uint64_t step_particles_sent; //!< Number of particles passed
 
   //! Total number of particles sent for simulation
-  uint64_t total_particles_sent; 
+  uint64_t total_particles_sent;
 
   //diagnostic 32 bit integers relating to messages and cell counts
   //! Total number of cells requested for simulation
-  uint32_t total_cells_requested; 
+  uint32_t total_cells_requested;
 
   //! Total number of cells sent for simulation
   uint32_t total_cells_sent;
@@ -429,24 +429,23 @@ class IMC_State
 
   //! Total number of particle messages sent for simulation
   uint32_t total_particle_messages;
- 
-  uint32_t step_particle_messages; //! Number of particle messages
-  uint32_t step_cells_requested; //! Number of cells requested by this rank
-  uint32_t step_cell_messages; //! Number of cell messages
-  uint32_t step_cells_sent; //! Number of cells passed
-  uint32_t step_sends_posted; //! Number of sent messages posted
-  uint32_t step_sends_completed; //! Number of sent messages completed
-  uint32_t step_receives_posted; //! Number of received messages completed
-  uint32_t step_receives_completed;  //! Number of received messages completed
 
-  double rank_transport_runtime; //! Transport step runtime for this rank
-  double rank_mpi_time; //! Time set in MPI related calls for this rank
+  uint32_t step_particle_messages; //!< Number of particle messages
+  uint32_t step_cells_requested; //!< Number of cells requested by this rank
+  uint32_t step_cell_messages; //!< Number of cell messages
+  uint32_t step_cells_sent; //!< Number of cells passed
+  uint32_t step_sends_posted; //!< Number of sent messages posted
+  uint32_t step_sends_completed; //!< Number of sent messages completed
+  uint32_t step_receives_posted; //!< Number of received messages completed
+  uint32_t step_receives_completed;  //!< Number of received messages completed
+
+  double rank_transport_runtime; //!< Transport step runtime for this rank
+  double rank_mpi_time; //!< Time set in MPI related calls for this rank
 
   //! Time to load balance particles this timestep
-  double rank_load_balance_time; 
+  double rank_load_balance_time;
 
-  //! RNG
-  RNG* m_RNG;
+  RNG* m_RNG; //!< Rank specific RNG
 };
 
 #endif // imc_state_h_

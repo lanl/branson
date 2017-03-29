@@ -17,7 +17,7 @@
 /*!
  * \class IMC_Parameters
  * \brief Holds parameters used in IMC simulation
- * 
+ *
  * Initialized with the input class and then data members are invariant
  * \example no test yet
  */
@@ -38,7 +38,7 @@ class IMC_Parameters
       write_silo_flag(input->get_write_silo_bool())
     {}
 
-  // destructor
+  //! destructor
   ~IMC_Parameters() {}
 
   //--------------------------------------------------------------------------//
@@ -48,7 +48,7 @@ class IMC_Parameters
   //! Return total photons specified by the user
   uint64_t get_n_user_photon(void) const {return n_user_photon;}
 
-  //! Return the preferred number of cells in a parallel communication 
+  //! Return the preferred number of cells in a parallel communication
   uint32_t get_grip_size(void) const {return grip_size;}
 
   //! Return maximum size of stored remote mesh
@@ -57,7 +57,7 @@ class IMC_Parameters
   //! Return domain decomposition algorithm
   uint32_t get_dd_mode(void) const {return dd_mode;}
 
-  //! Return completion 
+  //! Return completion
   uint32_t get_completion_method(void) const {return completion_method;}
 
   //! Get the number of particles to run between MPI message processing
@@ -74,18 +74,18 @@ class IMC_Parameters
   //--------------------------------------------------------------------------//
   private:
 
-  uint64_t n_user_photon; //! User requested number of photons per timestep
+  uint64_t n_user_photon; //!< User requested number of photons per timestep
 
-  //! Preferred number of cells in a grip, the number of cells that are sent 
+  //! Preferred number of cells in a grip, the number of cells that are sent
   // in a message together
-  uint32_t grip_size; 
+  uint32_t grip_size;
 
-  uint32_t map_size; //! Size of stored off-rank mesh cells
-  uint32_t dd_mode; //! Mode of domain decomposed transport algorithm
-  uint32_t completion_method; //! Method for handling completion messages
-  uint32_t batch_size; //! How often to check for MPI passed data
-  uint32_t particle_message_size; //! Preferred number of particles in MPI sends
-  bool write_silo_flag; //! Write SILO output files flag
+  uint32_t map_size; //!< Size of stored off-rank mesh cells
+  uint32_t dd_mode; //!< Mode of domain decomposed transport algorithm
+  uint32_t completion_method; //!< Method for handling completion messages
+  uint32_t batch_size; //!< How often to check for MPI passed data
+  uint32_t particle_message_size; //!< Preferred number of particles in MPI sends
+  bool write_silo_flag; //!< Write SILO output files flag
 };
 
 #endif // imc_parameters_h_

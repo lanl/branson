@@ -72,7 +72,6 @@ std::vector<Photon> replicated_transport( Source& source,
 
   uint64_t n_complete = 0; //! Completed histories, regardless of origin
   uint64_t n_local_sourced = 0; //! Photons pulled from source object
-  bool finished = false;
   Photon phtn;
   event_type event;
 
@@ -109,7 +108,7 @@ std::vector<Photon> replicated_transport( Source& source,
   // record time of transport work for this rank
   t_transport.stop_timer("timestep transport");
 
-  // wait for all ranks to finish 
+  // wait for all ranks to finish
   MPI_Barrier(MPI_COMM_WORLD);
 
   std::sort(census_list.begin(), census_list.end());
