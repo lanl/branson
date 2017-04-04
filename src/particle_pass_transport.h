@@ -295,22 +295,21 @@ std::vector<Photon> particle_pass_transport(Source& source,
             }
           }
 
-          // send full photon buffers if phtn_send_buffer is empty and send_list has
-          // some photons in it
+          // send full photon buffers if phtn_send_buffer is empty (send has
+          // completed)
           if ( (phtn_send_buffer[i_b].empty() && send_list[i_b].size() >=
             max_buffer_size))
           {
-            uint32_t n_photons_to_send = max_buffer_size;
             vector<Photon>::iterator copy_start = send_list[i_b].begin();
-            vector<Photon>::iterator copy_end = send_list[i_b].begin()+n_photons_to_send;
+            vector<Photon>::iterator copy_end = send_list[i_b].begin()+max_buffer_size;
             vector<Photon> send_now_list(copy_start, copy_end);
             send_list[i_b].erase(copy_start,copy_end);
             phtn_send_buffer[i_b].fill(send_now_list);
-            MPI_Isend(phtn_send_buffer[i_b].get_buffer(), n_photons_to_send, MPI_Particle,
+            MPI_Isend(phtn_send_buffer[i_b].get_buffer(), max_buffer_size, MPI_Particle,
               send_rank, photon_tag, MPI_COMM_WORLD, &phtn_send_request[i_b]);
             phtn_send_buffer[i_b].set_sent();
             // update counters
-            mctr.n_particles_sent += n_photons_to_send;
+            mctr.n_particles_sent += max_buffer_size;
             mctr.n_sends_posted++;
             mctr.n_particle_messages++;
           }
@@ -333,9 +332,9 @@ std::vector<Photon> particle_pass_transport(Source& source,
       MPI_Status recv_status;
       uint32_t i_b; // buffer index
       int adj_rank; // adjacent rank
-      for ( auto it=adjacent_procs.begin(); it != adjacent_procs.end(); ++it) {
-        adj_rank = it->first;
-        i_b = it->second;
+      for ( auto const &it : adjacent_procs) {
+        adj_rank = it.first;
+        i_b = it.second;
 
         // sends are handled above, unless we're done with local work and banks
         // are empty
