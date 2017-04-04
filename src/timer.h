@@ -41,9 +41,8 @@ class Timer
 
   //! Print all timers that have been measured with this clsas
   void print_timers(void) const {
-    typedef std::unordered_map<std::string, double>::const_iterator map_itr;
-    for (map_itr i = times.cbegin(); i != times.cend(); i++) {
-      std::cout<<i->first<<": "<<i->second<<std::endl;
+    for (auto const & i_time : times) {
+      std::cout<<i_time.first<<": "<<i_time.second<<std::endl;
     }
   }
 

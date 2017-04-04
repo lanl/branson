@@ -24,14 +24,14 @@ void pretransport_requests(std::vector<Work_Packet>& work,
   Message_Counter& mctr)
 {
 
-  for (auto i_w = work.begin();i_w!=work.end();++i_w) {
-    uint32_t grip_ID = i_w->get_global_grip_ID();
+  for (auto const &i_w : work) {
+    uint32_t grip_ID = i_w.get_global_grip_ID();
     if (!mesh->on_processor(grip_ID))
       rma_manager->request_cell_rma(grip_ID, mctr);
   }
 
-  for (auto i_p = census_list.begin();i_p!=census_list.end();++i_p) {
-    uint32_t grip_ID = i_p->get_grip();
+  for (auto const &i_p : census_list) {
+    uint32_t grip_ID = i_p.get_grip();
     if (!mesh->on_processor(grip_ID))
       rma_manager->request_cell_rma(grip_ID, mctr);
   }
@@ -39,18 +39,18 @@ void pretransport_requests(std::vector<Work_Packet>& work,
 
 //! Request data for mesh that you particles live on right now
 void pretransport_requests(std::vector<Work_Packet>& work,
-  std::vector<Photon>& census_list, Mesh *mesh, 
+  std::vector<Photon>& census_list, Mesh *mesh,
   Mesh_Request_Manager *req_manager, Message_Counter& mctr)
 {
 
-  for (auto i_w = work.begin();i_w!=work.end();++i_w) {
-    uint32_t grip_ID = i_w->get_global_grip_ID();
+  for (auto const &i_w : work) {
+    uint32_t grip_ID = i_w.get_global_grip_ID();
     if (!mesh->on_processor(grip_ID))
       req_manager->request_cell(grip_ID, mctr);
   }
 
-  for (auto i_p = census_list.begin();i_p!=census_list.end();++i_p) {
-    uint32_t grip_ID = i_p->get_grip();
+  for (auto const &i_p : census_list) {
+    uint32_t grip_ID = i_p.get_grip();
     if (!mesh->on_processor(grip_ID))
       req_manager->request_cell(grip_ID, mctr);
   }

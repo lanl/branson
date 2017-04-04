@@ -131,13 +131,12 @@ int main (int argc, char *argv[]) {
       rank_photons, rank_bounds, mpi_types, mpi_info);
 
     uint32_t phtn_cell;
-    for (vector<Photon>::const_iterator iphtn =post_rebalance_census.cbegin();
-      iphtn!=post_rebalance_census.cend(); ++iphtn)
+    for (auto const & iphtn : post_rebalance_census)
     {
-      phtn_cell =  iphtn->get_cell();
+      phtn_cell =  iphtn.get_cell();
       if(phtn_cell < rank_start || phtn_cell >= rank_end)
         test_remap_to_rank=false;
-      if(iphtn->get_distance_remaining() != c_dt)
+      if(iphtn.get_distance_remaining() != c_dt)
         test_remap_to_rank=false;
     }
 
@@ -205,13 +204,12 @@ int main (int argc, char *argv[]) {
       rank_photons, rank_bounds, mpi_types, mpi_info);
 
     uint32_t phtn_cell;
-    for (vector<Photon>::const_iterator iphtn =post_rebalance_full.cbegin();
-      iphtn!=post_rebalance_full.cend(); ++iphtn)
+    for (auto const &iphtn : post_rebalance_full)
     {
-      phtn_cell =  iphtn->get_cell();
+      phtn_cell =  iphtn.get_cell();
       if(phtn_cell >= rank_start && phtn_cell < rank_end)
         test_full_node=false;
-      if(iphtn->get_distance_remaining() != c_dt)
+      if(iphtn.get_distance_remaining() != c_dt)
         test_full_node=false;
     }
 
@@ -255,13 +253,12 @@ int main (int argc, char *argv[]) {
       rank_photons, rank_bounds, mpi_types, mpi_info);
 
     uint32_t phtn_cell;
-    for (vector<Photon>::const_iterator iphtn =post_rebalance_full.cbegin();
-      iphtn!=post_rebalance_full.cend(); ++iphtn)
+    for (auto const &iphtn : post_rebalance_full)
     {
-      phtn_cell =  iphtn->get_cell();
+      phtn_cell =  iphtn.get_cell();
       if(phtn_cell < rank_start || phtn_cell >= rank_end)
         test_large_imbalance=false;
-      if(iphtn->get_distance_remaining() != c_dt)
+      if(iphtn.get_distance_remaining() != c_dt)
         test_large_imbalance=false;
     }
 

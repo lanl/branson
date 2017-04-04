@@ -167,7 +167,7 @@ class Input
             n_x_cells.push_back(d_x_cells);
             nx_divisions++;
             // push back the master x points for silo
-            for (uint32_t i=0;i<d_x_cells;i++)
+            for (uint32_t i=0;i<d_x_cells;++i)
               x.push_back(d_x_start+i*(d_x_end-d_x_start)/d_x_cells);
           }
 
@@ -181,7 +181,7 @@ class Input
             n_y_cells.push_back(d_y_cells);
             ny_divisions++;
             // push back the master y points for silo
-            for (uint32_t i=0;i<d_y_cells;i++)
+            for (uint32_t i=0;i<d_y_cells;++i)
               y.push_back(d_y_start+i*(d_y_end-d_y_start)/d_y_cells);
           }
 
@@ -195,7 +195,7 @@ class Input
             n_z_cells.push_back(d_z_cells);
             nz_divisions++;
             // push back the master z points for silo
-            for (uint32_t i=0;i<d_z_cells;i++)
+            for (uint32_t i=0;i<d_z_cells;++i)
               z.push_back(d_z_start+i*(d_z_end-d_z_start)/d_z_cells);
           }
 
@@ -233,11 +233,11 @@ class Input
         region_ID = (v.second.get<uint32_t>("region_ID",0));
 
         // add spatial information to SILO information
-        for (uint32_t i=0;i<n_x_cells[0];i++)
+        for (uint32_t i=0;i<n_x_cells[0];++i)
           x.push_back(x_start[0]+i*(x_end[0]-x_start[0])/n_x_cells[0]);
-        for (uint32_t i=0;i<n_y_cells[0];i++)
+        for (uint32_t i=0;i<n_y_cells[0];++i)
           y.push_back(y_start[0]+i*(y_end[0]-y_start[0])/n_y_cells[0]);
-        for (uint32_t i=0;i<n_z_cells[0];i++)
+        for (uint32_t i=0;i<n_z_cells[0];++i)
           z.push_back(z_start[0]+i*(z_end[0]-z_start[0])/n_z_cells[0]);
 
         // map zero key to region_ID
@@ -363,9 +363,9 @@ class Input
     silo_x = new float[x.size()];
     silo_y = new float[y.size()];
     silo_z = new float[z.size()];
-    for (uint32_t i=0;i<x.size();i++) silo_x[i] = x[i];
-    for (uint32_t j=0;j<y.size();j++) silo_y[j] = y[j];
-    for (uint32_t k=0;k<z.size();k++) silo_z[k] = z[k];
+    for (uint32_t i=0;i<x.size();++i) silo_x[i] = x[i];
+    for (uint32_t j=0;j<y.size();++j) silo_y[j] = y[j];
+    for (uint32_t k=0;k<z.size();++k) silo_z[k] = z[k];
 
     // batch size should be very large in replicated mode since there is no
     // need to check buffers
@@ -429,7 +429,7 @@ class Input
     }
 
     cout<<"--Material Information--"<<endl;
-    for(uint32_t r=0; r<regions.size();r++) {
+    for(uint32_t r=0; r<regions.size();++r) {
       cout<<" heat capacity: "<<regions[r].get_cV();
       cout<<" opacity constants: "<<regions[r].get_opac_A()
         <<" + "<<regions[r].get_opac_B()<<"^"<<regions[r].get_opac_C();

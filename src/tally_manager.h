@@ -3,7 +3,7 @@
  * \file   tally_manager.h
  * \author Alex Long
  * \date   September, 6 2016
- * \brief  Buffers and communicates tally data on other ranks 
+ * \brief  Buffers and communicates tally data on other ranks
  * \note   ***COPYRIGHT_GOES_HERE****
  */
 //----------------------------------------------------------------------------//
@@ -51,12 +51,12 @@ class Tally_Manager
 
   public:
   //! constructor
-  Tally_Manager(const int _rank, const std::vector<uint32_t>& _rank_bounds, 
+  Tally_Manager(const int _rank, const std::vector<uint32_t>& _rank_bounds,
     MPI_Types * mpi_types)
   : rank(_rank),
     rank_bounds(_rank_bounds),
     rank_start(rank_bounds[rank]),
-    rank_end(rank_bounds[rank+1]), 
+    rank_end(rank_bounds[rank+1]),
     max_reqs(100),
     max_tally_size(10000),
     MPI_Tally(mpi_types->get_tally_type())
@@ -68,7 +68,7 @@ class Tally_Manager
     s_id_buffers = vector<Buffer<uint32_t> >(max_reqs);
     s_id_max_index = 0;
     s_id_count = 0;
-    
+
     // send abs_E variables
     s_tally_reqs = vector<MPI_Request> (max_reqs);
     s_tally_buffers = vector<Buffer<Tally> > (max_reqs);
@@ -119,7 +119,7 @@ class Tally_Manager
   private:
 
   //! Returns the index of the next available send ID request and buffer
-  uint32_t get_next_send_id_request_and_buffer_index(void) 
+  uint32_t get_next_send_id_request_and_buffer_index(void)
   {
     // check to see if request at count is in use
     while(s_id_in_use.find(s_id_count) != s_id_in_use.end() ) {
@@ -135,7 +135,7 @@ class Tally_Manager
   }
 
   //! Returns the index of the next available send tally request and buffer
-  uint32_t get_next_send_tally_request_and_buffer_index(void) 
+  uint32_t get_next_send_tally_request_and_buffer_index(void)
   {
     // check to see if request at count is in use
     while(s_tally_in_use.find(s_tally_count) != s_tally_in_use.end() ) {
@@ -166,7 +166,7 @@ class Tally_Manager
     return r_tally_count;
   }
 
-  //! Test active send and receives request objects for completion (sent IDs 
+  //! Test active send and receives request objects for completion (sent IDs
   // and sent tallies)
   void test_sends_and_receives(Message_Counter& mctr,
     std::vector<double>& rank_abs_E)
@@ -197,9 +197,9 @@ class Tally_Manager
     // test receives for number of IDs being sent by other ranks
     MPI_Testsome(max_reqs, &r_id_reqs[0], &n_req_complete,
       &complete_indices[0], &r_id_status[0]);
-    
+
     int comp_index, n_ids;
-    uint32_t g_index, off_rank; 
+    uint32_t g_index, off_rank;
     mctr.n_receives_completed+=n_req_complete;
 
     // for each complete request, post receive for all tallies
@@ -210,7 +210,7 @@ class Tally_Manager
       n_ids = r_id_buffers[comp_index].get_object()[0];
 
       // post receive for tallies from this rank
-      uint32_t r_tally_index = 
+      uint32_t r_tally_index =
         get_next_receive_tally_request_and_buffer_index();
       r_tally_buffers[r_tally_index].set_receive_size(n_ids);
       int custom_tag = tally_tag + n_ids;
@@ -229,7 +229,7 @@ class Tally_Manager
 
       MPI_Testsome(r_tally_max_index+1, &r_tally_reqs[0], &n_req_complete,
         &complete_indices[0], MPI_STATUSES_IGNORE);
- 
+
       int n_tally_recv;
       int tallys_in_req;
 
@@ -266,11 +266,11 @@ class Tally_Manager
     uint32_t off_rank;
     vector<Tally> temp_tally_vec(1);
     Tally tally;
-    for( auto map_i=off_rank_abs_E.begin(); map_i!=off_rank_abs_E.end();++map_i)
+    for( auto const &map_i : off_rank_abs_E)
     {
-      off_rank = get_off_rank_id(map_i->first);
-      tally.cell = map_i->first;
-      tally.abs_E = map_i->second;
+      off_rank = get_off_rank_id(map_i.first);
+      tally.cell = map_i.first;
+      tally.abs_E = map_i.second;
       if (rank_tally.find(off_rank) == rank_tally.end()) {
         temp_tally_vec[0] = tally;
         rank_tally[off_rank] = temp_tally_vec;
@@ -280,23 +280,23 @@ class Tally_Manager
       }
     }
 
-    
-    for (auto map_i=rank_tally.begin(); map_i != rank_tally.end();++map_i) {
-      vector<Tally>& send_tallies = map_i->second;
+
+    for (auto &map_i : rank_tally) {
+      vector<Tally>& send_tallies = map_i.second;
       uint32_t n_ids = send_tallies.size();
 
       // get next available ID request and buffer, fill buffer, post send
       uint32_t s_id_index = get_next_send_id_request_and_buffer_index();
       s_id_buffers[s_id_index].fill(vector<uint32_t> (1, n_ids));
 
-      MPI_Isend(s_id_buffers[s_id_index].get_buffer(), 1, MPI_UNSIGNED, 
+      MPI_Isend(s_id_buffers[s_id_index].get_buffer(), 1, MPI_UNSIGNED,
         off_rank, n_tally_tag, MPI_COMM_WORLD, &s_id_reqs[s_id_index]);
-      
+
       // get next available tally request and buffer, fill buffer, post send
       uint32_t s_tally_index = get_next_send_tally_request_and_buffer_index();
       s_tally_buffers[s_tally_index].fill(send_tallies);
 
-      MPI_Isend(s_tally_buffers[s_tally_index].get_buffer(), n_ids, MPI_Tally, 
+      MPI_Isend(s_tally_buffers[s_tally_index].get_buffer(), n_ids, MPI_Tally,
         off_rank, tally_tag, MPI_COMM_WORLD, &s_tally_reqs[s_tally_index]);
     }
     off_rank_abs_E.clear();
@@ -304,15 +304,15 @@ class Tally_Manager
 
   public:
   void process_off_rank_tallies(Message_Counter& mctr,
-    std::vector<double>& rank_abs_E, 
-    std::unordered_map<uint32_t, double>& off_rank_abs_E, 
+    std::vector<double>& rank_abs_E,
+    std::unordered_map<uint32_t, double>& off_rank_abs_E,
     const bool force_send)
   {
     // first, test sends and receives of tally data
     test_sends_and_receives(mctr, rank_abs_E);
 
     // then send off-rank tally data if map is full
-    if (off_rank_abs_E.size() > max_tally_size || force_send) 
+    if (off_rank_abs_E.size() > max_tally_size || force_send)
       send_tally_data(mctr, off_rank_abs_E);
   }
 
@@ -353,10 +353,10 @@ class Tally_Manager
   std::vector<uint32_t> rank_bounds; //! Global tally ID bounds on each rank
 
   uint32_t rank_start; //! Index of first tally
-  uint32_t rank_end; //! Index of one after last tally 
+  uint32_t rank_end; //! Index of one after last tally
 
   const uint32_t max_reqs; //! Maximum number of concurrent requests
-  const uint32_t max_tally_size; //! Maximum number of tallies to write 
+  const uint32_t max_tally_size; //! Maximum number of tallies to write
 
   MPI_Datatype MPI_Tally; //! Custom MPI datatype for tally
 
@@ -379,7 +379,7 @@ class Tally_Manager
   std::vector<Buffer<uint32_t> > r_id_buffers;
   std::vector<MPI_Status> r_id_status;
 
-  // receive tally variables  
+  // receive tally variables
   std::vector<MPI_Request> r_tally_reqs;
   std::vector<Buffer<Tally> > r_tally_buffers;
   std::unordered_set<uint32_t> r_tally_in_use;

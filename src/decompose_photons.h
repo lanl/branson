@@ -30,9 +30,9 @@ void print_MPI_photons( const std::vector<Photon>& phtn_vec,
   cout.flush();
   MPI_Barrier(MPI_COMM_WORLD);
 
-  for (uint32_t p_rank = 0; p_rank<size; p_rank++) {
+  for (uint32_t p_rank = 0; p_rank<size; ++p_rank) {
     if (rank == p_rank) {
-      for(uint32_t i=0; i<phtn_vec.size();i++)
+      for(uint32_t i=0; i<phtn_vec.size();++i)
         phtn_vec[i].print_info(rank);
       cout.flush();
     }
@@ -62,7 +62,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
 
   // make off processor map
   unordered_map<int,int> proc_map;
-  for (int i=0; i<int(n_off_rank); i++) {
+  for (int i=0; i<int(n_off_rank); ++i) {
     int r_index = i + int(i>=rank);
     proc_map[i] = r_index;
   }
@@ -79,7 +79,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
   vector<uint32_t> rank_start(n_rank+1, 0);
   vector<bool> rank_found(n_rank, false);
   uint32_t r;
-  for (uint32_t i=0; i<n_census; i++) {
+  for (uint32_t i=0; i<n_census; ++i) {
     r = mesh->get_rank(off_rank_census[i].get_cell());
     rank_count[r]++;
     if(rank_found[r]==false) {
@@ -96,7 +96,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
 
   // make n_off_rank receive buffers
   vector<vector<Photon> > recv_photons;
-  for (uint32_t ir=0; ir<n_off_rank; ir++) {
+  for (uint32_t ir=0; ir<n_off_rank; ++ir) {
     vector<Photon> empty_vec;
     recv_photons.push_back(empty_vec);
   }
@@ -104,7 +104,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
   //get the number of photons received from each rank
   vector<int> recv_from_rank(n_off_rank, 0);
 
-  for (uint32_t ir=0; ir<n_off_rank; ir++) {
+  for (uint32_t ir=0; ir<n_off_rank; ++ir) {
     int off_rank = proc_map[ir];
     MPI_Isend(&rank_count[off_rank], 1,  MPI_UNSIGNED, off_rank, 0,
       MPI_COMM_WORLD, &reqs[ir]);
@@ -116,7 +116,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
 
   // now send the buffers and post receives
   // resize receive buffers with recv_from_rank
-  for (uint32_t ir=0; ir<n_off_rank; ir++) {
+  for (uint32_t ir=0; ir<n_off_rank; ++ir) {
     int off_rank = proc_map[ir];
     int start_copy = rank_start[off_rank];
     MPI_Isend(&off_rank_census[start_copy], rank_count[off_rank], MPI_Particle,
@@ -133,7 +133,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon>& off_rank_census,
 
   //copy received census photons to a new census list
   vector<Photon> new_on_rank_census;
-  for (uint32_t ir=0; ir<uint32_t(n_rank-1); ir++) {
+  for (uint32_t ir=0; ir<uint32_t(n_rank-1); ++ir) {
     new_on_rank_census.insert(new_on_rank_census.end(),
       recv_photons[ir].begin(), recv_photons[ir].end());
   }

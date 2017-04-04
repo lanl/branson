@@ -64,7 +64,7 @@ class Tally_Manager
     max_tally_size(10000),
     write_size(20)
   {
-    // make the MPI window of size n_cell*double and MPI_INFO with 
+    // make the MPI window of size n_cell*double and MPI_INFO with
     // accumulate_ops set to "same_op"
     MPI_Info tally_info;
     MPI_Info_create(&tally_info);
@@ -169,11 +169,11 @@ class Tally_Manager
     uint32_t off_rank;
     vector<Tally> temp_tally_vec(1);
     Tally tally;
-    for( auto map_i=off_rank_abs_E.begin(); map_i!=off_rank_abs_E.end();++map_i)
+    for(auto const &map_i : off_rank_abs_E)
     {
-      off_rank = get_off_rank_id(map_i->first);
-      tally.cell = map_i->first;
-      tally.abs_E = map_i->second;
+      off_rank = get_off_rank_id(map_i.first);
+      tally.cell = map_i.first;
+      tally.abs_E = map_i.second;
       if (rank_tally.find(off_rank) == rank_tally.end()) {
         temp_tally_vec[0] = tally;
         rank_tally[off_rank] = temp_tally_vec;
@@ -187,21 +187,21 @@ class Tally_Manager
     // remote writes
     off_rank_abs_E.clear();
 
-    for (auto map_i=rank_tally.begin(); map_i != rank_tally.end();++map_i) {
-      vector<Tally>& send_tallies = map_i->second;
+    for (auto &map_i : rank_tally) {
+      vector<Tally>& send_tallies = map_i.second;
 
       // sort based on global cell ID
       sort(send_tallies.begin(), send_tallies.end(), Tally::sort_cell_ID);
 
-      off_rank = map_i->first;
+      off_rank = map_i.first;
 
       vector<vector<Tally> > grouped_tallies;
 
       uint32_t start_buffer = send_tallies.front().cell;
       vector<Tally> tallies;
-      for (auto t_i=send_tallies.begin(); t_i!=send_tallies.end();++t_i) {
-        if (t_i->cell < start_buffer+write_size) {
-          tallies.push_back(*t_i);
+      for (auto const &t_i : send_tallies) {
+        if (t_i.cell < start_buffer+write_size) {
+          tallies.push_back(t_i);
         }
         else {
           // push this group onto grouped_tallies and reset
@@ -209,8 +209,8 @@ class Tally_Manager
           tallies.clear();
 
           // make this tally the start of a new group
-          start_buffer = t_i->cell;
-          tallies.push_back(*t_i);
+          start_buffer = t_i.cell;
+          tallies.push_back(t_i);
         }
       }
       // add the last block of tallies
@@ -222,8 +222,8 @@ class Tally_Manager
         uint32_t remote_start_write = tallies.front().cell;
 
         // fill buffer
-        for (auto t_i=tallies.begin(); t_i != tallies.end(); ++t_i)
-          write_buffer[t_i->cell - remote_start_write] = t_i->abs_E;
+        for (auto const &t_i : tallies)
+          write_buffer[t_i.cell - remote_start_write] = t_i.abs_E;
 
         // write this buffer to remote window, if there are available buffers
         if (s_tally_in_use.size() < max_reqs) {

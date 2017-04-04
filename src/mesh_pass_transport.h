@@ -245,7 +245,7 @@ std::vector<Photon> mesh_pass_transport(Source& source,
     // if data was received, try to transport photons on waiting list
     if (new_data) {
       wait_list_size = wait_list.size();
-      for (uint32_t wp =0; wp<wait_list_size; wp++) {
+      for (uint32_t wp =0; wp<wait_list_size; ++wp) {
         phtn = wait_list.front();
         wait_list.pop();
         cell_id=phtn.get_cell();
@@ -283,7 +283,7 @@ std::vector<Photon> mesh_pass_transport(Source& source,
     // if new data received, transport waiting list
     if (new_data || req_manager->no_active_requests() ) {
       wait_list_size = wait_list.size();
-      for (uint32_t wp =0; wp<wait_list_size; wp++) {
+      for (uint32_t wp =0; wp<wait_list_size; ++wp) {
         phtn = wait_list.front();
         wait_list.pop();
         cell_id=phtn.get_cell();

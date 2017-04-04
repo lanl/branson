@@ -63,7 +63,7 @@ void load_balance(std::vector<Work_Packet>& work,
 
   int64_t n_balance_particles = n_global_particles/n_rank;
 
-  for (uint32_t ir=0; ir<uint32_t(n_rank); ir++)
+  for (uint32_t ir=0; ir<uint32_t(n_rank); ++ir)
     domain_delta_p[ir] = domain_particles[ir] - n_balance_particles;
 
   //--------------------------------------------------------------------------//
@@ -71,7 +71,7 @@ void load_balance(std::vector<Work_Packet>& work,
   //--------------------------------------------------------------------------//
 
   // first, ignore particle imbalance on the order of 5%
-  for (uint32_t ir=0; ir<uint32_t(n_rank); ir++) {
+  for (uint32_t ir=0; ir<uint32_t(n_rank); ++ir) {
     // ignore particle imbalance on the order of 5%
     if ( domain_delta_p[ir]<0 && domain_particles[ir] > 0.95*n_balance_particles)
       domain_delta_p[ir] = 0;
@@ -86,7 +86,7 @@ void load_balance(std::vector<Work_Packet>& work,
   double overload_factor = 0.0;
 
   int send_to_nbr, rank_delta_p, left_node, right_node;
-  for (uint32_t ir=0; ir<uint32_t(n_rank); ir++) {
+  for (uint32_t ir=0; ir<uint32_t(n_rank); ++ir) {
     if (domain_particles[ir] > max_particles) {
       max_particles=domain_particles[ir];
       max_rank = ir;
@@ -162,7 +162,7 @@ void load_balance(std::vector<Work_Packet>& work,
     vector<Buffer<Work_Packet> > work_buffer(n_donors);
 
     // post receives for sizes from ranks that are sending you work
-    for (uint32_t i=0; i<n_donors; i++) {
+    for (uint32_t i=0; i<n_donors; ++i) {
       // post number of work packet receive
       MPI_Irecv(&n_work_recv[i], 1, MPI_INT, work_donor_ranks[i], n_work_tag,
         MPI_COMM_WORLD, &work_recv_size_request[i]);
@@ -177,7 +177,7 @@ void load_balance(std::vector<Work_Packet>& work,
     MPI_Waitall(n_donors, phtn_recv_size_request, MPI_STATUSES_IGNORE);
 
     // post receives from ranks that are sending you work
-    for (uint32_t i=0; i<n_donors; i++) {
+    for (uint32_t i=0; i<n_donors; ++i) {
 
       // size work packet buffer
       work_buffer[i].resize(n_work_recv[i]);
@@ -198,11 +198,10 @@ void load_balance(std::vector<Work_Packet>& work,
     MPI_Waitall(n_donors, work_recv_request, MPI_STATUSES_IGNORE);
     MPI_Waitall(n_donors, phtn_recv_request, MPI_STATUSES_IGNORE);
 
-    for (uint32_t i=0; i<n_donors; i++) {
+    for (uint32_t i=0; i<n_donors; ++i) {
       // add received work to your work
       vector<Work_Packet>& temp_work = work_buffer[i].get_object();
-      work.insert(work.begin(), temp_work.begin(),
-        temp_work.end());
+      work.insert(work.begin(), temp_work.begin(), temp_work.end());
 
       // add received census photons
       vector<Photon>& temp_photons = photon_buffer[i].get_object();
@@ -234,10 +233,10 @@ void load_balance(std::vector<Work_Packet>& work,
     uint32_t n_census_remain = census_list.size(); //! Where to cut census list
 
     // iterate over unordered map and prepare work for other ranks
-    for (auto imap=n_send_rank.begin(); imap !=n_send_rank.end(); ++imap)
+    for (auto const &imap : n_send_rank)
     {
-      dest_rank = imap->first;
-      temp_n_send = imap->second;
+      dest_rank = imap.first;
+      temp_n_send = imap.second;
 
       vector<Work_Packet> work_to_send;
       Work_Packet temp_packet, leftover_packet;
@@ -503,10 +502,8 @@ void bt_load_balance(std::vector<Work_Packet>& work,
           // get current count photon count and update
           n_census_remain = census_list.size();
           balanced_rank_particles=census_list.size();
-          for (auto i_w = work.begin();i_w!=work.end();++i_w) {
-            balanced_rank_particles+=i_w->get_n_particles();
-          }
-
+          for (auto const &i_w : work)
+            balanced_rank_particles+=i_w.get_n_particles();
         }
       } // if balanced
     } // end if r_partner < n_rank

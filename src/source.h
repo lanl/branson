@@ -84,7 +84,7 @@ class Source {
     //make work packets
     // current cell pointer
     const Cell* cell_ptr;
-    for (uint32_t i = 0; i<n_cell; i++) {
+    for (uint32_t i = 0; i<n_cell; ++i) {
       Work_Packet temp_cell_work;
       cell_ptr = mesh->get_cell_ptr(i);
       //emission
@@ -171,11 +171,10 @@ class Source {
 
     if (!census_photons.empty()) {
       uint32_t i=0;
-      for (auto iphtn =census_photons.begin();
-        iphtn!=census_photons.end(); ++iphtn)
+      for (auto const &iphtn : census_photons)
       {
-        cell_ID = iphtn->get_cell();
-        grip_ID = iphtn->get_grip();
+        cell_ID = iphtn.get_cell();
+        grip_ID = iphtn.get_grip();
         // at first instance of cell ID set the starting index
         if (census_in_cell.find(cell_ID) == census_in_cell.end()) {
           census_in_cell[cell_ID] = 1;
@@ -190,10 +189,9 @@ class Source {
 
       uint32_t work_index;
       // now attach census particles to work packets or make new ones
-      for (auto imap=census_start_index.begin();
-        imap!=census_start_index.end(); ++imap)
+      for (auto const &imap : census_start_index)
       {
-        cell_ID = imap->first;
+        cell_ID = imap.first;
         grip_ID = grip_index[cell_ID];
 
         // apppend count in this cell to the total
@@ -202,7 +200,7 @@ class Source {
         // if a work packet for this cell exists, attach the census work
         if (work_map.find(cell_ID) != work_map.end()) {
           work_index = work_map[cell_ID];
-          work[work_index].attach_census_work(imap->second, 
+          work[work_index].attach_census_work(imap.second,
             census_in_cell[cell_ID]);
         }
         // otherwise, make a new work packet
@@ -210,7 +208,7 @@ class Source {
           Work_Packet temp_packet;
           temp_packet.set_global_cell_ID(cell_ID);
           temp_packet.set_global_grip_ID(grip_ID);
-          temp_packet.attach_census_work(imap->second, census_in_cell[cell_ID]);
+          temp_packet.attach_census_work(imap.second, census_in_cell[cell_ID]);
           // add this work to the total work vector
           work.push_back(temp_packet);
         }
@@ -219,8 +217,8 @@ class Source {
 
     std::unordered_map<uint32_t, bool> on_proc_map;
     uint32_t work_cell_ID;
-    for (auto iw = work.begin(); iw!=work.end(); ++iw) {
-      work_cell_ID = iw->get_global_cell_ID();
+    for (auto const &iw : work) {
+      work_cell_ID = iw.get_global_cell_ID();
       on_proc_map[work_cell_ID] = mesh->on_processor(work_cell_ID);
     }
 
@@ -279,9 +277,9 @@ class Source {
     if (return_photon.get_cell() > 100000000) {
       std::cout<<"this is bad: cell out of bounds"<<std::endl;
     }
-    
+
     if (n_sourced >= n_photon) {
-      std::cout<<"this is bad: can't source more than this"<<std::endl; 
+      std::cout<<"this is bad: can't source more than this"<<std::endl;
     }
 
     // increment count of sourced particles

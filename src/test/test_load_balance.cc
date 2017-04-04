@@ -78,8 +78,8 @@ int main (int argc, char *argv[]) {
 
     uint64_t n_post_balanced_particles = 0;
 
-    for (auto w_itr = work.begin(); w_itr != work.end(); ++w_itr)
-      n_post_balanced_particles += w_itr->get_n_particles();
+    for (auto const &w_itr : work)
+      n_post_balanced_particles += w_itr.get_n_particles();
     n_post_balanced_particles += census.size();
 
     // test work packets, if present

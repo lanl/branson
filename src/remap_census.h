@@ -105,10 +105,9 @@ void set_census_send_maps(const uint32_t rank, const uint32_t n_rank,
 
   uint32_t i=0;
   uint32_t send_rank, p_rank, cell_ID;
-  for (vector<Photon>::const_iterator iphtn =census.cbegin();
-    iphtn!=census.cend(); ++iphtn)
+  for (auto const & iphtn : census)
   {
-    cell_ID = iphtn->get_cell();
+    cell_ID = iphtn.get_cell();
     p_rank = get_rank(rank_bounds, cell_ID);
     if (p_rank != rank)
       send_rank = get_send_rank(rank, p_rank, n_rank);
