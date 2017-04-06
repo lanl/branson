@@ -50,7 +50,7 @@ int main (int argc, char *argv[]) {
   uint32_t rank_end = rank_bounds[rank+1];
   uint32_t n_cell_on_rank = rank_end - rank_start;
 
-  // test Tally_Manager with random tally writes
+  // test Tally_Manager with regular tally writes
   {
     bool test_tally_manager = true;
 
@@ -61,7 +61,6 @@ int main (int argc, char *argv[]) {
 
     // test to make sure all tallies are initially zero
     for (uint32_t i=0; i<n_cell_on_rank;++i) {
-
       // test to make sure the energy in each cell is zero
       if (abs_E_from_other_ranks[i] != 0.0) test_tally_manager = false;
     }
@@ -161,6 +160,118 @@ int main (int argc, char *argv[]) {
     }
 
   }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // test Tally_Manager with random tally writes
+  {
+    bool test_tally_manager_random = true;
+
+    Tally_Manager t_manager(rank, rank_bounds, n_cell_on_rank);
+    Message_Counter mctr;
+
+    double const * const abs_E_from_other_ranks = t_manager.get_tally_ptr();
+
+    // test to make sure all tallies are initially zero
+    for (uint32_t i=0; i<n_cell_on_rank;++i) {
+      // test to make sure the energy in each cell is zero
+      if (abs_E_from_other_ranks[i] != 0.0) test_tally_manager_random = false;
+    }
+
+    // need RNG to randomize particle ranks
+    RNG *rng = new RNG();
+    rng->set_seed(rank*4106);
+
+    // setup tally test parameters and variables
+    uint32_t n_tally = n_cell;
+    double E_event = 0.01;
+    std::unordered_map<uint32_t, double> off_rank_abs_E;
+    std::vector<double> E_to_rank(n_rank, 0.0);
+
+    // write tallies
+    uint32_t cell_id, write_rank;
+    for (uint32_t i=0; i<n_tally;++i) {
+      write_rank = rank;
+      while(write_rank == rank) {
+        cell_id = uint32_t(rng->generate_random_number()*n_cell);
+        write_rank = t_manager.get_off_rank_id(cell_id);
+      }
+      E_to_rank[write_rank] += E_event;
+      if (off_rank_abs_E.find(cell_id) == off_rank_abs_E.end())
+        off_rank_abs_E[cell_id] = E_event;
+      else
+        off_rank_abs_E[cell_id]+=E_event;
+    }
+
+    // set the expected amount of energy
+    double expected_total_abs_E = n_rank*n_tally*E_event;
+
+    // Write the absorbed energy
+    bool force_send = false;
+
+    cout<<"Rank "<<rank<<" about to remote write"<<endl;
+    t_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
+    t_manager.finish_remote_writes(mctr, off_rank_abs_E);
+
+    cout<<"Rank "<<rank<<" finished"<<endl;
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // sum the total energy tallied on this rank
+    double actual_rank_abs_E = 0.0;
+    for (uint32_t i=0; i<n_cell_on_rank;++i) {
+      actual_rank_abs_E += abs_E_from_other_ranks[i];
+
+      // test to make sure the energy in each cell is valid (greater than zero
+      // and not a NaN)
+      if (abs_E_from_other_ranks[i] < 0.0) test_tally_manager_random = false;
+      if (abs_E_from_other_ranks[i] != abs_E_from_other_ranks[i])
+        test_tally_manager_random = false;
+    }
+
+    // reduce to get the actual energy absorbed across all ranks
+    double actual_total_abs_E = 0.0;
+    MPI_Allreduce(&actual_rank_abs_E, &actual_total_abs_E, 1, MPI_DOUBLE,
+      MPI_SUM, MPI_COMM_WORLD);
+
+    // reduce the E_to_rank array to get the expected energy absorbed on each
+    // rank
+    vector<double> expected_rank_abs_E(n_rank, 0.0);
+    MPI_Allreduce(&E_to_rank[0], &expected_rank_abs_E[0], n_rank, MPI_DOUBLE,
+      MPI_SUM, MPI_COMM_WORLD);
+
+    double tol = 1.0e-8;
+
+    // check to make sure the actual absorbed energy matches the expected
+    // absorbed energy for this rank
+    if (!soft_equiv(actual_total_abs_E, expected_total_abs_E, tol))
+      test_tally_manager_random = false;
+
+    // check to make sure the total absorbed energy accross all ranks matches
+    // the expected value
+    if (!soft_equiv(actual_rank_abs_E, expected_rank_abs_E[rank], tol))
+      test_tally_manager_random = false;
+
+    if (test_tally_manager_random) {
+      cout<<"TEST PASSED: Tally manager correctly moves random writes back to origin ";
+      cout<<"rank: "<<rank<<endl;
+    }
+    else {
+      cout<<"TEST FAILED: Tally manager failed random write and communicate"<<endl;
+      nfail++;
+    }
+
+    cout.flush();
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (!rank) {
+      cout.flush();
+      cout<<"Expected total abs E: "<<expected_total_abs_E<<" actual total";
+      cout<<" abs E: "<<actual_total_abs_E<<endl;
+    }
+
+  }
+
+
 
   MPI_Finalize();
 

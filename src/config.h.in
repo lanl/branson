@@ -14,6 +14,7 @@
 
 #cmakedefine VIZ_LIBRARIES_FOUND
 #cmakedefine MOONLIGHT_NODE
+#cmakedefine SNOW_NODE
 #cmakedefine TRINITITE_NODE
 #cmakedefine CCS_NODE
 

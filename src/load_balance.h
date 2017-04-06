@@ -12,9 +12,9 @@
 #define load_balance_h_
 
 #include <iostream>
+#include <mpi.h>
 #include <numeric>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "buffer.h"
@@ -32,7 +32,6 @@ void load_balance(std::vector<Work_Packet>& work,
   MPI_Types *mpi_types, const Info& mpi_info)
 {
   using std::unordered_map;
-  using std::unordered_set;
   using std::vector;
   using Constants::work_tag;
   using Constants::n_work_tag;

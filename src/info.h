@@ -44,6 +44,20 @@ class Info
 
     // these ifdef macros are messy but for some reason some compilers don't
     // like the #elif directive
+#ifdef SNOW_NODE
+    machine_name = "snow";
+    char * proc_name = new char[MPI_MAX_PROCESSOR_NAME];
+    int result_length;
+    MPI_Get_processor_name(proc_name, &result_length);
+    std::string p_name(proc_name, result_length);
+    std::regex r_ml_node("sn([0-9]*)[.]localdomain");
+    std::smatch result;
+    std::regex_match(p_name, result, r_ml_node);
+    color = std::stoi(result.str(1));
+    node_mem = 32000000000;
+    delete[] proc_name;
+#endif
+
 #ifdef MOONLIGHT_NODE
     machine_name = "moonlight";
     char * proc_name = new char[MPI_MAX_PROCESSOR_NAME];

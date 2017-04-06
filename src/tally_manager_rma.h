@@ -265,7 +265,7 @@ class Tally_Manager
     std::unordered_map<uint32_t, double>& off_rank_abs_E,
     const bool force_send)
   {
-    // first, test sends and receives of tally data
+    // first, test write completion for tally data
     test_remote_writes(mctr);
 
     // then send off-rank tally data if map is full

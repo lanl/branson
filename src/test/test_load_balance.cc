@@ -9,6 +9,7 @@
 //---------------------------------------------------------------------------//
 
 #include <iostream>
+#include <mpi.h>
 #include <vector>
 
 #include "../constants.h"
