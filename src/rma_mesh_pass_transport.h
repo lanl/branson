@@ -1,6 +1,6 @@
 //----------------------------------*-C++-*----------------------------------//
 /*!
- * \file   transport_mesh_pass_rma.h
+ * \file   rma_mesh_pass_transport.h
  * \author Alex Long
  * \date   March 2 2016
  * \brief  Transport routine using one sided messaging and mesh-passing DD

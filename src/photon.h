@@ -30,7 +30,10 @@
 class Photon
 {
   public:
+  //! Constructor
   Photon() {}
+
+  //! Destructor
   ~Photon(void) {}
 
   //--------------------------------------------------------------------------//

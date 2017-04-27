@@ -45,12 +45,14 @@ class Completion_Manager_Milagro : public Completion_Manager
   virtual ~Completion_Manager_Milagro() {}
 
   //non-const functions
+
+  //! Post receives from children and parents in binary tree
+  //! Messages are sent up the tree whenever a rank has completed its local work
+  //! or received an updated particle complete count from its child.
+  //! Messages are sent down the tree only after completion and starting at the
+  //! root node.
   virtual void start_timestep(Message_Counter& mctr) {
     using Constants::count_tag;
-    // Messages are sent up the tree whenever a rank has completed its local work
-    // or received an updated particle complete count from its child
-    // Messages are sent down the tree only after completion and starting at the
-    // root node.
     // Post receives for photon counts from children and parent now
     if (child1!=MPI_PROC_NULL) {
       MPI_Irecv(c1_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1,
@@ -73,8 +75,8 @@ class Completion_Manager_Milagro : public Completion_Manager
   }
 
   //! Check for completed particle counts from children and parent.
-  // Add children to current tree count. If parent count is received,
-  // it will be the global problem particle count, indicating completion
+  //! Add children to current tree count. If parent count is received,
+  //! it will be the global problem particle count, indicating completion
   void check_messages(uint64_t& n_complete_tree, Message_Counter& mctr) {
     using Constants::count_tag;
 
@@ -229,17 +231,41 @@ class Completion_Manager_Milagro : public Completion_Manager
   }
 
   private:
-  Buffer<uint64_t> c1_recv_buffer;
+
+  //! Particle completion count receive buffer for first child 
+  Buffer<uint64_t> c1_recv_buffer; 
+
+  //! Particle completion count receive buffer for second child 
   Buffer<uint64_t> c2_recv_buffer;
+
+  //! Particle completion count receive buffer for parent 
   Buffer<uint64_t> p_recv_buffer;
+
+  //! Particle completion count send buffer for first child
   Buffer<uint64_t> c1_send_buffer;
+
+  //! Particle completion count send buffer for second child
   Buffer<uint64_t> c2_send_buffer;
+
+  //! Particle completion count send buffer for parent
   Buffer<uint64_t> p_send_buffer;
+
+  //! Receive request from parent
   MPI_Request p_recv_req;
+
+  //! Receive request from first child
   MPI_Request c1_recv_req;
+
+  //! Receive request from second child
   MPI_Request c2_recv_req;
+
+  //! Send request to parent
   MPI_Request p_send_req;
+
+  //! Send request to first child
   MPI_Request c1_send_req;
+
+  //! Send request to second child
   MPI_Request c2_send_req;
 };
 

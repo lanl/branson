@@ -252,26 +252,28 @@ class Cell
   // member data                                                              //
   //--------------------------------------------------------------------------//
   private:
-  uint32_t g_ID; //! Global ID, valid across all ranks
+  uint32_t g_ID; //!< Global ID, valid across all ranks
 
   //! Global ID of cell at the center of grip, valid across all ranks 
   uint32_t grip_ID;
 
-  uint32_t region_ID; //! region cell is in (for setting physical properties)
-  uint32_t e_next[6]; //! Bordering cell, given as global ID
-  uint32_t grip_next[6]; //! Bordering grip, given as global cell ID
-  uint32_t silo_index; //! Global index not remappated, for SILO plotting
-  Constants::bc_type bc[6];   //! Boundary conditions for each face 
-  double nodes[6]; //! x_low, x_high, y_low, y_high, z_low, z_high
-  
-  double cV;    //! Heat capacity  GJ/g/KeV
-  double op_a;  //! Absorption opacity  (1/cm)
-  double op_s;  //! Physical scattering opacity (1/cm)
-  double f;     //! Fleck factor
-  double rho;   //! Density (g/cc)
-  double T_e;   //! Material temperature
-  double T_r;   //! Radiation temperature
-  double T_s;   //! Source temperature
+  uint32_t region_ID; //!< region cell is in (for setting physical properties)
+  uint32_t e_next[6]; //!< Bordering cell, given as global ID
+  uint32_t grip_next[6]; //!< Bordering grip, given as global cell ID
+  uint32_t silo_index; //!< Global index not remappated, for SILO plotting
+  Constants::bc_type bc[6];   //!< Boundary conditions for each face
+  double nodes[6]; //!< x_low, x_high, y_low, y_high, z_low, z_high
+  //double abs_groups[50]; //!< Absorption groups
+  //double sct_groups[50]; //!< Scattering groups
+
+  double cV;    //!< Heat capacity  GJ/g/KeV
+  double op_a;  //!< Absorption opacity  (1/cm)
+  double op_s;  //!< Physical scattering opacity (1/cm)
+  double f;     //!< Fleck factor
+  double rho;   //!< Density (g/cc)
+  double T_e;   //!< Material temperature
+  double T_r;   //!< Radiation temperature
+  double T_s;   //!< Source temperature
 };
 
 #endif // cell_h_

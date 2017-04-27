@@ -38,6 +38,8 @@
 class Input
 {
   public:
+
+  //! Constructor
   Input( std::string fileName)
     : using_simple_mesh(false),
       using_detailed_mesh(false)
@@ -373,12 +375,14 @@ class Input
       batch_size = 100000000;
   }
 
+  //! Destructor
   ~Input() {
     delete[] silo_x;
     delete[] silo_y;
     delete[] silo_z;
   };
 
+  //! Print the information read from the input file
   void print_problem_info(void) const {
     using Constants::a;
     using Constants::c;
@@ -492,80 +496,125 @@ class Input
     cout<<endl;
   }
 
+  //! Return the number of global cells in the x direction
   uint32_t get_global_n_x_cells(void) const {return n_global_x_cells;}
+  //! Return the number of global cells in the y direction
   uint32_t get_global_n_y_cells(void) const {return n_global_y_cells;}
+  //! Return the number of global cells in the z direction
   uint32_t get_global_n_z_cells(void) const {return n_global_z_cells;}
 
+  //! Return the number of x cells in a given x division
   uint32_t get_x_division_cells(const uint32_t& div) const {
     return n_x_cells[div];
   }
+  //! Return the number of y cells in a given y division
   uint32_t get_y_division_cells(const uint32_t& div) const {
     return n_y_cells[div];
   }
+  //! Return the number of z cells in a given z division
   uint32_t get_z_division_cells(const uint32_t& div) const {
     return n_z_cells[div];
   }
 
+  //! Return a pointer to the x coordinates of the mesh in SILO format
   float* get_silo_x_ptr(void) {return silo_x;}
+  //! Return a pointer to the y coordinates of the mesh in SILO format
   float* get_silo_y_ptr(void) {return silo_y;}
+  //! Return a pointer to the z coordinates of the mesh in SILO format
   float* get_silo_z_ptr(void) {return silo_z;}
 
+  //! Return the total number of x divisions in the problem
   uint32_t get_n_x_divisions(void) const {return n_x_cells.size();}
+  //! Return the total number of y divisions in the problem
   uint32_t get_n_y_divisions(void) const {return n_y_cells.size();}
+  //! Return the total number of z divisions in the problem
   uint32_t get_n_z_divisions(void) const {return n_z_cells.size();}
 
+  //! Return the x grid spacing in a given x division
   double get_dx(const uint32_t& div) const {
     return (x_end[div] - x_start[div])/n_x_cells[div];
   }
+  //! Return the y grid spacing in a given y division
   double get_dy(const uint32_t& div) const {
     return (y_end[div] - y_start[div])/n_y_cells[div];
   }
+  //! Return the z grid spacing in a given z division
   double get_dz(const uint32_t& div) const {
     return (z_end[div] - z_start[div])/n_z_cells[div];
   }
 
+
+  //! Return the starting x position of a given x division
   double get_x_start(const uint32_t& div) const { return x_start[div];}
+  //! Return the starting y position of a given y division
   double get_y_start(const uint32_t& div) const { return y_start[div];}
+  //! Return the starting z position of a given z division
   double get_z_start(const uint32_t& div) const { return z_start[div];}
 
+  //! Return the value of the use tilt option
   bool get_tilt_bool(void) const {return use_tilt;}
-  bool get_comb_bool(void) const {return use_comb;}
+  //! Return the value of the use comb option
+  bool get_comb_bool(void) const {return use_comb;} 
+  //! Return the value of the stratified option
   bool get_stratified_bool(void) const {return use_strat;}
+  //! Return the value of the write SILO option
   bool get_write_silo_bool(void) const {return write_silo;}
-
+  //! Return the value of the verbose printing option
   bool get_verbose_print_bool(void) const {return print_verbose;}
+  //! Return the value of the mesh print option
   bool get_print_mesh_info_bool(void) const {return print_mesh_info;}
+  //! Return the frequency of timestep summary printing
   int get_output_freq(void) const {return output_freq;}
 
+  //! Return the timestep size (shakes)
   double get_dt(void) const {return dt;}
+  //! Return the starting time (shakes)
   double get_time_start(void) const {return tStart;}
+  //! Return the finish time (shakes)
   double get_time_finish(void) const {return tFinish;}
+  //! Return the multiplication factor for the timestep
   double get_time_mult(void) const {return tMult;}
+  //! Return the maximum timestep size (shakes)
   double get_dt_max(void) const {return dtMax;}
+  //! Return the input seed for the RNG
   int get_rng_seed(void) const {return seed;}
+  //! Return the number of photons set in the input file to run
   uint64_t get_number_photons(void) const {return n_photons;}
+  //! Return the completion algorithm type (MILAGRO or RMA)
   uint32_t get_completion_routine(void) const {return completion_routine;}
+  //! Return the batch size (particles to run between parallel processing)
   uint32_t get_batch_size(void) const {return batch_size;}
+  //! Return the user requested number of particles in a message
   uint32_t get_particle_message_size(void) const {return particle_message_size;}
+  //! Return the user requested grip size
   uint32_t get_grip_size(void) const {return grip_size;}
+  //! Return the size of the working mesh map
   uint32_t get_map_size(void) const {return map_size;}
+  //! Return the domain decomposition algorithm
   uint32_t get_dd_mode(void) const {return dd_mode;}
 
   //source functions
+  //! Return the temperature of the face source
   double get_source_T(void) const {return T_source;}
 
-  //material functions
-  uint32_t get_n_regions(void) {return regions.size();}
-  std::vector<Region> get_regions(void) {return regions;}
-  uint32_t get_region_index(const uint32_t& x_div, const uint32_t& y_div,
-    const uint32_t& z_div) {
-    // make a unique key using the division ID of x,y and z
-    // this mapping allows for 1000 unique divisions in
-    // each dimension (way too many)
-    uint32_t key = z_div*1000000 + y_div*1000 + x_div;
-    return  region_ID_to_index[region_map[key]];
+  //! Return the number of material regions
+  uint32_t get_n_regions(void) const {return regions.size();}
+
+  //! Return vector of regions
+  const std::vector<Region>& get_regions(void) const {return regions;} 
+
+  //! Return unique index given division indices
+
+  //! Make a unique key using the division ID of x,y and z. This mapping
+  //! allows for 1000 unique divisions in each dimension (way too many)
+  uint32_t get_region_index(const uint32_t x_div, const uint32_t y_div,
+    const uint32_t z_div) const
+  {
+    const uint32_t key = z_div*1000000 + y_div*1000 + x_div;
+    return  region_ID_to_index.at(region_map.at(key));
   }
 
+  //! Return boundary condition at this direction index
   Constants::bc_type get_bc(const Constants::dir_type& direction) const
   {
     return bc[direction];
@@ -588,8 +637,12 @@ class Input
   double dtMax; //!< Maximum timestep size
 
   //material
-  std::vector<Region> regions;
+  std::vector<Region> regions; //!< Vector of regions in the problem
+
+  //! Maps unique key to user set ID for a region
   std::unordered_map<uint32_t, uint32_t> region_map;
+
+  //! Maps user set region ID to the index in the regions vector
   std::unordered_map<uint32_t, uint32_t> region_ID_to_index;
 
   //source

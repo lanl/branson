@@ -35,11 +35,11 @@ class MPI_Types
 
       // remake the MPI cell datatype from mesh
       const int cell_entry_count = 3 ;
-      // 7 uint32_t, 6 int, 13 double
+      // 16 uint32_t, 6 int, 14 double
       int cell_array_of_block_length[4] = {16, 6, 14};
       // Displacements of each type in the cell
       MPI_Aint cell_array_of_block_displace[3] =
-        {0, 16*sizeof(uint32_t),  16*sizeof(uint32_t)+6*sizeof(int)};
+        {0, 16*sizeof(uint32_t),  16*sizeof(int32_t)+6*sizeof(int)};
       //Type of each memory block
       MPI_Datatype cell_array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE};
 
@@ -87,7 +87,7 @@ class MPI_Types
 
     // make and commit the MPI tally type
     {
-      // make the Work Packet
+      // make the Tally object
       const int tally_entry_count = 2;
 
       // 1 uint32_t, 1 double

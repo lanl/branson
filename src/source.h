@@ -35,17 +35,21 @@ class Work_Local_Map {
 
   public:
 
+  //! Constructor
   Work_Local_Map(std::unordered_map<uint32_t, bool> & _work_map)
     : work_map(_work_map)
     {}
+  //! Destructor
   ~Work_Local_Map() {}
 
+  //! Parnthesis operator for sorting work packets based on global cell ID
   bool operator() (const Work_Packet& a, const Work_Packet& b) {
     return work_map[a.get_global_cell_ID()] < work_map[b.get_global_cell_ID()];
   }
 
   // member data
-  std::unordered_map<uint32_t, bool>& work_map;
+  //! Map global cell ID to on processor bool
+  std::unordered_map<uint32_t, bool>& work_map; 
 };
 
 //==============================================================================
@@ -335,21 +339,21 @@ class Source {
   std::vector<Work_Packet>& get_work_vector(void) {return work;}
 
   private:
-  const Mesh * const mesh; //! Pointer to mesh (source cannot change Mesh)
-  std::vector<Photon>& census_photons; //! Reference to census photons on rank
-  uint32_t n_create; //! Number of emission particles created in this packet
-  double phtn_E; //! Photon emission energy in this packet
-  uint32_t n_work; //! Work packet counter
-  uint32_t n_in_packet; //! Number of total particles in this packet
-  uint32_t census_index; //! Index of next census particle to return
-  uint32_t iphoton;  //! Local photon counter
-  uint32_t current_source; //! Current source
-  uint32_t n_sourced; //! Number of particles returned by source
-  std::vector<Work_Packet> work; //! Work packets
-  std::vector<Work_Packet>::iterator iwork; //! Work iterator
-  uint32_t n_photon;  //! Total photons in this source
-  std::vector<double> E_cell_emission; //! Emission energy in each cell
-  std::vector<double> E_cell_census; //! Initial census energy in each cell
+  const Mesh * const mesh; //!< Pointer to mesh (source cannot change Mesh)
+  std::vector<Photon>& census_photons; //!< Reference to census photons on rank
+  uint32_t n_create; //!< Number of emission particles created in this packet
+  double phtn_E; //!< Photon emission energy in this packet
+  uint32_t n_work; //!< Work packet counter
+  uint32_t n_in_packet; //!< Number of total particles in this packet
+  uint32_t census_index; //!< Index of next census particle to return
+  uint32_t iphoton;  //!< Local photon counter
+  uint32_t current_source; //!< Current source
+  uint32_t n_sourced; //!< Number of particles returned by source
+  std::vector<Work_Packet> work; //!< Vector of Work_Packet objects
+  std::vector<Work_Packet>::iterator iwork; //!< Work iterator
+  uint32_t n_photon;  //!< Total photons in this source
+  std::vector<double> E_cell_emission; //!< Emission energy in each cell
+  std::vector<double> E_cell_census; //!< Initial census energy in each cell
 };
 
 #endif // source_h_

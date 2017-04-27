@@ -30,6 +30,7 @@ class Completion_Manager
 {
 
   public:
+  //! Constructor
   Completion_Manager(const int& rank,
                      const int& n_rank)
     : n_complete_c1(0),
@@ -55,19 +56,27 @@ class Completion_Manager
     else if (child1 == last_node) child2 = MPI_PROC_NULL;
 
   }
+
+  //! Destructor
   virtual ~Completion_Manager() {}
 
-  //non-const functions
+  // non-const functions
+
+  //! The total number of particles to run across all ranks
   void set_timestep_global_particles(uint64_t _n_particle_global) {
     n_particle_global = _n_particle_global;
   }
 
+  //! Check to see if simulation is complete (all particle work finished)
   bool is_finished(void) {return finished;}
 
+  //! Pure virtual function that initialize completion manager for the timestep
   virtual void start_timestep(Message_Counter& mctr) =0;
 
+  //! End completion manager for the timestep by finishing communication
   virtual void end_timestep(Message_Counter& mctr) = 0;
 
+  //! Adds completed work count to the global count
   virtual void process_completion(bool waiting_for_work,
                                   uint64_t& n_complete_tree,
                                   Message_Counter& mctr) = 0;

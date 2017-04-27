@@ -53,23 +53,22 @@ class Work_Packet {
   //! Return the number of particles in this work packet
   uint32_t get_n_particles(void) const {return n_particles;}
 
-  //! Return the number of census particles that will be created or have been
-  // attached to this work packet
+  //! Return the number of to be created or attached census particles
   uint32_t get_n_census(void) const {return n_census;}
 
-  //! Return the total number of particles that will be created in this work
-  // packet
+  //! Return the total number of to be created particles in this work packet
   uint32_t get_n_create(void) const {return n_create;}
 
   //! Return the starting index of photons in this work packet
   uint32_t get_census_index(void) const {return census_index_start;}
 
-  //! Return the total energy to be created (via emission or initial census)
-  // in this work packet
+  //! Return the total energy to be created (emission or initial census)
   double get_create_E(void) const {return create_E;}
 
   //! Return the energy of an emission/initial census photon in this work packet
   double get_photon_E(void) const {return create_E/n_create;}
+
+  //! Return the source type (either EMISSION or INITIAL_CENSUS)
   uint32_t get_source_type(void) const {return source_type;}
 
   //! Set an input array to a random position within a cell
@@ -90,12 +89,12 @@ class Work_Packet {
 
   // non-const functions
 
-  // Set the global cell ID
+  //! Set the global cell ID
   void set_global_cell_ID(const uint32_t& _global_cell_ID) {
     g_cell_ID = _global_cell_ID;
   }
 
-  // Set the global grip ID
+  //! Set the global grip ID
   void set_global_grip_ID(const uint32_t& _global_grip_ID) {
     g_grip_ID = _global_grip_ID;
   }
@@ -133,8 +132,10 @@ class Work_Packet {
     nodes[5] = cell_nodes[5];
   }
 
-  //! Split the work packet and return the split off work packet with
-  // (n_particles - n_remain) in it
+  //! Split the work packet and return the split off work packet
+ 
+  //! The returned Work_Packet that was split off will have 
+  //! n_particles - n_remain in it
   Work_Packet split(const uint32_t& n_remain) {
     Work_Packet return_work;
 
