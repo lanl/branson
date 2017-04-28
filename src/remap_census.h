@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   August 30 2016
  * \brief  Send census particles back to the ranks that own the mesh they need
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

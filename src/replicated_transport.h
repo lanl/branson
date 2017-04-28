@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   March 3 2017
  * \brief  IMC transport on a replicated domain
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   December 2 2015
  * \brief  Allows transport function to create particles when needed
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

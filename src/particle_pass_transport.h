@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   December 1 2015
  * \brief  IMC transport with particle passing method
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

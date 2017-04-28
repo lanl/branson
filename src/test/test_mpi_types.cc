@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   May 12 2016
  * \brief  Test custom MPI types for consistency with their datatypes
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

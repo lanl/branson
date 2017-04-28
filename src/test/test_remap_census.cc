@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   August 31, 2016
  * \brief  Test census remap functions
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //----------------------------------------------------------------------------//
 

@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   March 22 2016
  * \brief  Manages requests for remote mesh data
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

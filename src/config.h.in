@@ -5,7 +5,8 @@
  * \date   July 25 2016
  * \brief  Config file that CMake uses to generate config.h given available 
  *  libraries
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //----------------------------------------------------------------------------//
 

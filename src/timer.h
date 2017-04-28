@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   August 4 2016
  * \brief  Class for tracking multiple timers
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

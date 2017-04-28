@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   July 18 2014
  * \brief  Holds values and functions needed for transporting photon
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //----------------------------------------------------------------------------//
 

@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   January 11 2016
  * \brief  Test photon construction and move functionality
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

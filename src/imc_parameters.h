@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   December 3 2015
  * \brief  Holds parameters needed in IMC simulation
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

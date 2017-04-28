@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   January 1 2015
  * \brief  Function for creating initial census particles
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 // $Id$

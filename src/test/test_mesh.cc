@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   April 7 2016
  * \brief  Test region assignment after mesh construction
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

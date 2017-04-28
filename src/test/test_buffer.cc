@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   January 14 2016
  * \brief  Test construction, fill and get functions
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //----------------------------------------------------------------------------//
 

@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   June 17 2015
  * \brief  Functions to decompose mesh with ParMetis
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

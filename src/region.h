@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   April 4 2016
  * \brief  Describes a mesh region with independent physical properties
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

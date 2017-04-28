@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   February 14 2017
  * \brief  Requests mesh for needed paricles before transport
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //----------------------------------------------------------------------------//
 

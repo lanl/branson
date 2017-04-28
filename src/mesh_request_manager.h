@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   August 10, 2016
  * \brief  Manages two-sided requests for remote mesh data
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //----------------------------------------------------------------------------//
 

@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   June 6 2015
  * \brief  Transport routine using two sided messaging and mesh-passing DD
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

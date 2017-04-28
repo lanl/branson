@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   May 2 2016
  * \brief  Function for determining balance and communicating work
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //----------------------------------------------------------------------------//
 

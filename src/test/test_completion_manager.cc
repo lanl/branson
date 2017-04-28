@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   March 18 2016
  * \brief  Test both completion manager's construction and completion routines
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

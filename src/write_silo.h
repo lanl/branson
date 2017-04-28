@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   April 11 2016
  * \brief  Writes SILO output file for data visualization
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

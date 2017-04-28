@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   July 18 2014
  * \brief  Physical constants, custom enumerations and MPI tags
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

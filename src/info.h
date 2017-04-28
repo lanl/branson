@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   September 2 2016
  * \brief  Stores MPI information to compress function signatures
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //----------------------------------------------------------------------------//
 

@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   April 27 2017
  * \brief  RNG modified from the Draco project
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

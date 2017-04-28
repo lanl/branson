@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   April 15 2016
  * \brief  Test ability to write SILO files
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

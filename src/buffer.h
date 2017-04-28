@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   December 15 2015
  * \brief  Class for simplifying data management in MPI messaging
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

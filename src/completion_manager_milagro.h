@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   March 31 2016
  * \brief  Two-sided transport completion manager
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

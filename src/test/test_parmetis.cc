@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   February 11 2016
  * \brief  Make sure ParMetis can be called with a simple graph
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

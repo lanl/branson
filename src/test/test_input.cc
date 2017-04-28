@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   February 11 2016
  * \brief  Test Input class for correct reading of XML input files
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

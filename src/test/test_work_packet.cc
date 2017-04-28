@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   May 5 2016
  * \brief  Test work packet construction and splitting functionality
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

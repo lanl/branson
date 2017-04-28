@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   January 11 2016
  * \brief  Test cell check_in_cell and distance_to_boundary functions
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

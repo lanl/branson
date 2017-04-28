@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   September 17 2014
  * \brief  Angle sampling for isotropic and surface sources
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

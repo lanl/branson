@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   Novemeber 9, 2016
  * \brief  Test load balance function
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

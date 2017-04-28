@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   July 20 2016
  * \brief  Struct that holds all network message counters
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //----------------------------------------------------------------------------//
 

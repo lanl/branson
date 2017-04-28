@@ -8,7 +8,8 @@
  * Manages completion of domain-decomposed IMC transport with one-sided
  * messaging and MPI windows. Uses a binary tree communication pattern
  *
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 

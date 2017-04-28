@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   December 10 2015
  * \brief  Provide soft equivalence functions for testing
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 #include <cmath>

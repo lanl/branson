@@ -4,7 +4,8 @@
  * \author Alex Long
  * \date   July 24 2014
  * \brief  Reads input file, sets up mesh and runs transport 
- * \note   ***COPYRIGHT_GOES_HERE****
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
  */
 //---------------------------------------------------------------------------//
 
