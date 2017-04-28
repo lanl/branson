@@ -17,6 +17,10 @@ link_directories($ENV{PARMETIS_LIB_DIR})
 link_directories($ENV{SILO_ROOT}/lib)
 link_directories($ENV{HDF5_ROOT}/lib)
 
+# RNG class test
+add_executable(test_counter_rng_exe test_counter_rng.cc)
+add_test(NAME test_counter_rng COMMAND ${MPI_EXEC} -n 1 ./test_counter_rng_exe)
+
 # Cell class test
 add_executable(test_cell_exe test_cell.cc)
 add_test(NAME test_cell COMMAND ${MPI_EXEC} -n 1 ./test_cell_exe)

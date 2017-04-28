@@ -32,7 +32,7 @@
 class Info
 {
   public:
-  //! constructor
+  //! Constructor
   Info(void) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
@@ -88,17 +88,26 @@ class Info
 
   }
 
-  // destructor
+  // Destructor
   ~Info() {}
 
   //--------------------------------------------------------------------------//
   // const functions                                                          //
   //--------------------------------------------------------------------------//
 
+  //! Return global MPI rank of process
   int get_rank(void) const {return rank;}
+
+  //! Return number of total MPI ranks
   int get_n_rank(void) const {return n_rank;}
+
+  //! Return unique color identifier for the current node
   int get_color(void) const {return color;}
+
+  //! Return total memory on this node
   int64_t get_node_mem(void) const {return node_mem;}
+
+  //! Return the name of the machine the branson makefile was configured on
   std::string get_machine_name(void) const {return machine_name;}
 
   //--------------------------------------------------------------------------//

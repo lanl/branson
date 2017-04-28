@@ -208,35 +208,35 @@ class RMA_Manager
   std::vector<uint32_t> get_n_request_vec(void) {return n_requests_vec;}
 
   private:
-  int rank; //! MPI rank
-  std::vector<uint32_t> rank_bounds; //! Global cell ID bounds on each rank
-  MPI_Datatype MPI_Cell; //! Custom MPI datatype for cells
-  MPI_Win mesh_window; //! Shared memory window of cell objects
+  int rank; //!< MPI rank
+  std::vector<uint32_t> rank_bounds; //!< Global cell ID bounds on each rank
+  MPI_Datatype MPI_Cell; //!< Custom MPI datatype for cells
+  MPI_Win mesh_window; //!< Shared memory window of cell objects
 
   //! Global maximum grip size (number of cells in a request)
   uint32_t grip_size;
 
-  uint32_t n_max_requests; //! Maximum concurrent MPI requests (parameter)
+  uint32_t n_max_requests; //!< Maximum concurrent MPI requests (parameter)
 
   //! Number of times a cell was requested
   std::vector<uint32_t> n_requests_vec;
 
-  uint32_t max_active_index; //! Last index that contains an active MPI request
-  uint32_t count; //! Last used index in the MPI request array
-  int n_req_complete; //! Number of completed requests after MPI_Testsome
-  std::vector<Cell> new_cells; //! New cells after MPI_Testsome
-  std::vector<MPI_Request> requests; //! Array of MPI requests
-  std::vector<Buffer<Cell> > recv_cell_buffer; //! Buffer for receiving cell data
+  uint32_t max_active_index; //!< Last index that contains an active MPI request
+  uint32_t count; //!< Last used index in the MPI request array
+  int n_req_complete; //!< Number of completed requests after MPI_Testsome
+  std::vector<Cell> new_cells; //!< New cells after MPI_Testsome
+  std::vector<MPI_Request> requests; //!< Array of MPI requests
+  std::vector<Buffer<Cell> > recv_cell_buffer; //!< Buffer for receiving cell data
 
   //! Returned from MPI_Testsome, indicates completed requests at index
   std::vector<int> complete_indices;
 
-  std::unordered_set<int> index_in_use; //! Stores indices of active requests
+  std::unordered_set<int> index_in_use; //!< Stores indices of active requests
 
   //! Stores global IDs of requested cells
   std::unordered_set<uint32_t> mesh_requested;
 
-  int *memory_model; //! Memory model of MPI window (implementation dependent)
+  int *memory_model; //!< Memory model of MPI window (implementation dependent)
 };
 
 #endif // def rma_manager_h_

@@ -36,7 +36,7 @@ class Completion_Manager_RMA : public Completion_Manager
 
   public:
 
-  //! constructor
+  //! Constructor
   Completion_Manager_RMA(const int& rank, const int& n_rank)
     : Completion_Manager(rank, n_rank),
       buffer_c1(0),
@@ -67,7 +67,7 @@ class Completion_Manager_RMA : public Completion_Manager
 
   }
 
-  //! destructor
+  //! Destructor
   virtual ~Completion_Manager_RMA() {
     // closes MPI window for one-sided messaging
     MPI_Win_unlock_all(completion_window);
@@ -92,8 +92,7 @@ class Completion_Manager_RMA : public Completion_Manager
 
   // non-const functions
 
-  //! Resets all particle counts and finishes open requests (send counts are
-  // not used)
+  //! Reset particle counts and finish open requests (send counts are not used)
   virtual void end_timestep( Message_Counter& mctr)
   {
     //reset tree counts
@@ -207,17 +206,17 @@ class Completion_Manager_RMA : public Completion_Manager
   private:
   //! Pointer to complete tree, allocated by MPI_Mem_Alloc with a size of 1
   uint64_t *n_complete_tree_data;
-  uint64_t buffer_c1; //! Buffer to receive first child's tree count
-  uint64_t buffer_c2; //! Buffer to receive second child's tree count
-  uint64_t buffer_p; //! Buffer to receive parent's tree count
-  bool c1_req_flag; //! Active request flag for first child
-  bool c2_req_flag; //! Active request flag for second child
-  bool p_req_flag; //! Active request flag for parent
-  MPI_Win completion_window; //! MPI window to complete count
-  MPI_Request req_c1; //! MPI request for first child
-  MPI_Request req_c2; //! MPI request for second child
-  MPI_Request req_p; //!  MPI request for parent
-  int *memory_model; //! Memory model of MPI window (implementation dependent)
+  uint64_t buffer_c1; //!< Buffer to receive first child's tree count
+  uint64_t buffer_c2; //!< Buffer to receive second child's tree count
+  uint64_t buffer_p; //!< Buffer to receive parent's tree count
+  bool c1_req_flag; //!< Active request flag for first child
+  bool c2_req_flag; //!< Active request flag for second child
+  bool p_req_flag; //!< Active request flag for parent
+  MPI_Win completion_window; //!< MPI window to complete count
+  MPI_Request req_c1; //!< MPI request for first child
+  MPI_Request req_c2; //!< MPI request for second child
+  MPI_Request req_p; //!<  MPI request for parent
+  int *memory_model; //!< Memory model of MPI window (implementation dependent)
 };
 
 #endif // def completion_manager_rma_h_

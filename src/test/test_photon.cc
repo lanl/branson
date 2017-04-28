@@ -25,7 +25,7 @@ int main (void) {
     bool test_photon = true;
     Photon photon;
 
-    //set position matches get position
+    // set position matches get position
     double pos[3] = {0.1, 0.2, 0.3}; 
     photon.set_position(pos);
     const double *pos_from_get = photon.get_position();
@@ -34,7 +34,7 @@ int main (void) {
     if (pos[1] != pos_from_get[1]) test_photon= false;
     if (pos[2] != pos_from_get[2]) test_photon= false;
 
-    //set angle matches get angle
+    // set angle matches get angle
     double angle[3] = {0.57735, 0.37735, 0.52427};
     photon.set_angle(angle);
     const double *angle_from_get = photon.get_angle();
@@ -60,7 +60,7 @@ int main (void) {
   }
 
 
-  //test move function
+  // test move function
   {
     bool test_photon_move = true;
 
