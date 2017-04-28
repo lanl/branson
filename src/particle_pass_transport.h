@@ -397,6 +397,8 @@ std::vector<Photon> particle_pass_transport(Source& source,
     // binary tree completion communication
     //------------------------------------------------------------------------//
 
+    comp->get_child_subtree_num_done(n_complete, mctr);
+
     waiting_for_work = ((n_local_sourced == n_local) &&
       phtn_recv_stack.empty());
 
