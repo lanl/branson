@@ -121,6 +121,12 @@ class Completion_Manager_RMA : public Completion_Manager
     }
   }
 
+
+  //! Check for completed particle counts from children, don't need to do this
+  //! There are no outstanding receive to process in the RMA mode
+  void get_child_subtree_num_done(uint64_t& n_complete_tree,
+    Message_Counter& mctr) {}
+
   //! Add number of completed particles to this tree count and get the number
   // of completed particles by your children (n_sends_posted is not used
   virtual void process_completion(bool waiting_for_work,

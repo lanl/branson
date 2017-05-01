@@ -77,6 +77,10 @@ class Completion_Manager
   //! End completion manager for the timestep by finishing communication
   virtual void end_timestep(Message_Counter& mctr) = 0;
 
+  //! Process receives from child ranks in binary tree
+  virtual void get_child_subtree_num_done(uint64_t& n_complete_tree,
+    Message_Counter& mctr) = 0;
+
   //! Adds completed work count to the global count
   virtual void process_completion(bool waiting_for_work,
                                   uint64_t& n_complete_tree,

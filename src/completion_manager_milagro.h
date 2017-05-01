@@ -75,6 +75,49 @@ class Completion_Manager_Milagro : public Completion_Manager
     }
   }
 
+
+  //! Check for completed particle counts from children
+  //! Add number completed by each child to the current tree count.
+  void get_child_subtree_num_done(uint64_t& n_complete_tree,
+    Message_Counter& mctr)
+  {
+    using Constants::count_tag;
+
+    //test receives from children and add work to tree count
+    if (c1_recv_buffer.awaiting()) {
+      MPI_Test(&c1_recv_req, &flag_c1, MPI_STATUS_IGNORE);
+      if (flag_c1) {
+        mctr.n_receives_completed++;
+        c1_recv_buffer.set_received();
+        n_complete_c1 = c1_recv_buffer.get_object()[0];
+        //update tree count
+        n_complete_tree+=n_complete_c1;
+        //post receive again
+        c1_recv_buffer.reset();
+        MPI_Irecv(c1_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child1,
+          count_tag, MPI_COMM_WORLD, &c1_recv_req);
+        mctr.n_receives_posted++;
+        c1_recv_buffer.set_awaiting();
+      }
+    }
+    if (c2_recv_buffer.awaiting()) {
+      MPI_Test(&c2_recv_req, &flag_c2, MPI_STATUS_IGNORE);
+      if (flag_c2) {
+        mctr.n_receives_completed++;
+        c2_recv_buffer.set_received();
+        n_complete_c2 = c2_recv_buffer.get_object()[0];
+        //update tree count
+        n_complete_tree+=n_complete_c2;
+        //post receive again
+        c2_recv_buffer.reset();
+        MPI_Irecv(c2_recv_buffer.get_buffer(), 1, MPI_UNSIGNED_LONG, child2,
+          count_tag, MPI_COMM_WORLD, &c2_recv_req);
+        mctr.n_receives_posted++;
+        c2_recv_buffer.set_awaiting();
+      }
+    }
+  }
+
   //! Check for completed particle counts from children and parent.
   //! Add children to current tree count. If parent count is received,
   //! it will be the global problem particle count, indicating completion
@@ -233,13 +276,13 @@ class Completion_Manager_Milagro : public Completion_Manager
 
   private:
 
-  //! Particle completion count receive buffer for first child 
-  Buffer<uint64_t> c1_recv_buffer; 
+  //! Particle completion count receive buffer for first child
+  Buffer<uint64_t> c1_recv_buffer;
 
-  //! Particle completion count receive buffer for second child 
+  //! Particle completion count receive buffer for second child
   Buffer<uint64_t> c2_recv_buffer;
 
-  //! Particle completion count receive buffer for parent 
+  //! Particle completion count receive buffer for parent
   Buffer<uint64_t> p_recv_buffer;
 
   //! Particle completion count send buffer for first child

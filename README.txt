@@ -3,7 +3,7 @@ So you've decided to use Branson...
 Here are some things to know:
 
 - Branson is not an acronym.
-- Branson requires MPI 1.10+, Boost (headers only), Metis and ParMetis.
+- Branson requires MPI 3.0+, Boost (headers only), Metis and ParMetis.
 - The point of Branson is to study different algorithms for parallel
  Monte Carlo transport. Currently it contains particle passing and
  mesh passing methods for domain decomposition.
