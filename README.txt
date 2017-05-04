@@ -1,3 +1,7 @@
+
+Branson
+----------------
+
 So you've decided to use Branson...
 
 Here are some things to know:
@@ -24,3 +28,17 @@ Installing Branson:
  the default is release.
 - Visualization is optional and will be turned on if HDF5 and SILO libraries
 are found by CMake
+
+
+Authors
+----------------
+- Branson was written by Alex R. Long
+- random123 is by D. E. Shaw Research, Copyright 2010-2011
+- RNG.h uses code from [Draco](https://github.com/lanl/Draco)
+
+Release
+----------------
+Branson is released under the BSD 3-Clause License. For more details see the
+LICENSE.txt file.
+
+LANL code designation: `LA-CC-17-048`
