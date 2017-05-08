@@ -41,4 +41,4 @@ Release
 Branson is released under the BSD 3-Clause License. For more details see the
 LICENSE.txt file.
 
-LANL code designation: `LA-CC-17-048`
+LANL code designation: `C17048`
