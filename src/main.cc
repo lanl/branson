@@ -3,7 +3,7 @@
  * \file   main.cc
  * \author Alex Long
  * \date   July 24 2014
- * \brief  Reads input file, sets up mesh and runs transport 
+ * \brief  Reads input file, sets up mesh and runs transport
  * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
  *         All rights reserved
  */
@@ -46,7 +46,7 @@ int main(int argc, char **argv)
   //check to see if number of arguments is correct
   if (argc != 2) {
     cout<<"Usage: BRANSON <path_to_input_file>"<<endl;
-    exit(EXIT_FAILURE); 
+    exit(EXIT_FAILURE);
   }
 
   // get MPI parmeters and set them in mpi_info
@@ -71,13 +71,13 @@ int main(int argc, char **argv)
   IMC_State *imc_state;
   imc_state = new IMC_State(input, mpi_info.get_rank());
 
-  //timing 
+  //timing
   Timer * timers = new Timer();
 
   // make mesh from input object and decompose mesh with ParMetis
   timers->start_timer("Total setup");
   Mesh *mesh = new Mesh(input, mpi_types, mpi_info);
-  if (input->get_dd_mode() == REPLICATED) { 
+  if (input->get_dd_mode() == REPLICATED) {
     replicate_mesh(mesh, mpi_types, mpi_info, imc_p->get_grip_size());
   }
   else {
@@ -98,15 +98,15 @@ int main(int argc, char **argv)
     imc_particle_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
   else if (input->get_dd_mode() == CELL_PASS)
     imc_mesh_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
-  else if (input->get_dd_mode() == CELL_PASS_RMA) 
+  else if (input->get_dd_mode() == CELL_PASS_RMA)
     imc_rma_mesh_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
-  else if (input->get_dd_mode() == REPLICATED) 
+  else if (input->get_dd_mode() == REPLICATED)
     imc_replicated_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
   else
     cout<<"Driver for DD transport method currently not supported"<<endl;
 
   timers->stop_timer("Total transport");
-  
+
   if (mpi_info.get_rank()==0) {
     cout<<"****************************************";
     cout<<"****************************************"<<endl;
@@ -120,7 +120,7 @@ int main(int argc, char **argv)
   delete imc_state;
   delete imc_p;
   delete input;
-  delete mpi_types;
+  delete mpi_types; // destructor frees mpi types (calls MPI_type_free)
 
   MPI_Finalize();
 }

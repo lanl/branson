@@ -142,7 +142,12 @@ class MPI_Types
   }
 
   // destructor
-  ~MPI_Types() {}
+  ~MPI_Types() {
+    MPI_Type_free(&MPI_Cell);
+    MPI_Type_free(&MPI_Particle);
+    MPI_Type_free(&MPI_Tally);
+    MPI_Type_free(&MPI_Work_Packet);
+  }
 
   //--------------------------------------------------------------------------//
   // const functions                                                          //

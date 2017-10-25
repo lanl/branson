@@ -23,16 +23,17 @@ using std::string;
 int main (int argc, char *argv[]) {
 
   MPI_Init(&argc, &argv);
-  
+
   int rank, n_rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
   int nfail = 0;
-  
-  MPI_Types mpi_types;
+
   // test get and size functions
   {
+    MPI_Types mpi_types;
+
     bool size_functions_pass = true;
 
     // test particle size
@@ -84,8 +85,8 @@ int main (int argc, char *argv[]) {
     cout<<"MPI Work Packet object size :"<<work_packet_size<<endl;
 
     if (size_functions_pass) cout<<"TEST PASSED: MPI_Types size functions "<<endl;
-    else { 
-      cout<<"TEST FAILED: MPI_Types size functions"<<endl; 
+    else {
+      cout<<"TEST FAILED: MPI_Types size functions"<<endl;
       nfail++;
     }
   }
