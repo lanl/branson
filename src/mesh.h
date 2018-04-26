@@ -646,17 +646,23 @@ class Mesh {
 
   //! Use MPI allocation routines, copy in cell data and make the MPI window
   // object
-  void make_MPI_window(void) {
-    //make the MPI window with the sorted cell list
-    MPI_Aint n_bytes(n_cell*mpi_cell_size);
-    //MPI_Alloc_mem(n_bytes, MPI_INFO_NULL, &cells);
-    MPI_Win_allocate(n_bytes, mpi_cell_size, MPI_INFO_NULL,
-      MPI_COMM_WORLD, &cells, &mesh_window);
-    //copy the cells list data into the cells array
-    memcpy(cells,&cell_list[0], n_bytes);
+  void make_MPI_window(bool rep_flag = false) {
+    // if replicated don't bother with the MPI window
+    if (rep_flag) {
+      cells = &cell_list[0];
+    }
+    else {
+      //make the MPI window with the sorted cell list
+      MPI_Aint n_bytes(n_cell*mpi_cell_size);
+      //MPI_Alloc_mem(n_bytes, MPI_INFO_NULL, &cells);
+      MPI_Win_allocate(n_bytes, mpi_cell_size, MPI_INFO_NULL,
+        MPI_COMM_WORLD, &cells, &mesh_window);
+      //copy the cells list data into the cells array
+      memcpy(cells,&cell_list[0], n_bytes);
 
-    mpi_window_set = true;
-    cell_list.clear();
+      mpi_window_set = true;
+      cell_list.clear();
+    }
   }
 
   //! Use the absorbed energy and update the material temperature of each

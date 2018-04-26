@@ -273,16 +273,6 @@ class Source {
       iphoton = 0;
     }
 
-    if (n_work > 1000000000) {
-      std::cout<<"this is bad: work out of bounds"<<std::endl;
-    }
-    if (return_photon.get_grip() > 100000000) {
-      std::cout<<"this is bad: grip out of bounds"<<std::endl;
-    }
-    if (return_photon.get_cell() > 100000000) {
-      std::cout<<"this is bad: cell out of bounds"<<std::endl;
-    }
-
     if (n_sourced >= n_photon) {
       std::cout<<"this is bad: can't source more than this"<<std::endl;
     }
@@ -311,6 +301,7 @@ class Source {
     emission_photon.set_distance_to_census(rng->generate_random_number()*c*dt);
     emission_photon.set_cell(work.get_global_cell_ID());
     emission_photon.set_grip(work.get_global_grip_ID());
+    emission_photon.set_group(std::floor(rng->generate_random_number()*double(BRANSON_N_GROUPS)));
   }
 
   //! Set input photon to the next intiial census photon
@@ -332,6 +323,7 @@ class Source {
     census_photon.set_distance_to_census(c*dt);
     census_photon.set_cell(work.get_global_cell_ID());
     census_photon.set_grip(work.get_global_grip_ID());
+    census_photon.set_group(std::floor(rng->generate_random_number()*double(BRANSON_N_GROUPS)));
   }
 
 

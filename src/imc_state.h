@@ -123,11 +123,11 @@ class IMC_State
   //! Get next timestep size
   double get_next_dt(void) const {
     double next_dt;
-    //multiply by dt_mult if it's going to be less than dt_max
-    //other set to dt_max
+    // multiply by dt_mult if it's going to be less than dt_max
+    // other set to dt_max
     if (m_dt*m_dt_mult < m_dt_max) next_dt = m_dt*m_dt_mult;
     else next_dt = m_dt_max;
-    //don't overrun the end time
+    // don't overrun the end time
     if (m_time + next_dt > m_time_stop) next_dt = m_time_stop - m_time;
 
     return next_dt;

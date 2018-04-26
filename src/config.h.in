@@ -19,6 +19,9 @@
 #cmakedefine TRINITITE_NODE
 #cmakedefine CCS_NODE
 
+// For faux multigroup array sizing
+#cmakedefine BRANSON_N_GROUPS @BRANSON_N_GROUPS@
+
 #endif // def config_h_
 //----------------------------------------------------------------------------//
 // end of config.h

@@ -35,12 +35,13 @@ class MPI_Types
       MPI_Datatype og_MPI_Cell;
 
       // remake the MPI cell datatype from mesh
-      const int cell_entry_count = 3 ;
-      // 16 uint32_t, 6 int, 14 double
-      int cell_array_of_block_length[4] = {16, 6, 14};
+      const int cell_entry_count = 3;
+      // 16 uint32_t, 6 int, 14 double + sizeof mg data
+      int groups = BRANSON_N_GROUPS;
+      int cell_array_of_block_length[3] = {16, 6, 14 + groups*2};
       // Displacements of each type in the cell
       MPI_Aint cell_array_of_block_displace[3] =
-        {0, 16*sizeof(uint32_t),  16*sizeof(int32_t)+6*sizeof(int)};
+        {0, 16*sizeof(uint32_t), 16*sizeof(uint32_t)+6*sizeof(int)};
       //Type of each memory block
       MPI_Datatype cell_array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE};
 
@@ -64,11 +65,11 @@ class MPI_Types
       const int particle_entry_count = 2 ;
 
       // 2 uint32_t, 9 double
-      int particle_array_of_block_length[3] = { 2, 9};
+      int particle_array_of_block_length[2] = { 4, 9};
 
       // Displacements of each type in the cell
       MPI_Aint particle_array_of_block_displace[2] =
-        {0, 2*sizeof(uint32_t)};
+        {0, 4*sizeof(uint32_t)};
 
       //Type of each memory block
       MPI_Datatype particle_array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
@@ -120,7 +121,7 @@ class MPI_Types
       // make the Work Packet
       const int wp_entry_count = 2 ;
       // 7 uint32_t, 7 doubles
-      int wp_array_of_block_length[3] = { 8, 7};
+      int wp_array_of_block_length[2] = { 8, 7};
       // Displacements of each type in the cell
       MPI_Aint wp_array_of_block_displace[2] =
         {0, 8*sizeof(uint32_t)};

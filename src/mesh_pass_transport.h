@@ -59,42 +59,45 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
   double dist_to_scatter, dist_to_boundary, dist_to_census, dist_to_event;
   double sigma_a, sigma_s, f, absorbed_E;
   double angle[3];
+  int group;
   Cell cell;
 
   uint32_t surface_cross = 0;
-  const double cutoff_fraction = 0.01; //note: get this from IMC_state
+  const double cutoff_fraction = 0.01; // note: get this from IMC_state
 
   cell_id=phtn.get_cell();
   cell = mesh->get_on_rank_cell(cell_id);
   bool active = true;
 
-  //transport this photon
+  // transport this photon
   while(active) {
-    sigma_a = cell.get_op_a();
-    sigma_s = cell.get_op_s();
+    group = phtn.get_group();
+    sigma_a = cell.get_op_a(group);
+    sigma_s = cell.get_op_s(group);
     f = cell.get_f();
 
-    //get distance to event
-    dist_to_scatter = -log(rng->generate_random_number())/
-      ((1.0-f)*sigma_a + sigma_s);
+    // get distance to event
+    dist_to_scatter = 
+      -log(rng->generate_random_number())/((1.0-f)*sigma_a + sigma_s);
+
     dist_to_boundary = cell.get_distance_to_boundary(phtn.get_position(),
                                                       phtn.get_angle(),
                                                       surface_cross);
     dist_to_census = phtn.get_distance_remaining();
 
-    //select minimum distance event
+    // select minimum distance event
     dist_to_event = min(dist_to_scatter, min(dist_to_boundary, dist_to_census));
 
-    //Calculate energy absorbed by material, update photon and material energy
+    // calculate energy absorbed by material, update photon and material energy
     absorbed_E = phtn.get_E()*(1.0 - exp(-sigma_a*f*dist_to_event));
     phtn.set_E(phtn.get_E() - absorbed_E);
 
     rank_abs_E[cell_id] += absorbed_E;
 
-    //update position
+    // update position
     phtn.move(dist_to_event);
 
-    //Apply variance/runtime reduction
+    // apply variance/runtime reduction
     if (phtn.below_cutoff(cutoff_fraction)) {
       rank_abs_E[cell_id] += phtn.get_E();
       active=false;
@@ -102,13 +105,15 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
     }
     // or apply event
     else {
-      //Apply event
-      //EVENT TYPE: SCATTER
+      // EVENT TYPE: SCATTER
       if(dist_to_event == dist_to_scatter) {
         get_uniform_angle(angle, rng);
         phtn.set_angle(angle);
+        // if effective scatter change frequency
+        if (rng->generate_random_number() > ( sigma_s / ((1.0-f)*sigma_a + sigma_s)))
+          phtn.set_group(sample_emission_group(rng, cell));
       }
-      //EVENT TYPE: BOUNDARY CROSS
+      // EVENT TYPE: BOUNDARY CROSS
       else if(dist_to_event == dist_to_boundary) {
         boundary_event = cell.get_bc(surface_cross);
         if(boundary_event == ELEMENT || boundary_event == PROCESSOR) {
@@ -117,7 +122,7 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
           phtn.set_cell(next_cell);
           phtn.set_grip(next_grip);
           cell_id=next_cell;
-          //look for this cell, if it's not there transport later
+          // look for this cell, if it's not there transport later
           if (mesh->mesh_available(cell_id))
             cell = mesh->get_on_rank_cell(cell_id);
           else {
@@ -132,7 +137,7 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
         }
         else phtn.reflect(surface_cross);
       }
-      //EVENT TYPE: REACH CENSUS
+      // EVENT TYPE: REACH CENSUS
       else if(dist_to_event == dist_to_census) {
         phtn.set_distance_to_census(c*next_dt);
         active=false;

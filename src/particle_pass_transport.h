@@ -39,6 +39,7 @@ Constants::event_type transport_photon_particle_pass( Photon& phtn,
 {
   using Constants::VACUUM; using Constants::REFLECT;
   using Constants::ELEMENT; using Constants::PROCESSOR;
+  //events
   using Constants::PASS; using Constants::CENSUS;
   using Constants::KILL; using Constants::EXIT;
   using Constants::bc_type;
@@ -52,6 +53,7 @@ Constants::event_type transport_photon_particle_pass( Photon& phtn,
   double dist_to_scatter, dist_to_boundary, dist_to_census, dist_to_event;
   double sigma_a, sigma_s, f, absorbed_E;
   double angle[3];
+  int group;
   Cell cell;
 
   uint32_t surface_cross = 0;
@@ -63,8 +65,9 @@ Constants::event_type transport_photon_particle_pass( Photon& phtn,
 
   // transport this photon
   while(active) {
-    sigma_a = cell.get_op_a();
-    sigma_s = cell.get_op_s();
+    group = phtn.get_group();
+    sigma_a = cell.get_op_a(group);
+    sigma_s = cell.get_op_s(group);
     f = cell.get_f();
 
     // get distance to event
@@ -96,11 +99,12 @@ Constants::event_type transport_photon_particle_pass( Photon& phtn,
     }
     // or apply event
     else {
-      // apply event
       // EVENT TYPE: SCATTER
       if(dist_to_event == dist_to_scatter) {
         get_uniform_angle(angle, rng);
         phtn.set_angle(angle);
+        if (rng->generate_random_number() > ( sigma_s / ((1.0-f)*sigma_a + sigma_s)))
+          phtn.set_group(sample_emission_group(rng, cell));
       }
       // EVENT TYPE: BOUNDARY CROSS
       else if(dist_to_event == dist_to_boundary) {

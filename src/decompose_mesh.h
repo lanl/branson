@@ -575,12 +575,16 @@ void replicate_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
 
   MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
 
+  send_cell.clear();
+
   for (uint32_t ir=0; ir<n_off_rank; ++ir) {
     vector<Cell> new_cells = recv_cell[ir].get_object();
     for (uint32_t i = 0; i< new_cells.size(); ++i) {
       mesh->add_mesh_cell(new_cells[i]);
     }
   }
+
+  recv_cell.clear();
 
   // update the cell list on each processor
   mesh->set_post_decomposition_mesh_cells();
@@ -750,7 +754,8 @@ void replicate_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   mesh->renumber_local_cell_indices(local_map, local_grip_map);
 
   // reallocate mesh data in new MPI window and delete the old vector object
-  mesh->make_MPI_window();
+  bool rep_flag = true;
+  mesh->make_MPI_window(rep_flag);
 
   // clean up dynamically allocated memory
   delete[] reqs;

@@ -16,6 +16,7 @@
 #include <mpi.h>
 
 #include "RNG.h"
+#include "config.h"
 #include "constants.h"
 
 template <typename T> int sgn(T val) {
@@ -51,17 +52,17 @@ class Cell
   // const functions                                                          //
   //--------------------------------------------------------------------------//
   //! Get boundary condition type in this direction
-  Constants::bc_type get_bc(const uint32_t& dir) const {return bc[dir];}
+  inline Constants::bc_type get_bc(const uint32_t& dir) const {return bc[dir];}
 
   //! Get global ID of cell in next direction
-  uint32_t get_next_cell(const uint32_t& dir) const {return e_next[dir];} 
+  inline uint32_t get_next_cell(const uint32_t& dir) const {return e_next[dir];} 
 
   //! Get grip ID of cell in next direction
-  uint32_t get_next_grip(const uint32_t& dir) const {return grip_next[dir];} 
+  inline uint32_t get_next_grip(const uint32_t& dir) const {return grip_next[dir];} 
 
   //! Return a distance to boundary and set surface crossing given 
   // position and angle
-  double get_distance_to_boundary(const double *pos,
+  inline double get_distance_to_boundary(const double *pos,
                                   const double *angle, 
                                   uint32_t& surface_cross) const 
   {
@@ -82,7 +83,7 @@ class Cell
 
 
   //! Set position array given an RNG
-  void uniform_position_in_cell(RNG* rng, double* pos) const {
+  inline void uniform_position_in_cell(RNG* rng, double* pos) const {
     pos[0]= nodes[0] + rng->generate_random_number()*(nodes[1]-nodes[0]);
     pos[1]= nodes[2] + rng->generate_random_number()*(nodes[3]-nodes[2]);
     pos[2]= nodes[4] + rng->generate_random_number()*(nodes[5]-nodes[4]);
@@ -98,52 +99,58 @@ class Cell
   }
 
   //! Return node array (for setting up work packets)
-  const double* get_node_array(void) const {return nodes;}
+  inline const double* get_node_array(void) const {return nodes;}
 
   //! Return SILO index (for plotting only)
-  uint32_t get_silo_index(void) const {return silo_index;}
+  inline uint32_t get_silo_index(void) const {return silo_index;}
 
   //! Return heat capacity
-  double get_cV(void) const {return cV;}
+  inline double get_cV(void) const {return cV;}
 
   //! Retrun absorption opacity
-  double get_op_a(void) const {return op_a;}
+  inline double get_op_a(void) const {return op_a;}
+
+  //! Return multigroup absorption opacity
+  inline double get_op_a(uint32_t g) const {return abs_groups[g];}
 
   //! Retrun scattering opacity
-  double get_op_s(void) const {return op_s;}
+  inline double get_op_s(void) const {return op_s;}
+
+  //! Return multigroup scattering opacity
+  inline double get_op_s(uint32_t g) const {return sct_groups[g];}
 
   //! Retrun fleck factor
-  double get_f(void) const {return f;}
+  inline double get_f(void) const {return f;}
 
   //! Return density
-  double get_rho(void) const {return rho;}
+  inline double get_rho(void) const {return rho;}
 
   //! Return cell volume
-  double get_volume(void) const 
+  inline double get_volume(void) const 
   {
     return (nodes[1]-nodes[0])*(nodes[3]-nodes[2])*(nodes[5]-nodes[4]);
   }
 
   //! Return electron temperature
-  double get_T_e(void) const {return T_e;}
+  inline double get_T_e(void) const {return T_e;}
 
   //! Return radiation temperature
-  double get_T_r(void) const {return T_r;}
+  inline double get_T_r(void) const {return T_r;}
 
   //! Return source temperature
-  double get_T_s(void) const {return T_s;}
+  inline double get_T_s(void) const {return T_s;}
 
   // Return global ID
-  uint32_t get_ID(void) const {return g_ID;}
+  inline uint32_t get_ID(void) const {return g_ID;}
 
   // Return global grip ID
-  uint32_t get_grip_ID(void) const {return grip_ID;}
+  inline uint32_t get_grip_ID(void) const {return grip_ID;}
 
   // Return region ID
-  uint32_t get_region_ID(void) const {return region_ID;}
+  inline uint32_t get_region_ID(void) const {return region_ID;}
 
   //! Set input array to center of cell (for mesh decomposition only)
-  void get_center(float xyz[3]) {
+  inline void get_center(float xyz[3]) {
     xyz[0] = 0.5*(nodes[0] + nodes[1]);
     xyz[1] = 0.5*(nodes[2] + nodes[3]);
     xyz[2] = 0.5*(nodes[4] + nodes[5]);
@@ -202,10 +209,22 @@ class Cell
   }
 
   //! Set absorption opacity
-  void set_op_a(double _op_a) {op_a = _op_a;}
+  void set_op_a(double _op_a) {
+    op_a = _op_a;
+    // set "multigroup" data
+    for (uint32_t i=0; i<BRANSON_N_GROUPS;++i) {
+      abs_groups[i] = _op_a;
+    }
+  }
 
   //! Set scattering opacity
-  void set_op_s(double _op_s) {op_s = _op_s;}
+  void set_op_s(double _op_s) {
+    op_s = _op_s;
+    // set "multigroup" data
+    for (uint32_t i=0; i<BRANSON_N_GROUPS;++i) {
+      sct_groups[i] = _op_s;
+    }
+  }
 
   //! Set fleck factor
   void set_f(double _f) {f = _f;}
@@ -261,11 +280,11 @@ class Cell
   uint32_t region_ID; //!< region cell is in (for setting physical properties)
   uint32_t e_next[6]; //!< Bordering cell, given as global ID
   uint32_t grip_next[6]; //!< Bordering grip, given as global cell ID
-  uint32_t silo_index; //!< Global index not remappated, for SILO plotting
+  uint32_t silo_index; //!< Global index not remappaed, for SILO plotting
   Constants::bc_type bc[6];   //!< Boundary conditions for each face
   double nodes[6]; //!< x_low, x_high, y_low, y_high, z_low, z_high
-  //double abs_groups[50]; //!< Absorption groups
-  //double sct_groups[50]; //!< Scattering groups
+  double abs_groups[BRANSON_N_GROUPS]; //!< Absorption groups
+  double sct_groups[BRANSON_N_GROUPS]; //!< Scattering groups
 
   double cV;    //!< Heat capacity  GJ/g/KeV
   double op_a;  //!< Absorption opacity  (1/cm)
