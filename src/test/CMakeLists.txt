@@ -5,7 +5,7 @@ cmake_minimum_required (VERSION 2.8)
 # Set OpenMPI compiler
 #set(CMAKE_CXX_COMPILER mpic++)
 
-if ("${SITENAME}" STREQUAL "Moonlight" OR ${SITENAME} MATCHES "ccscs[0-9]+" OR ${SITENAME} MATCHES "Snow" )
+if ("${SITENAME}" STREQUAL "Moonlight" OR ${SITENAME} MATCHES "ccscs[0-9]+" OR ${SITENAME} MATCHES "Snow" OR ${SITENAME} MATCHES "Badger")
   set(MPI_EXEC mpirun)
 elseif (${SITENAME} STREQUAL "Trinitite")
   set(MPI_EXEC srun)
