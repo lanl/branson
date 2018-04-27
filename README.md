@@ -23,12 +23,25 @@ Here are some things to know:
 Installing Branson:
 
 - Branson uses CMake. The main CMakelist file is in the src directory.
-- There is only one cmake user option right now: "CMAKE_BUILD_TYPE" which
+- There is only one CMake user option right now: "CMAKE_BUILD_TYPE" which
  can be set on the command line with "DCMAKE_BUILD_TYPE=<Debug|Release>" and
  the default is release.
 - Visualization is optional and will be turned on if HDF5 and SILO libraries
 are found by CMake
 
+Fake Multigrop Branson:
+
+- The clean_mg branch has a new capability that mimics the data flow in real
+ multigroup transport.
+- This branch sets the number of groups at the configure step in CMake. I know 
+  this is  messy from a usability standpoint but it makes the data layout very 
+  easy to control when the number of groups is known at compile time. Use
+  the "N_GROUPS" CMake variable to set the number of groups (e.g. cmake
+  -DN_GROUPS=10 ../path/to/CMakeLists.txt).
+- The code will still produce gray results! The physical value in each group 
+  is the same and it's still set via the input deck.
+- This branch samples a group with a uniform PDF (it does not weight the
+  opacity with a Planckian spectrum).
 
 Authors
 ----------------
