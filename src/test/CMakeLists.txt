@@ -8,7 +8,7 @@ cmake_minimum_required (VERSION 2.8)
 if ("${SITENAME}" STREQUAL "Moonlight" OR ${SITENAME} MATCHES "ccscs[0-9]+" OR ${SITENAME} MATCHES "Snow" )
   set(MPI_EXEC mpirun)
 elseif (${SITENAME} STREQUAL "Trinitite")
-  set(MPI_EXEC aprun)
+  set(MPI_EXEC srun)
 endif ()
 
 include_directories(${Boost_INCLUDE_DIR})

@@ -12,6 +12,7 @@
 #include <iostream>
 #include <mpi.h>
 
+#include "config.h"
 #include "../constants.h"
 #include "../completion_manager_milagro.h"
 #include "../completion_manager_rma.h"
@@ -38,7 +39,14 @@ int main (int argc, char *argv[]) {
 
     Completion_Manager_RMA comp(rank, n_rank);
 
-    if (comp.get_mpi_window_memory_type() != MPI_WIN_UNIFIED) construction_pass = false;
+    // Trinitite MPICH says that memory model is "separate" which is worrying,
+    // but I think we always have MPI_Barriers between reads and writes
+    // for mesh data. Tallying with RMA might be more difficult in this mode.
+    #ifdef TRINITITE_NODE
+      if (comp.get_mpi_window_memory_type() != MPI_WIN_SEPARATE) construction_pass = false;
+    #else 
+      if (comp.get_mpi_window_memory_type() != MPI_WIN_UNIFIED) construction_pass = false;
+    #endif
 
     if (construction_pass) cout<<"TEST PASSED: Construction and MPI window type "
       <<n_rank<<" ranks"<<endl;
