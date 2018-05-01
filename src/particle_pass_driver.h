@@ -39,6 +39,7 @@ void imc_particle_pass_driver(Mesh *mesh,
 {
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
+  vector<double> track_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
   Message_Counter mctr;
   int rank = mpi_info.get_rank();
@@ -79,9 +80,9 @@ void imc_particle_pass_driver(Mesh *mesh,
     imc_state->set_transported_particles(source.get_n_photon());
 
     census_photons = particle_pass_transport(source, mesh, imc_state, 
-      imc_parameters, mpi_types, comp, mctr, abs_E, mpi_info);
+      imc_parameters, mpi_types, comp, mctr, abs_E, track_E, mpi_info);
           
-    mesh->update_temperature(abs_E, imc_state);
+    mesh->update_temperature(abs_E, track_E, imc_state);
 
     // update time for next step    
     imc_state->print_conservation(imc_parameters->get_dd_mode());

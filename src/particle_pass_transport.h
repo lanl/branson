@@ -35,7 +35,8 @@
 
 Constants::event_type transport_photon_particle_pass( Photon& phtn,
   Mesh* mesh, RNG* rng, double& next_dt, double& exit_E, double& census_E,
-                                  std::vector<double>& rank_abs_E)
+                                  std::vector<double>& rank_abs_E,
+                                  std::vector<double>& rank_track_E)
 {
   using Constants::VACUUM; using Constants::REFLECT;
   using Constants::ELEMENT; using Constants::PROCESSOR;
@@ -50,7 +51,7 @@ Constants::event_type transport_photon_particle_pass( Photon& phtn,
   bc_type boundary_event;
   event_type event;
   double dist_to_scatter, dist_to_boundary, dist_to_census, dist_to_event;
-  double sigma_a, sigma_s, f, absorbed_E;
+  double sigma_a, sigma_s, f, absorbed_E, ew_factor;
   double angle[3];
   Cell cell;
 
@@ -80,10 +81,14 @@ Constants::event_type transport_photon_particle_pass( Photon& phtn,
     dist_to_event = min(dist_to_scatter, min(dist_to_boundary, dist_to_census));
 
     // calculate energy absorbed by material, update photon and material energy
-    absorbed_E = phtn.get_E()*(1.0 - exp(-sigma_a*f*dist_to_event));
-    phtn.set_E(phtn.get_E() - absorbed_E);
+    // and update the path-length weighted tally for T_r
+    ew_factor = exp(-sigma_a*f*dist_to_event);
+    absorbed_E = phtn.get_E()*(1.0 - ew_factor);
 
+    rank_track_E[cell_id] += absorbed_E / (sigma_a*f);
     rank_abs_E[cell_id] += absorbed_E;
+
+    phtn.set_E(phtn.get_E() - absorbed_E);
 
     // update position
     phtn.move(dist_to_event);
@@ -147,6 +152,7 @@ std::vector<Photon> particle_pass_transport(Source& source,
                                             Completion_Manager* comp,
                                             Message_Counter& mctr,
                                             std::vector<double>& rank_abs_E,
+                                            std::vector<double>& rank_track_E,
                                             const Info& mpi_info)
 {
   using Constants::event_type;
@@ -266,7 +272,7 @@ std::vector<Photon> particle_pass_transport(Source& source,
       }
 
       event = transport_photon_particle_pass(phtn, mesh, rng, next_dt, exit_E,
-                                            census_E, rank_abs_E);
+                                            census_E, rank_abs_E, rank_track_E);
       switch(event) {
         // this case should never be reached
         case WAIT:
