@@ -37,6 +37,7 @@ void imc_replicated_driver(Mesh *mesh,
 {
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
+  vector<double> track_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
   Message_Counter mctr;
   int rank = mpi_info.get_rank();
@@ -68,13 +69,15 @@ void imc_replicated_driver(Mesh *mesh,
     imc_state->set_transported_particles(source.get_n_photon());
 
     census_photons = replicated_transport(source, mesh, imc_state,
-      imc_parameters, mpi_types, mctr, abs_E, mpi_info);
+      imc_parameters, mpi_types, mctr, abs_E, track_E,  mpi_info);
 
-    // using MPI_IN_PLACE allows the same vector to send and be overwritten
-    MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(),
+    // reduce the abs_E and the track weighted energy (for T_r)
+    MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(), 
+      MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &track_E[0], mesh->get_global_num_cells(), 
       MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-    mesh->update_temperature(abs_E, imc_state);
+    mesh->update_temperature(abs_E, track_E, imc_state);
 
     // for replicated, just let root do conservation
     if (rank) {

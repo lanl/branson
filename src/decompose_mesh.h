@@ -153,15 +153,13 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   int edgecut =0;
   int *part = new int[ncell_on_rank];
 
-  ParMETIS_V3_PartGeomKway( &vtxdist[0],   // array describing how cells are distributed
+  ParMETIS_V3_PartKway( &vtxdist[0],   // array describing how cells are distributed
                         &xadj[0],   // how cells are stored locally
                         &adjncy[0], // how cells are stored loccaly
                         NULL,       // weight of vertices
                         NULL,       // weight of edges
                         &wgtflag,   // 0 means no weights for node or edges
                         &numflag,   // numbering style, 0 for C-style
-                        &ndim,      // n dimensions
-                        xyz,        // coorindates of vertices
                         &ncon,      // weights per vertex
                         &nparts,    // number of sub-domains
                         tpwgts,     // weight per sub-domain

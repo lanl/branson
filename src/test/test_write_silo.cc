@@ -28,6 +28,7 @@ int main (int argc, char *argv[]) {
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
   MPI_Types *mpi_types = new MPI_Types();
+  const Info mpi_info;
 
   using std::cout;
   using std::endl;
@@ -42,14 +43,14 @@ int main (int argc, char *argv[]) {
     string filename("simple_input.xml");
     Input *input = new Input(filename);
 
-    Mesh *mesh = new Mesh(input, mpi_types, rank, n_rank);
+    Mesh *mesh = new Mesh(input, mpi_types, mpi_info);
 
     bool silo_write_pass = true;
 
     // grip size, required by decompose_mesh but not needed in test
     uint32_t grip_size = 10;
 
-    decompose_mesh(mesh, mpi_types, grip_size);
+    decompose_mesh(mesh, mpi_types, mpi_info, grip_size);
 
     // get fake vector of mesh requests 
     std::vector<uint32_t> n_requests(mesh->get_global_num_cells(),0);
@@ -78,14 +79,14 @@ int main (int argc, char *argv[]) {
     string filename("three_region_mesh_input.xml");
     Input *input = new Input(filename);
 
-    Mesh *mesh = new Mesh(input, mpi_types, rank, n_rank);
+    Mesh *mesh = new Mesh(input, mpi_types, mpi_info);
 
     bool three_reg_silo_write_pass = true;
 
     // grip size, required by decompose_mesh but not needed in test
     uint32_t grip_size = 10;
 
-    decompose_mesh(mesh, mpi_types, grip_size);
+    decompose_mesh(mesh, mpi_types, mpi_info, grip_size);
 
     // get fake vector of mesh requests 
     std::vector<uint32_t> n_requests(mesh->get_global_num_cells(),0);

@@ -83,6 +83,7 @@ class IMC_State
 
     rank_transport_runtime = 0.0;
     rank_mpi_time = 0.0;
+    rank_rebalance_time = 0.0;
     rank_load_balance_time = 0.0;
   }
 
@@ -185,6 +186,7 @@ class IMC_State
     using std::endl;
     using std::plus;
     using Constants::PARTICLE_PASS;
+    using Constants::REPLICATED;
     using Constants::CELL_PASS;
 
     //define global value
@@ -200,6 +202,8 @@ class IMC_State
     double min_mpi_time =0.0;
     double max_transport_time = 0.0;
     double min_transport_time = 0.0;
+    double max_rebalance_time = 0.0;
+    double min_rebalance_time = 0.0;
     // 64 bit global integers
     uint64_t g_census_size=0;
     uint64_t g_trans_particles=0;
@@ -237,6 +241,10 @@ class IMC_State
     MPI_Allreduce(&rank_mpi_time, &max_mpi_time, 1, MPI_DOUBLE, MPI_MAX,
       MPI_COMM_WORLD);
     MPI_Allreduce(&rank_mpi_time, &min_mpi_time, 1, MPI_DOUBLE, MPI_MIN,
+      MPI_COMM_WORLD);
+    MPI_Allreduce(&rank_rebalance_time, &max_rebalance_time, 1, MPI_DOUBLE, MPI_MAX,
+      MPI_COMM_WORLD);
+    MPI_Allreduce(&rank_rebalance_time, &min_rebalance_time, 1, MPI_DOUBLE, MPI_MIN,
       MPI_COMM_WORLD);
 
     // reduce diagnostic values
@@ -305,8 +313,12 @@ class IMC_State
       }
       cout<<"Transport time max/min: "<<max_transport_time<<"/";
       cout<<min_transport_time<<endl;
-      cout<<"MPI time max/min: "<<max_mpi_time<<"/";
+      cout<<"Transport MPI time max/min: "<<max_mpi_time<<"/";
       cout<<min_mpi_time<<endl;
+      if ( dd_type != PARTICLE_PASS && dd_type != REPLICATED) {
+        cout<<"Census Rebalance time max/min: "<<max_rebalance_time<<"/";
+        cout<<min_rebalance_time<<endl;
+      }
     } // if rank==0
   }
 
@@ -382,6 +394,11 @@ class IMC_State
   }
 
   //! Set load balance time for this timestep
+  void set_rank_rebalance_time(double _rebalance_time) {
+   rank_rebalance_time = _rebalance_time;
+  }
+
+  //! Set load balance time for this timestep
   void set_load_balance_time(double _load_balance_time) {
    rank_load_balance_time = _load_balance_time;
   }
@@ -442,6 +459,7 @@ class IMC_State
 
   double rank_transport_runtime; //!< Transport step runtime for this rank
   double rank_mpi_time; //!< Time set in MPI related calls for this rank
+  double rank_rebalance_time; //!< Time to rebalance census after transport 
 
   //! Time to load balance particles this timestep
   double rank_load_balance_time;

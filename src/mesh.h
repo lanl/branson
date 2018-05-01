@@ -384,6 +384,9 @@ class Mesh {
   std::vector<double> get_emission_E(void) const {return m_emission_E;}
   std::vector<double> get_source_E(void) const {return m_source_E;}
 
+  //! Get the radiation temperature in a cell (for plotting/diagnostics)
+  double get_T_r(const uint32_t cell_index) const {return T_r[cell_index];}
+
   uint32_t get_global_n_x_faces(void) const {return ngx+1;}
   uint32_t get_global_n_y_faces(void) const {return ngy+1;}
   uint32_t get_global_n_z_faces(void) const {return ngz+1;}
@@ -635,6 +638,7 @@ class Mesh {
     m_census_E = vector<double>(n_cell, 0.0);
     m_emission_E = vector<double>(n_cell, 0.0);
     m_source_E = vector<double>(n_cell, 0.0);
+    T_r = vector<double>(n_cell, 0.0);
   }
 
   //! sort pre-winodw allocation cell vector based on the grip ID of each cell
@@ -667,7 +671,9 @@ class Mesh {
 
   //! Use the absorbed energy and update the material temperature of each
   // cell on the mesh. Set diagnostic and conservation values.
-  void update_temperature(std::vector<double>& abs_E, IMC_State* imc_s) {
+  void update_temperature(std::vector<double>& abs_E, std::vector<double>& track_E, IMC_State* imc_s) {
+    using Constants::a;
+    using Constants::c;
     // abs E is a global vector
     double total_abs_E = 0.0;
     double total_post_mat_E = 0.0;
@@ -684,14 +690,14 @@ class Mesh {
       T = e.get_T_e();
       T_new = T + (abs_E[i+on_rank_start] - m_emission_E[i]/replicated_factor)
         / (cV*vol*rho);
+      T_r[i] = std::pow( track_E[i+on_rank_start]/(vol*imc_s->get_dt()*a*c), 0.25);
       e.set_T_e(T_new);
       total_abs_E+=abs_E[i+on_rank_start];
       total_post_mat_E+= T_new*cV*vol*rho;
     }
     // zero out absorption tallies for all cells (global)
-    for (uint32_t i=0; i<abs_E.size();++i) {
-      abs_E[i] = 0.0;
-    }
+    abs_E.assign(abs_E.size(), 0.0);
+    track_E.assign(track_E.size(), 0.0);
     imc_s->set_absorbed_E(total_abs_E);
     imc_s->set_post_mat_E(total_post_mat_E);
     imc_s->set_step_cells_requested(off_rank_reads);
@@ -783,6 +789,7 @@ class Mesh {
   std::vector<double> m_census_E; //!< Census energy vector
   std::vector<double> m_emission_E; //!< Emission energy vector
   std::vector<double> m_source_E; //!< Source energy vector
+  std::vector<double> T_r; //!< Diagnostic quantity
 
   Cell *cells; //!< Cell data allocated with MPI_Alloc
   std::vector<Cell> cell_list; //!< On processor cells

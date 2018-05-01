@@ -36,6 +36,7 @@ std::vector<Photon> replicated_transport( Source& source,
                                           MPI_Types* mpi_types,
                                           Message_Counter& mctr,
                                           std::vector<double>& rank_abs_E,
+                                          std::vector<double>& rank_track_E,
                                           const Info& mpi_info)
 {
   using Constants::event_type;
@@ -85,7 +86,7 @@ std::vector<Photon> replicated_transport( Source& source,
     n_local_sourced++;
 
     event = transport_photon_particle_pass(phtn, mesh, rng, next_dt, exit_E,
-                                          census_E, rank_abs_E);
+                                          census_E, rank_abs_E, rank_track_E);
     switch(event) {
       // this case should never be reached
       case WAIT:
