@@ -167,31 +167,46 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon>& census,
   // make a list of off rank photons
   vector<Photon> off_rank_census;
   vector<Photon> on_rank_census;
+  vector<uint32_t> n_census_on_rank(n_rank, 0);
+  int census_p_rank;
   for (auto& p : census) {
-    if (mesh->get_rank( p.get_cell()) != rank)
+    census_p_rank = mesh->get_rank( p.get_cell());
+    if (census_p_rank != rank) {
       off_rank_census.push_back(p);
+      n_census_on_rank[census_p_rank]++;
+    }
     else
       on_rank_census.push_back(p);
+  }
+
+  // determine the number of census particles on each rank
+  n_census_on_rank[rank] += on_rank_census.size();
+
+  MPI_Allreduce(MPI_IN_PLACE, &n_census_on_rank[0], n_rank, MPI_UNSIGNED, MPI_SUM,
+    MPI_COMM_WORLD);
+
+  uint64_t avg_census = std::accumulate(n_census_on_rank.begin(), n_census_on_rank.end(), 0)/n_rank;
+  uint64_t max_census = *std::max_element(n_census_on_rank.begin(), n_census_on_rank.end());
+
+  if (rank == 0) {
+    std::cout<<"Max census on rank: "<<max_census;
+    std::cout<<", average census: "<<avg_census<<std::endl;
   }
 
   // take only the on-rank part of the census back with us here 
   census = on_rank_census;
   on_rank_census.clear();
 
-  // make off processor map
-  unordered_map<int,int> proc_map;
-  for (int i=0; i<int(n_off_rank); ++i) {
-    int r_index = i + int(i>=rank);
-    proc_map[i] = r_index;
-  }
-
   //size of census list
   uint32_t n_census = off_rank_census.size();
+  std::set<int32_t> acceptor_ranks;
 
-  //count the photons belonging to each rank and the start index of each
-  //count the ranks that you will send to, add them to a vector
+  // count the photons belonging to each rank and the start index of each
+  // count the ranks that you will send to, add them to a vector
+  // if rank has less than average, return their census, otherwise keep it (it's
+  // probably a hot rank)
   vector<uint32_t> rank_count(n_rank, 0);
-  vector<uint32_t> rank_start(n_rank+1, 0);
+  vector<uint32_t> rank_start(n_rank, 0);
   vector<bool> rank_found(n_rank, false);
   uint32_t r;
   for (uint32_t i=0; i<n_census; ++i) {
@@ -200,61 +215,123 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon>& census,
     if(rank_found[r]==false) {
       rank_found[r]=true;
       rank_start[r] =i;
+      if (n_census_on_rank[r] < avg_census)
+        acceptor_ranks.insert(r);
+      else
+        census.push_back(off_rank_census[i]);
     }
   }
 
-  // end of rank count is the total number of census photons
-  rank_start[n_rank] = n_census;
+  int n_global_acceptors = acceptor_ranks.size();
+  MPI_Allreduce(MPI_IN_PLACE, &n_global_acceptors, 1, MPI_INT, MPI_SUM,
+    MPI_COMM_WORLD);
+
+  // get the number of ranks that will send us a message
+  const int one = 1;
+  int *n_donors_win;
+  int n_donors(0); 
+
+  // create the RMA memory windows for each value
+  MPI_Win win;
+  MPI_Request req;
+  MPI_Win_allocate(1 * sizeof(int), 1 * sizeof(int), MPI_INFO_NULL,
+    MPI_COMM_WORLD, &n_donors_win, &win);
+  n_donors_win[0] = 0;
+  MPI_Barrier(MPI_COMM_WORLD);
+  int assert = MPI_MODE_NOCHECK; // no conflicting locks on this window
+  MPI_Win_lock_all(assert,win);
+  for (auto ir : acceptor_ranks) {
+    // increment the remote number of receives
+    MPI_Raccumulate(&one, 1, MPI_INT, ir, 0, 1, MPI_INT, MPI_SUM, win, &req);
+    MPI_Wait(&req, MPI_STATUS_IGNORE);
+  }
+  MPI_Win_unlock_all(win);
+  MPI_Barrier(MPI_COMM_WORLD);
+  n_donors = n_donors_win[0];
+  MPI_Win_free(&win);
+
+  int n_global_donors = n_donors;
+  MPI_Allreduce(MPI_IN_PLACE, &n_global_donors, 1, MPI_INT, MPI_SUM,
+    MPI_COMM_WORLD);
+
+  if (rank == 0) {
+    std::cout<<"Total acceptors: "<<n_global_acceptors;
+    std::cout<<", total donors: "<<n_global_donors<<std::endl;
+  }
 
   // make requests for non-blocking communication
-  MPI_Request* reqs = new MPI_Request[n_off_rank*2];
+  MPI_Request* s_reqs = new MPI_Request[acceptor_ranks.size()];
+  MPI_Request* r_reqs = new MPI_Request[n_donors];
+  MPI_Status* r_status = new MPI_Status[n_donors];
 
-  // make n_off_rank receive buffers
+  // make n_donors receive buffers
   vector<vector<Photon> > recv_photons;
-  for (uint32_t ir=0; ir<n_off_rank; ++ir) {
+  for (uint32_t ir=0; ir<n_donors; ++ir) {
     vector<Photon> empty_vec;
     recv_photons.push_back(empty_vec);
   }
 
-  //get the number of photons received from each rank
-  vector<int> recv_from_rank(n_off_rank, 0);
+  vector<int> recv_from_rank(n_donors, 0);
 
-  for (uint32_t ir=0; ir<n_off_rank; ++ir) {
-    int off_rank = proc_map[ir];
-    MPI_Isend(&rank_count[off_rank], 1,  MPI_UNSIGNED, off_rank, 0,
-      MPI_COMM_WORLD, &reqs[ir]);
-    MPI_Irecv(&recv_from_rank[ir], 1, MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD,
-      &reqs[ir+n_off_rank]);
+  // send the number of photons to your acceptor ranks
+  int index = 0;
+  for (auto ir : acceptor_ranks) {
+    MPI_Isend(&rank_count[ir], 1,  MPI_UNSIGNED, ir, 0,
+      MPI_COMM_WORLD, &s_reqs[index]);
+    index++;
+  }
+  
+  // get the number of photons received from donor ranks
+  for (int i =0; i<n_donors; ++i) {
+    MPI_Irecv(&recv_from_rank[i], 1, MPI_UNSIGNED, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD,
+      &r_reqs[i]);
   }
 
-  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
+  MPI_Waitall(acceptor_ranks.size(), s_reqs, MPI_STATUS_IGNORE);
+  MPI_Waitall(n_donors, r_reqs, r_status);
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  std::map<int, int> donor_rank_to_n_recv;
+  for (int i =0; i<n_donors; ++i) {
+    donor_rank_to_n_recv[r_status[i].MPI_SOURCE] = recv_from_rank[i];
+  }
 
   // now send the buffers and post receives
   // resize receive buffers with recv_from_rank
-  for (uint32_t ir=0; ir<n_off_rank; ++ir) {
-    int off_rank = proc_map[ir];
-    int start_copy = rank_start[off_rank];
-    MPI_Isend(&off_rank_census[start_copy], rank_count[off_rank], MPI_Particle,
-      off_rank, 0, MPI_COMM_WORLD, &reqs[ir]);
-    recv_photons[ir].resize(recv_from_rank[ir]);
-    MPI_Irecv(&recv_photons[ir][0], recv_from_rank[ir], MPI_Particle, off_rank,
-      0, MPI_COMM_WORLD, &reqs[ir+n_off_rank]);
+  index=0;
+  for (auto& ir : donor_rank_to_n_recv) {
+    recv_photons[index].resize(ir.second);
+    MPI_Irecv(&recv_photons[index][0], ir.second, MPI_Particle, ir.first,
+      0, MPI_COMM_WORLD, &r_reqs[index]);
+    index++;
   }
 
-  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
+  index =0;
+  for (auto& ir : acceptor_ranks) {
+    int start_copy = rank_start[ir];
+    MPI_Isend(&off_rank_census[start_copy], rank_count[ir], MPI_Particle,
+      ir, 0, MPI_COMM_WORLD, &s_reqs[index]);
+    index++;
+  }
+
+  MPI_Waitall(acceptor_ranks.size(), s_reqs, MPI_STATUS_IGNORE);
+  MPI_Waitall(n_donors, r_reqs, MPI_STATUS_IGNORE);
+  MPI_Barrier(MPI_COMM_WORLD);
 
   //free memory from off rank census list
   off_rank_census.clear();
 
   //copy received census photons to a new census list
   vector<Photon> new_on_rank_census;
-  for (uint32_t ir=0; ir<uint32_t(n_rank-1); ++ir) {
+  for (uint32_t i=0; i<n_donors; ++i) {
     new_on_rank_census.insert(new_on_rank_census.end(),
-      recv_photons[ir].begin(), recv_photons[ir].end());
+      recv_photons[i].begin(), recv_photons[i].end());
   }
 
   // explicitly delete the MPI requests
-  delete[] reqs;
+  delete[] r_status;
+  delete[] r_reqs;
+  delete[] s_reqs;
 
   return new_on_rank_census;
 }
