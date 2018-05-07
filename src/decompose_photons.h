@@ -217,9 +217,11 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon>& census,
       rank_start[r] =i;
       if (n_census_on_rank[r] < avg_census)
         acceptor_ranks.insert(r);
-      else
-        census.push_back(off_rank_census[i]);
     }
+
+    // if this rank is already overloaded, save it to your census
+    if (n_census_on_rank[r] >= avg_census)
+      census.push_back(off_rank_census[i]);
   }
 
   int n_global_acceptors = acceptor_ranks.size();
@@ -265,12 +267,7 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon>& census,
   MPI_Status* r_status = new MPI_Status[n_donors];
 
   // make n_donors receive buffers
-  vector<vector<Photon> > recv_photons;
-  for (uint32_t ir=0; ir<n_donors; ++ir) {
-    vector<Photon> empty_vec;
-    recv_photons.push_back(empty_vec);
-  }
-
+  vector<vector<Photon> > recv_photons(n_donors);
   vector<int> recv_from_rank(n_donors, 0);
 
   // send the number of photons to your acceptor ranks
@@ -283,8 +280,8 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon>& census,
   
   // get the number of photons received from donor ranks
   for (int i =0; i<n_donors; ++i) {
-    MPI_Irecv(&recv_from_rank[i], 1, MPI_UNSIGNED, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD,
-      &r_reqs[i]);
+    MPI_Irecv(&recv_from_rank[i], 1, MPI_UNSIGNED, MPI_ANY_SOURCE, 0, 
+      MPI_COMM_WORLD, &r_reqs[i]);
   }
 
   MPI_Waitall(acceptor_ranks.size(), s_reqs, MPI_STATUS_IGNORE);
