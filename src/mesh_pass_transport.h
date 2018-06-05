@@ -18,8 +18,6 @@
 #include <queue>
 #include <mpi.h>
 
-#include "completion_manager_milagro.h"
-#include "completion_manager_rma.h"
 #include "mesh_request_manager.h"
 #include "constants.h"
 #include "decompose_photons.h"
@@ -152,7 +150,6 @@ std::vector<Photon> mesh_pass_transport(Source& source,
                                         Mesh* mesh,
                                         IMC_State* imc_state,
                                         IMC_Parameters* imc_parameters,
-                                        Completion_Manager* comp,
                                         Mesh_Request_Manager* req_manager,
                                         Message_Counter& mctr,
                                         std::vector<double>& rank_abs_E,
@@ -183,10 +180,6 @@ std::vector<Photon> mesh_pass_transport(Source& source,
   Timer t_transport;
   Timer t_mpi;
   t_transport.start_timer("timestep transport");
-
-  //set global particles to be n_rank, every rank sets it completed particles
-  //to 1 after finished local work
-  comp->set_timestep_global_particles(mpi_info.get_n_rank());
 
   // New data flag is initially false
   bool new_data = false;
@@ -311,23 +304,21 @@ std::vector<Photon> mesh_pass_transport(Source& source,
   // record time of transport work for this rank
   t_transport.stop_timer("timestep transport");
 
-  // set complete to be 1 (true) when all ranks set this in the tree,
-  // the root will see n_complete == n_rank and finish
-  uint64_t complete =1;
+  // start non-blocking allreduce, when it's finished all ranks are done
+  MPI_Request completion_request;
+  int send_int = 1;
+  int recv_int;
+  MPI_Iallreduce(&send_int, &recv_int, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD,
+    &completion_request);
+  int finished = false;
 
   //--------------------------------------------------------------------------//
   // While waiting for other ranks to finish, check for other messages
   //--------------------------------------------------------------------------//
-  bool finished = false;
-  bool waiting_for_work = true;
   while (!finished) {
     req_manager->process_mesh_requests(mctr);
-    comp->process_completion(waiting_for_work, complete, mctr);
-    finished = comp->is_finished();
+    MPI_Test(&completion_request, &finished, MPI_STATUS_IGNORE);
   } // end while
-
-  // Milagro version sends completed count down, RMA version just resets
-  comp->end_timestep(mctr);
 
   // wait for all ranks to finish transport to finish off cell and cell id
   // requests and sends
