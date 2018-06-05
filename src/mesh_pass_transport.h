@@ -38,7 +38,8 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
                               double& next_dt,
                               double& exit_E,
                               double& census_E,
-                              std::vector<double>& rank_abs_E)
+                              std::vector<double>& rank_abs_E,
+                              std::vector<double>& rank_track_E)
 
 {
   using Constants::VACUUM; using Constants::REFLECT;
@@ -55,7 +56,7 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
   bc_type boundary_event;
   event_type event;
   double dist_to_scatter, dist_to_boundary, dist_to_census, dist_to_event;
-  double sigma_a, sigma_s, f, absorbed_E;
+  double sigma_a, sigma_s, f, absorbed_E, ew_factor;
   double angle[3];
   Cell cell;
 
@@ -83,11 +84,15 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
     //select minimum distance event
     dist_to_event = min(dist_to_scatter, min(dist_to_boundary, dist_to_census));
 
-    //Calculate energy absorbed by material, update photon and material energy
-    absorbed_E = phtn.get_E()*(1.0 - exp(-sigma_a*f*dist_to_event));
-    phtn.set_E(phtn.get_E() - absorbed_E);
+    // calculate energy absorbed by material, update photon and material energy
+    // and update the path-length weighted tally for T_r
+    ew_factor = exp(-sigma_a*f*dist_to_event);
+    absorbed_E = phtn.get_E()*(1.0 - ew_factor);
 
+    rank_track_E[cell_id] += absorbed_E / (sigma_a*f);
     rank_abs_E[cell_id] += absorbed_E;
+
+    phtn.set_E(phtn.get_E() - absorbed_E);
 
     //update position
     phtn.move(dist_to_event);
@@ -153,6 +158,7 @@ std::vector<Photon> mesh_pass_transport(Source& source,
                                         Mesh_Request_Manager* req_manager,
                                         Message_Counter& mctr,
                                         std::vector<double>& rank_abs_E,
+                                        std::vector<double>& rank_track_E,
                                         MPI_Types *mpi_types,
                                         const Info& mpi_info)
 {
@@ -179,6 +185,7 @@ std::vector<Photon> mesh_pass_transport(Source& source,
   //timing
   Timer t_transport;
   Timer t_mpi;
+  Timer t_rebalance_census;
   t_transport.start_timer("timestep transport");
 
   // New data flag is initially false
@@ -213,7 +220,7 @@ std::vector<Photon> mesh_pass_transport(Source& source,
       // waiting list
       if (mesh->mesh_available(cell_id)) {
         event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
-          census_E, rank_abs_E);
+          census_E, rank_abs_E, rank_track_E);
         cell_id = phtn.get_cell();
       }
       else event = WAIT;
@@ -245,7 +252,7 @@ std::vector<Photon> mesh_pass_transport(Source& source,
         cell_id=phtn.get_cell();
         if (mesh->mesh_available(cell_id)) {
           event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
-                                          census_E, rank_abs_E);
+                                          census_E, rank_abs_E, rank_track_E);
           cell_id = phtn.get_cell();
         }
         else event = WAIT;
@@ -283,7 +290,7 @@ std::vector<Photon> mesh_pass_transport(Source& source,
         cell_id=phtn.get_cell();
         if (mesh->mesh_available(cell_id)) {
           event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
-            census_E, rank_abs_E);
+            census_E, rank_abs_E, rank_track_E);
           cell_id = phtn.get_cell();
         }
         else event = WAIT;
@@ -333,12 +340,17 @@ std::vector<Photon> mesh_pass_transport(Source& source,
 
   // send the off-rank census back to ranks that own the mesh its on and receive
   // census particles that are on your mesh
-  //vector<Photon> rebalanced_census = rebalance_census(off_rank_census_list,
-  //  mesh, mpi_types);
-  //census_list.insert(census_list.end(), rebalanced_census.begin(),
-  //  rebalanced_census.end());
+
+  t_rebalance_census.start_timer("timestep rebalance_census");
+  vector<Photon> rebalanced_census =
+    rebalance_raw_census(census_list, mesh, mpi_types);
+  t_rebalance_census.stop_timer("timestep rebalance_census");
 
   imc_state->set_rank_mpi_time(t_mpi.get_time("timestep mpi"));
+  imc_state->set_rank_rebalance_time(t_rebalance_census.get_time("timestep rebalance_census"));
+
+  census_list.insert(census_list.end(), rebalanced_census.begin(),
+    rebalanced_census.end());
 
   // sort on census vectors by cell ID (global ID)
   sort(census_list.begin(), census_list.end());

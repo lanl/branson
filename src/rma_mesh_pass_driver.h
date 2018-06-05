@@ -39,6 +39,7 @@ void imc_rma_mesh_pass_driver(Mesh *mesh,
 {
   using std::vector;
   vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
+  vector<double> track_E(mesh->get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
   vector<uint32_t> needed_grip_ids; //! Grips needed after load balance
   Message_Counter mctr;
@@ -98,16 +99,18 @@ void imc_rma_mesh_pass_driver(Mesh *mesh,
 
     // transport photons
     census_photons =  rma_mesh_pass_transport( source, mesh, imc_state,
-      imc_parameters, rma_manager, mctr, abs_E, mpi_types, mpi_info);
+      imc_parameters, rma_manager, mctr, abs_E, track_E, mpi_types, mpi_info);
 
     imc_state->set_transported_particles(source.get_n_photon());
 
-    //using MPI_IN_PLACE allows the same vector to send and be overwritten
+    // reduce the abs_E and the track weighted energy (for T_r)
     MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(),
+      MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &track_E[0], mesh->get_global_num_cells(),
       MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     //cout<<"updating temperature..."<<endl;
-    mesh->update_temperature(abs_E, imc_state);
+    mesh->update_temperature(abs_E, track_E, imc_state);
 
     imc_state->print_conservation(imc_parameters->get_dd_mode());
 

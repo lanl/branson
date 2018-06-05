@@ -133,7 +133,6 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   }
   xadj.push_back(adjncy_ctr);
 
-  int ndim = 3;
   int wgtflag = 0; // no weights for cells
   int numflag = 0; // C-style numbering
   int ncon = 1;
@@ -153,15 +152,13 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   int edgecut =0;
   int *part = new int[ncell_on_rank];
 
-  ParMETIS_V3_PartGeomKway( &vtxdist[0],   // array describing how cells are distributed
+  ParMETIS_V3_PartKway( &vtxdist[0],   // array describing how cells are distributed
                         &xadj[0],   // how cells are stored locally
                         &adjncy[0], // how cells are stored loccaly
                         NULL,       // weight of vertices
                         NULL,       // weight of edges
                         &wgtflag,   // 0 means no weights for node or edges
                         &numflag,   // numbering style, 0 for C-style
-                        &ndim,      // n dimensions
-                        xyz,        // coorindates of vertices
                         &ncon,      // weights per vertex
                         &nparts,    // number of sub-domains
                         tpwgts,     // weight per sub-domain
@@ -574,12 +571,16 @@ void replicate_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
 
   MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
 
+  send_cell.clear();
+
   for (uint32_t ir=0; ir<n_off_rank; ++ir) {
     vector<Cell> new_cells = recv_cell[ir].get_object();
     for (uint32_t i = 0; i< new_cells.size(); ++i) {
       mesh->add_mesh_cell(new_cells[i]);
     }
   }
+
+  recv_cell.clear();
 
   // update the cell list on each processor
   mesh->set_post_decomposition_mesh_cells();
@@ -749,7 +750,8 @@ void replicate_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   mesh->renumber_local_cell_indices(local_map, local_grip_map);
 
   // reallocate mesh data in new MPI window and delete the old vector object
-  mesh->make_MPI_window();
+  bool rep_flag = true;
+  mesh->make_MPI_window(rep_flag);
 
   // clean up dynamically allocated memory
   delete[] reqs;
