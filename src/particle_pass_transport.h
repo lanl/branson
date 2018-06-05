@@ -197,7 +197,8 @@ std::vector<Photon> particle_pass_transport(Source& source,
   vector<vector<Photon> > send_list;
 
   // Completion count request made flag
-  bool req_made;
+  bool req_made = false;
+  int recv_allreduce_flag;
 
   // get adjacent processor map (off_rank_id -> adjacent_proc_number)
   auto adjacent_procs = mesh->get_proc_adjacency_list();
@@ -408,7 +409,6 @@ std::vector<Photon> particle_pass_transport(Source& source,
       req_made = true;
     }
     else {
-      int recv_allreduce_flag;
       MPI_Test(&completion_request, &recv_allreduce_flag, MPI_STATUS_IGNORE);
       if (recv_allreduce_flag) {
         last_global_complete_count = r_global_complete;
