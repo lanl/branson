@@ -54,6 +54,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // a couple of things and then include either gccfeatures.h
 // or msvcfeatures.h
 
+//#ifdef  __CUDA_ARCH__ allows Philox32 and Philox64 to be compiled
+//for both device and host functions in CUDA by setting compiler flags
+//for the device function
+#ifdef  __CUDA_ARCH__
 #ifndef R123_CUDA_DEVICE
 #define R123_CUDA_DEVICE __device__
 #endif
@@ -62,9 +66,25 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define R123_USE_MULHILO64_CUDA_INTRIN 1
 #endif
 
+#ifndef R123_THROW
+// No exceptions in CUDA, at least upto 4.0
+#define R123_THROW(x)    R123_ASSERT(0)
+#endif
+
 #ifndef R123_ASSERT
 #define R123_ASSERT(x) if((x)) ; else asm("trap;")
 #endif
+
+#else // ! __CUDA_ARCH__
+// If we're using nvcc not compiling for the CUDA architecture,
+// then we must be compiling for the host.  In that case,
+// tell the philox code to use the mulhilo64 asm because
+// nvcc doesn't grok uint128_t.
+#ifndef R123_USE_MULHILO64_ASM
+#define R123_USE_MULHILO64_ASM 1
+#endif
+
+#endif // __CUDA_ARCH__
 
 #ifndef R123_BUILTIN_EXPECT
 #define R123_BUILTIN_EXPECT(expr,likely) expr
@@ -94,11 +114,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // uint64_t, which is what we'd get without this, is
 // not the same as unsigned long long
 #define R123_ULONG_LONG unsigned long long
-#endif
-
-#ifndef R123_THROW
-// No exceptions in CUDA, at least upto 4.0
-#define R123_THROW(x)    R123_ASSERT(0)
 #endif
 
 #if defined(__GNUC__)

@@ -478,10 +478,9 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
     unordered_map<uint32_t, uint32_t> off_map;
     unordered_map<uint32_t, uint32_t> off_grip_map;
 
-    for (uint32_t m=0; m<off_packed_map.size(); ++m) {
+    for (uint32_t m=0; m<off_packed_map.size(); m+=2) {
       off_map[off_packed_map[m]] =off_packed_map[m+1];
       off_grip_map[off_packed_grip_map[m]] =off_packed_grip_map[m+1];
-      m++;
     }
     mesh->update_off_rank_connectivity(off_map, off_grip_map, remap_flag);
   }

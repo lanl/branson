@@ -37,10 +37,10 @@ class RMA_Manager
 
   public:
   //! constructor
-  RMA_Manager(const int& _rank, const std::vector<uint32_t>& _rank_bounds,
+  RMA_Manager(const std::vector<uint32_t>& _rank_bounds,
     const uint32_t n_global_cell, const uint32_t _grip_size,
     MPI_Types * mpi_types, MPI_Win& _mesh_window)
-  : rank(_rank),
+  :
     rank_bounds(_rank_bounds),
     MPI_Cell(mpi_types->get_cell_type()),
     mesh_window(_mesh_window),
@@ -209,7 +209,6 @@ class RMA_Manager
   std::vector<uint32_t> get_n_request_vec(void) {return n_requests_vec;}
 
   private:
-  int rank; //!< MPI rank
   std::vector<uint32_t> rank_bounds; //!< Global cell ID bounds on each rank
   MPI_Datatype MPI_Cell; //!< Custom MPI datatype for cells
   MPI_Win mesh_window; //!< Shared memory window of cell objects
