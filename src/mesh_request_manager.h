@@ -43,13 +43,12 @@ class Mesh_Request_Manager
   Mesh_Request_Manager(const int& _rank,
     const std::vector<uint32_t>& _rank_bounds, const uint32_t n_global_cell,
     const uint32_t _grip_size, MPI_Types * mpi_types, const Cell * const _cells)
-  : rank(_rank),
-    rank_bounds(_rank_bounds),
+  : rank_bounds(_rank_bounds),
     MPI_Cell(mpi_types->get_cell_type()),
     cells(_cells),
     grip_size(_grip_size),
-    rank_start(rank_bounds[rank]),
-    rank_end(rank_bounds[rank+1]),
+    rank_start(rank_bounds[_rank]),
+    rank_end(rank_bounds[_rank+1]),
     max_reqs(100),
     max_ids(100)
   {
@@ -457,7 +456,6 @@ class Mesh_Request_Manager
   bool no_active_requests(void) {return ids_requested.empty();}
 
   private:
-  int rank; //! MPI rank
   std::vector<uint32_t> rank_bounds; //! Global cell ID bounds on each rank
   MPI_Datatype MPI_Cell; //! Custom MPI datatype for cells
   const Cell * const cells; //! Cell data to sent to other ranks

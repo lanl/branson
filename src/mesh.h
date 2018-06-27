@@ -90,8 +90,8 @@ class Mesh {
 
     //this rank's cells
     n_global = ngx*ngy*ngz;
-    uint32_t cell_id_begin = floor(rank*n_global/double(n_rank));
-    uint32_t cell_id_end = floor((rank+1)*n_global/double(n_rank));
+    uint32_t cell_id_begin = floor(rank*double(n_global)/double(n_rank));
+    uint32_t cell_id_end = floor((rank+1)*double(n_global)/double(n_rank));
 
     uint32_t on_rank_count =0;
 
@@ -340,8 +340,8 @@ class Mesh {
     return s_i;
   }
 
-  uint32_t get_rank(const uint32_t& index) const {
-    uint32_t r_rank;
+  int32_t get_rank(const uint32_t& index) const {
+    int32_t r_rank;
     if (on_processor(index)) r_rank = rank;
     else  r_rank = get_off_rank_id(index);
     return r_rank;
@@ -390,6 +390,9 @@ class Mesh {
   uint32_t get_global_n_x_faces(void) const {return ngx+1;}
   uint32_t get_global_n_y_faces(void) const {return ngy+1;}
   uint32_t get_global_n_z_faces(void) const {return ngz+1;}
+  uint32_t get_global_n_x(void) const {return ngx;}
+  uint32_t get_global_n_y(void) const {return ngy;}
+  uint32_t get_global_n_z(void) const {return ngz;}
 
   float * get_silo_x(void) const {return silo_x;}
   float * get_silo_y(void) const {return silo_y;}
@@ -769,9 +772,10 @@ class Mesh {
   uint32_t ngx; //!< Number of global x sizes
   uint32_t ngy; //!< Number of global y sizes
   uint32_t ngz; //!< Number of global z sizes
-  uint32_t rank; //!< MPI rank of this mesh
-  uint32_t n_rank; //!< Number of global ranks
-  uint32_t n_off_rank; //!< Number of other ranks
+
+  int32_t rank; //!< MPI rank of this mesh
+  int32_t n_rank; //!< Number of global ranks
+  int32_t n_off_rank; //!< Number of other ranks
 
   //! Factor to reduce emission and initial census in replicated mode
   double replicated_factor;

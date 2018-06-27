@@ -14,10 +14,10 @@
 //Copyright (C) 2016-2017 Los Alamos National Security, LLC.
 //All rights reserved.
 
-//Copyright 2016.  Los Alamos National Security, LLC. This software was 
-//produced under U.S. Government contract DE-AC52-06NA25396 for Los 
+//Copyright 2016.  Los Alamos National Security, LLC. This software was
+//produced under U.S. Government contract DE-AC52-06NA25396 for Los
 //Alamos National Laboratory (LANL), which is operated by Los Alamos
-//National Security, LLC for the U.S. Department of Energy. The 
+//National Security, LLC for the U.S. Department of Energy. The
 //U.S. Government has rights to use, reproduce, and distribute this
 //software.  NEITHER THE GOVERNMENT NOR LOS ALAMOS NATIONAL SECURITY,
 //LLC MAKES ANY WARRANTY, EXPRESS OR IMPLIED, OR ASSUMES ANY LIABILITY
@@ -33,19 +33,19 @@
 //  notice, this list of conditions and the following disclaimer.
 
 //- Redistributions in binary form must reproduce the above copyright
-//  notice, this list of conditions and the following disclaimer in the 
+//  notice, this list of conditions and the following disclaimer in the
 //  documentation and/or other materials provided with the distribution.
 
 //- Neither the name of Los Alamos National Security, LLC, Los Alamos
-//  National Laboratory, LANL, the U.S. Government, nor the names of its 
+//  National Laboratory, LANL, the U.S. Government, nor the names of its
 //  contributors may be used to endorse or promote products derived from
 //  this software without specific prior written permission.
 
-//THIS SOFTWARE IS PROVIDED BY LOS ALAMOS NATIONAL SECURITY, LLC AND 
+//THIS SOFTWARE IS PROVIDED BY LOS ALAMOS NATIONAL SECURITY, LLC AND
 //CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,
-//BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND 
-//FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL LOS 
-//ALAMOS NATIONAL SECURITY, LLC OR CONTRIBUTORS BE LIABLE FOR ANY 
+//BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+//FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL LOS
+//ALAMOS NATIONAL SECURITY, LLC OR CONTRIBUTORS BE LIABLE FOR ANY
 //DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
 //DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
 //GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
@@ -58,7 +58,18 @@
 #define RNG_h
 
 #include <stdlib.h>
+
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wexpansion-to-defined"
+#endif
+
 #include "random123/threefry.h"
+
+#ifdef __clang__
+// Restore clang diagnostics to previous state.
+#pragma clang diagnostic pop
+#endif
 
 // Select a particular counter-based random number generator from Random123.
 typedef r123::Threefry2x64 CBRNG;
@@ -102,14 +113,14 @@ R123_MK_SIGNED_UNSIGNED(__int128_t, __uint128_t);
 
 #if defined(__CUDACC__) || defined(_LIBCPP_HAS_NO_CONSTEXPR)
 // Amazing! cuda thinks numeric_limits::max() is a __host__ function, so
-// we can't use it in a device function.  
+// we can't use it in a device function.
 //
 // The LIBCPP_HAS_NO_CONSTEXP test catches situations where the libc++
 // library thinks that the compiler doesn't support constexpr, but we
 // think it does.  As a consequence, the library declares
 // numeric_limits::max without constexpr.  This workaround should only
 // affect a narrow range of compiler/library pairings.
-// 
+//
 // In both cases, we find max() by computing ~(unsigned)0 right-shifted
 // by is_signed.
 template <typename T>
@@ -132,7 +143,7 @@ R123_CONSTEXPR R123_STATIC_INLINE T maxTvalue(){
 //
 //  If the input is a uniformly distributed integer, then the
 //  result is a uniformly distributed floating point number in [0, 1].
-//  The result is never exactly 0.0.  
+//  The result is never exactly 0.0.
 //  The smallest value returned is 2^-W.
 //  Let M be the number of mantissa bits in Ftype.
 //  If W>M  then the largest value retured is 1.0.
@@ -198,7 +209,7 @@ R123_CUDA_DEVICE R123_STATIC_INLINE Ftype u01fixedpt(Itype in){
 // 2015-09-26 KT - Suppress warnings for the following expressions (see https://rtt.lanl.gov/redmine/issues/416)
 //
 // Basically, GCC under BullseyeCoverage issues the following warning every time this file is included:
-//         
+//
 // Counter_RNG.hh:124:65:   required from here
 // uniform.hpp:200:48: warning: second operand of conditional expression has no effect [-Wunused-value]
 //         R123_CONSTEXPR int ex_nowarn = (excess>=0) ? excess : 0;
@@ -211,7 +222,7 @@ R123_CUDA_DEVICE R123_STATIC_INLINE Ftype u01fixedpt(Itype in){
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-value"
 #endif
-        
+
         R123_CONSTEXPR int ex_nowarn = (excess>=0) ? excess : 0;
 
 #ifdef __GNUC__
@@ -302,7 +313,7 @@ public:
   /*! \brief Default constructor.
    *
    * This default constructor is invoked when a client wants to create a
-   * RNG 
+   * RNG
    */
   RNG() {}
 

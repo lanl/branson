@@ -33,7 +33,6 @@ class IMC_Parameters
       grip_size(input->get_grip_size()),
       map_size(input->get_map_size()),
       dd_mode(input->get_dd_mode()),
-      completion_method(input->get_completion_routine()),
       batch_size(input->get_batch_size()),
       particle_message_size(input->get_particle_message_size()),
       write_silo_flag(input->get_write_silo_bool())
@@ -58,9 +57,6 @@ class IMC_Parameters
   //! Return domain decomposition algorithm
   uint32_t get_dd_mode(void) const {return dd_mode;}
 
-  //! Return completion
-  uint32_t get_completion_method(void) const {return completion_method;}
-
   //! Get the number of particles to run between MPI message processing
   uint32_t get_batch_size(void) const {return batch_size;}
 
@@ -83,7 +79,6 @@ class IMC_Parameters
 
   uint32_t map_size; //!< Size of stored off-rank mesh cells
   uint32_t dd_mode; //!< Mode of domain decomposed transport algorithm
-  uint32_t completion_method; //!< Method for handling completion messages
   uint32_t batch_size; //!< How often to check for MPI passed data
   uint32_t particle_message_size; //!< Preferred number of particles in MPI sends
   bool write_silo_flag; //!< Write SILO output files flag

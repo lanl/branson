@@ -195,6 +195,10 @@ std::vector<Photon> rma_mesh_pass_transport(Source& source,
 
   MPI_Barrier(MPI_COMM_WORLD);
 
+  // set the preffered census size to 10% of the user photon number and comb
+  uint64_t max_census_photons = 0.1*imc_parameters->get_n_user_photon();
+  comb_photons(census_list, max_census_photons, rng);
+
   // all ranks have now finished transport set diagnostic quantities
   imc_state->set_exit_E(exit_E);
   imc_state->set_post_census_E(census_E);
@@ -213,8 +217,9 @@ std::vector<Photon> rma_mesh_pass_transport(Source& source,
   imc_state->set_rank_mpi_time(t_mpi.get_time("timestep mpi"));
   imc_state->set_rank_rebalance_time(t_rebalance_census.get_time("timestep rebalance_census"));
 
-  census_list.insert(census_list.end(), rebalanced_census.begin(),
-    rebalanced_census.end());
+  // only do this if off rank census was separate from on rank census
+  //census_list.insert(census_list.end(), rebalanced_census.begin(),
+  //  rebalanced_census.end());
 
   // sort on census vectors by cell ID (global ID)
   sort(census_list.begin(), census_list.end());

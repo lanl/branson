@@ -38,6 +38,8 @@ using Constants::PARTICLE_PASS;
 using Constants::CELL_PASS;
 using Constants::CELL_PASS_RMA;
 using Constants::REPLICATED;
+using Constants::CUBE;
+using Constants::PARMETIS;
 
 int main(int argc, char **argv)
 {
@@ -74,15 +76,23 @@ int main(int argc, char **argv)
   //timing
   Timer * timers = new Timer();
 
-  // make mesh from input object and decompose mesh with ParMetis
+  // make mesh from input object
   timers->start_timer("Total setup");
   Mesh *mesh = new Mesh(input, mpi_types, mpi_info);
-  if (input->get_dd_mode() == REPLICATED) {
+
+  // if mode is replicated ignore decomposition options, otherwise use parmetis
+  // or a simple cube
+  if (input->get_dd_mode() == REPLICATED)
     replicate_mesh(mesh, mpi_types, mpi_info, imc_p->get_grip_size());
-  }
-  else {
+  else if (input->get_decomposition_mode() == PARMETIS)
     decompose_mesh(mesh, mpi_types, mpi_info, imc_p->get_grip_size());
+  else if (input->get_decomposition_mode() == CUBE)
+    decompose_mesh_with_cubes(mesh, mpi_types, mpi_info, imc_p->get_grip_size());
+  else {
+    std::cout<<"Method/decomposition not recognized, exiting...";
+    exit(EXIT_FAILURE);
   }
+
   timers->stop_timer("Total setup");
 
   MPI_Barrier(MPI_COMM_WORLD);

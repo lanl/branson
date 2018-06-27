@@ -62,7 +62,6 @@ class IMC_State
     census_size = 0;
     step_particles_sent = 0;
     total_particles_sent=0;
-    // 32 bit
     total_cells_requested=0;
     total_cells_sent=0;
     total_cell_messages=0;
@@ -208,15 +207,14 @@ class IMC_State
     uint64_t g_census_size=0;
     uint64_t g_trans_particles=0;
     uint64_t g_step_particles_sent=0;
-    // 32 bit global integers
-    uint32_t g_step_particle_messages=0;
-    uint32_t g_step_cells_requested=0;
-    uint32_t g_step_cell_messages=0;
-    uint32_t g_step_cells_sent=0;
-    uint32_t g_step_sends_posted=0;
-    uint32_t g_step_sends_completed=0;
-    uint32_t g_step_receives_posted=0;
-    uint32_t g_step_receives_completed=0;
+    uint64_t g_step_particle_messages=0;
+    uint64_t g_step_cells_requested=0;
+    uint64_t g_step_cell_messages=0;
+    uint64_t g_step_cells_sent=0;
+    uint64_t g_step_sends_posted=0;
+    uint64_t g_step_sends_completed=0;
+    uint64_t g_step_receives_posted=0;
+    uint64_t g_step_receives_completed=0;
 
     //reduce energy conservation values (double)
     MPI_Allreduce(&absorbed_E, &g_absorbed_E, 1, MPI_DOUBLE, MPI_SUM,
@@ -255,24 +253,22 @@ class IMC_State
       MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&census_size, &g_census_size, 1, MPI_UNSIGNED_LONG, MPI_SUM,
       MPI_COMM_WORLD);
-
-    // 32 bit integer reductions
     MPI_Allreduce(&step_cells_requested, &g_step_cells_requested, 1,
-      MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
+      MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&step_particle_messages, &g_step_particle_messages, 1,
-      MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_cell_messages, &g_step_cell_messages, 1, MPI_UNSIGNED,
+      MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&step_cell_messages, &g_step_cell_messages, 1, MPI_UNSIGNED_LONG,
       MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_cells_sent, &g_step_cells_sent, 1, MPI_UNSIGNED,
+    MPI_Allreduce(&step_cells_sent, &g_step_cells_sent, 1, MPI_UNSIGNED_LONG,
       MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_sends_posted, &g_step_sends_posted, 1, MPI_UNSIGNED,
+    MPI_Allreduce(&step_sends_posted, &g_step_sends_posted, 1, MPI_UNSIGNED_LONG,
       MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&step_sends_completed, &g_step_sends_completed, 1,
-      MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
+      MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&step_receives_posted, &g_step_receives_posted, 1,
-      MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
+      MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&step_receives_completed, &g_step_receives_completed, 1,
-      MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
+      MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
 
     double rad_conservation = (g_absorbed_E + g_post_census_E + g_exit_E) -
       (g_pre_census_E + g_emission_E + source_E);
@@ -379,7 +375,7 @@ class IMC_State
   }
 
   //! Set the number of cells requested in mesh passing method this timestep
-  void set_step_cells_requested(uint32_t _step_cells_requested) {
+  void set_step_cells_requested(uint64_t _step_cells_requested) {
     step_cells_requested = _step_cells_requested;
   }
 
@@ -426,7 +422,7 @@ class IMC_State
   double absorbed_E; //!< Total absorbed energy
   double source_E; //!< Sourced energy
 
-  //diagnostic 64 bit integers relating to particle counts
+  //diagnostic 64 bit integers relating to particle and cell counts
   uint64_t trans_particles; //!< Particles transported
   uint64_t census_size; //!< Number of particles in census
 
@@ -435,27 +431,26 @@ class IMC_State
   //! Total number of particles sent for simulation
   uint64_t total_particles_sent;
 
-  //diagnostic 32 bit integers relating to messages and cell counts
   //! Total number of cells requested for simulation
-  uint32_t total_cells_requested;
+  uint64_t total_cells_requested;
 
   //! Total number of cells sent for simulation
-  uint32_t total_cells_sent;
+  uint64_t total_cells_sent;
 
   //! Total number of cell message for simulation
-  uint32_t total_cell_messages;
+  uint64_t total_cell_messages;
 
   //! Total number of particle messages sent for simulation
   uint32_t total_particle_messages;
 
-  uint32_t step_particle_messages; //!< Number of particle messages
-  uint32_t step_cells_requested; //!< Number of cells requested by this rank
-  uint32_t step_cell_messages; //!< Number of cell messages
-  uint32_t step_cells_sent; //!< Number of cells passed
-  uint32_t step_sends_posted; //!< Number of sent messages posted
-  uint32_t step_sends_completed; //!< Number of sent messages completed
-  uint32_t step_receives_posted; //!< Number of received messages completed
-  uint32_t step_receives_completed;  //!< Number of received messages completed
+  uint64_t step_particle_messages; //!< Number of particle messages
+  uint64_t step_cells_requested; //!< Number of cells requested by this rank
+  uint64_t step_cell_messages; //!< Number of cell messages
+  uint64_t step_cells_sent; //!< Number of cells passed
+  uint64_t step_sends_posted; //!< Number of sent messages posted
+  uint64_t step_sends_completed; //!< Number of sent messages completed
+  uint64_t step_receives_posted; //!< Number of received messages completed
+  uint64_t step_receives_completed;  //!< Number of received messages completed
 
   double rank_transport_runtime; //!< Transport step runtime for this rank
   double rank_mpi_time; //!< Time set in MPI related calls for this rank

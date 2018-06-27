@@ -52,14 +52,10 @@ class Input
     // DD methods
     using Constants::PARTICLE_PASS; using Constants::CELL_PASS;
     using Constants::CELL_PASS_RMA; using Constants::REPLICATED;
-    using Constants::RMA_COMPLETION;
-    using Constants::MILAGRO_COMPLETION;
+    using Constants::PARMETIS; using Constants::CUBE; 
     using std::cout;
     using std::endl;
     using std::vector;
-
-    // default completion routine is RMA
-    completion_routine = RMA_COMPLETION;
 
     uint32_t x_key, y_key, z_key, key;
     // initialize nunmber of divisions in each dimension to zero
@@ -111,17 +107,6 @@ class Input
         if (tempString == "TRUE") write_silo = true;
         else write_silo = false;
 
-        // completion message type
-        tempString = v.second.get<std::string>("completion_routine",
-          std::string("RMA"));
-        if (tempString == "RMA") completion_routine = RMA_COMPLETION;
-        else if (tempString == "MILAGRO")
-          completion_routine = MILAGRO_COMPLETION;
-        else {
-          cout<<"Completion routine not recognized, setting to MILAGRO"<<endl;
-          completion_routine = MILAGRO_COMPLETION;
-        }
-
         //number of particles to run between MPI message checks
         batch_size = v.second.get<uint32_t>("batch_size", 100);
 
@@ -139,6 +124,21 @@ class Input
           cout<<"WARNING: Domain decomposition method not recognized... ";
           cout<<"setting to PARTICLE PASSING method"<<endl;
           dd_mode = PARTICLE_PASS;
+        }
+
+        // domain decomposition method
+        tempString = v.second.get<std::string>("mesh_decomposition",
+                                               std::string("PARMETIS"));
+        if (tempString == "PARMETIS") decomp_mode = PARMETIS;
+        else if (tempString == "CUBE") decomp_mode = CUBE;
+        else {
+          cout<<"WARNING: Mesh decomposition method not recognized... ";
+          cout<<"setting to PARMETIS method"<<endl;
+          decomp_mode = PARMETIS;
+        }
+        if (dd_mode == REPLICATED) {
+          std::cout<<"Replicated transport mode, mesh decomposition method";
+          std::cout<<" ignored"<<std::endl;
         }
       } //end common
 
@@ -392,8 +392,8 @@ class Input
     // DD methods
     using Constants::PARTICLE_PASS; using Constants::CELL_PASS;
     using Constants::CELL_PASS_RMA; using Constants::REPLICATED;
-    using Constants::RMA_COMPLETION;
-    using Constants::MILAGRO_COMPLETION;
+    // mesh decomposition
+    using Constants::PARMETIS; using Constants::CUBE;
 
     cout<<"Problem Specifications:";
     cout<<"Constants -- c: "<<c<<" (cm/sh) , a: "<<a <<endl;
@@ -475,23 +475,12 @@ class Input
       exit(EXIT_FAILURE);
     }
 
-    // cell pass RMA does not use completion routines
-    if (dd_mode != CELL_PASS_RMA) {
-      cout<<"Particle completion communication: ";
-      if (completion_routine == MILAGRO_COMPLETION) {
-        cout<<"Milagro binary tree"<<endl;
-      }
-      else if (completion_routine == RMA_COMPLETION) {
-        cout<<"One-sided RMA binary tree"<<endl;
-      }
-      else {
-        cout<<"ERROR: Particle completion method not specific correctly";
-        cout<<" Exiting..."<<endl;
-        exit(EXIT_FAILURE);
-      }
-    }
+    cout<<"Mesh decomposition: ";
+    if (decomp_mode == PARMETIS) cout<<"PARMETIS"<<endl;
+    else if (decomp_mode == CUBE) cout<<"CUBE"<<endl;
     else {
-      cout<<"Completion messages are not used in CELL_PASS_RMA"<<endl;
+      cout<<"ERROR: Decomposition mode not specified correctly. Exiting...";
+      exit(EXIT_FAILURE);
     }
 
     cout<<endl;
@@ -555,7 +544,7 @@ class Input
   //! Return the value of the use tilt option
   bool get_tilt_bool(void) const {return use_tilt;}
   //! Return the value of the use comb option
-  bool get_comb_bool(void) const {return use_comb;} 
+  bool get_comb_bool(void) const {return use_comb;}
   //! Return the value of the stratified option
   bool get_stratified_bool(void) const {return use_strat;}
   //! Return the value of the write SILO option
@@ -581,8 +570,6 @@ class Input
   int get_rng_seed(void) const {return seed;}
   //! Return the number of photons set in the input file to run
   uint64_t get_number_photons(void) const {return n_photons;}
-  //! Return the completion algorithm type (MILAGRO or RMA)
-  uint32_t get_completion_routine(void) const {return completion_routine;}
   //! Return the batch size (particles to run between parallel processing)
   uint32_t get_batch_size(void) const {return batch_size;}
   //! Return the user requested number of particles in a message
@@ -593,6 +580,8 @@ class Input
   uint32_t get_map_size(void) const {return map_size;}
   //! Return the domain decomposition algorithm
   uint32_t get_dd_mode(void) const {return dd_mode;}
+  //! Return the domain decomposition algorithm
+  uint32_t get_decomposition_mode(void) const {return decomp_mode;}
 
   //source functions
   //! Return the temperature of the face source
@@ -602,7 +591,7 @@ class Input
   uint32_t get_n_regions(void) const {return regions.size();}
 
   //! Return vector of regions
-  const std::vector<Region>& get_regions(void) const {return regions;} 
+  const std::vector<Region>& get_regions(void) const {return regions;}
 
   //! Return unique index given division indices
 
@@ -658,7 +647,7 @@ class Input
   bool use_comb; //!< Comb census photons
   bool use_strat; //!< Use strafifed sampling
   uint32_t dd_mode; //!< Mode of domain decomposed transport algorithm
-  uint32_t completion_routine; //!< Method for handling transport completion
+  uint32_t decomp_mode; //!< Mode of decomposing mesh
 
   // Debug parameters
   int output_freq; //!< How often to print temperature information

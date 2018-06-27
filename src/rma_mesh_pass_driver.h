@@ -31,7 +31,7 @@
 #include "timer.h"
 #include "write_silo.h"
 
-void imc_rma_mesh_pass_driver(Mesh *mesh, 
+void imc_rma_mesh_pass_driver(Mesh *mesh,
                               IMC_State *imc_state,
                               IMC_Parameters *imc_parameters,
                               MPI_Types *mpi_types,
@@ -47,8 +47,8 @@ void imc_rma_mesh_pass_driver(Mesh *mesh,
   int n_rank = mpi_info.get_n_rank();
 
   //make object that handles RMA mesh requests and start access
-  RMA_Manager *rma_manager = new RMA_Manager(rank, mesh->get_off_rank_bounds(),
-    mesh->get_global_num_cells(), mesh->get_max_grip_size(), mpi_types, 
+  RMA_Manager *rma_manager = new RMA_Manager(mesh->get_off_rank_bounds(),
+    mesh->get_global_num_cells(), mesh->get_max_grip_size(), mpi_types,
     mesh->get_mesh_window_ref());
   rma_manager->start_access();
 
@@ -104,9 +104,9 @@ void imc_rma_mesh_pass_driver(Mesh *mesh,
     imc_state->set_transported_particles(source.get_n_photon());
 
     // reduce the abs_E and the track weighted energy (for T_r)
-    MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(), 
+    MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(),
       MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &track_E[0], mesh->get_global_num_cells(), 
+    MPI_Allreduce(MPI_IN_PLACE, &track_E[0], mesh->get_global_num_cells(),
       MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     //cout<<"updating temperature..."<<endl;
@@ -114,22 +114,22 @@ void imc_rma_mesh_pass_driver(Mesh *mesh,
 
     imc_state->print_conservation(imc_parameters->get_dd_mode());
 
-    // purge the working mesh, it will be updated by other ranks and is now 
+    // purge the working mesh, it will be updated by other ranks and is now
     // invalid
     mesh->purge_working_mesh();
 
     if (imc_parameters->get_write_silo_flag()) {
       // write SILO file
       vector<uint32_t> n_requests = rma_manager->get_n_request_vec();
-      write_silo(mesh, imc_state->get_time(), imc_state->get_step(), 
-        imc_state->get_rank_transport_runtime(), 
+      write_silo(mesh, imc_state->get_time(), imc_state->get_step(),
+        imc_state->get_rank_transport_runtime(),
         imc_state->get_rank_mpi_time(), rank, n_rank, n_requests);
     }
     //reset rma_manager object for next timestep
     rma_manager->end_timestep();
 
     //update time for next step
-    imc_state->next_time_step();    
+    imc_state->next_time_step();
   }
   //close access to MPI windows in RMA_Manger object and delete
   rma_manager->end_access();

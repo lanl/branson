@@ -22,8 +22,6 @@
 #include <vector>
 
 #include "buffer.h"
-#include "completion_manager_rma.h"
-#include "completion_manager_milagro.h"
 #include "constants.h"
 #include "info.h"
 #include "mesh.h"
@@ -153,7 +151,6 @@ std::vector<Photon> particle_pass_transport(Source& source,
                                             IMC_State* imc_state,
                                             IMC_Parameters* imc_parameters,
                                             MPI_Types* mpi_types,
-                                            Completion_Manager* comp,
                                             Message_Counter& mctr,
                                             std::vector<double>& rank_abs_E,
                                             std::vector<double>& rank_track_E,
@@ -192,28 +189,29 @@ std::vector<Photon> particle_pass_transport(Source& source,
 
   MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
 
-  //get global photon count
+  // get global photon count
   uint64_t n_local = source.get_n_photon();
   uint64_t n_global;
+  uint64_t last_global_complete_count;
 
   MPI_Allreduce(&n_local, &n_global, 1, MPI_UNSIGNED_LONG, MPI_SUM,
     MPI_COMM_WORLD);
 
-  // post receives to children and parent for completion messages
-  comp->start_timestep(mctr);
-
-  //set global particle count in completion object
-  comp->set_timestep_global_particles(n_global);
-
   // This flag indicates that send processing is needed for target rank
   vector<vector<Photon> > send_list;
 
-  //Get adjacent processor map (off_rank_id -> adjacent_proc_number)
+  // Completion count request made flag
+  bool req_made = false;
+  int recv_allreduce_flag;
+
+  // get adjacent processor map (off_rank_id -> adjacent_proc_number)
   auto adjacent_procs = mesh->get_proc_adjacency_list();
   uint32_t n_adjacent = adjacent_procs.size();
-  //Messsage requests for photon sends and receives
+  // messsage requests for photon sends and receives
   MPI_Request *phtn_recv_request   = new MPI_Request[n_adjacent];
   MPI_Request *phtn_send_request   = new MPI_Request[n_adjacent];
+  // message request for non-blocking allreduce
+  MPI_Request completion_request;
   // make a send/receive particle buffer for each adjacent processor
   vector<Buffer<Photon> > phtn_recv_buffer(n_adjacent);
   vector<Buffer<Photon> > phtn_send_buffer(n_adjacent);
@@ -247,15 +245,16 @@ std::vector<Photon> particle_pass_transport(Source& source,
 
   int send_rank;
   uint64_t n_complete = 0; //!< Completed histories, regardless of origin
+  //! Send and receive buffers for complete count
+  uint64_t s_global_complete, r_global_complete;
   uint64_t n_local_sourced = 0; //!< Photons pulled from source object
-  bool finished = false;
   bool from_receive_stack = false;
   bool waiting_for_work = false;
   int send_req_flag;
   Photon phtn;
   event_type event;
 
-  while (!finished) {
+  while (last_global_complete_count != n_global) {
 
     uint32_t n = batch_size;
 
@@ -407,14 +406,26 @@ std::vector<Photon> particle_pass_transport(Source& source,
     // binary tree completion communication
     //------------------------------------------------------------------------//
 
-    comp->get_child_subtree_num_done(n_complete, mctr);
+    if (!req_made) {
+      s_global_complete = n_complete;
+      MPI_Iallreduce(&s_global_complete, &r_global_complete, 1,
+        MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD, &completion_request);
+      req_made = true;
+    }
+    else {
+      MPI_Test(&completion_request, &recv_allreduce_flag, MPI_STATUS_IGNORE);
+      if (recv_allreduce_flag) {
+        last_global_complete_count = r_global_complete;
+        s_global_complete = n_complete;
+        if (last_global_complete_count != n_global) {
+          MPI_Iallreduce(&s_global_complete, &r_global_complete, 1,
+            MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD, &completion_request);
+        }
+      }
+    }
 
     waiting_for_work = ((n_local_sourced == n_local) &&
       phtn_recv_stack.empty());
-
-    comp->process_completion(waiting_for_work, n_complete, mctr);
-
-    finished = comp->is_finished();
 
     t_mpi.stop_timer("timestep mpi");
 
@@ -422,9 +433,6 @@ std::vector<Photon> particle_pass_transport(Source& source,
 
   // record time of transport work for this rank
   t_transport.stop_timer("timestep transport");
-
-  // Milagro version sends completed count down, RMA version just resets
-  comp->end_timestep(mctr);
 
   // wait for all ranks to finish then send empty photon messages
   // do this because it's possible for a rank to receive the empty message
