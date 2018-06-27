@@ -52,6 +52,7 @@ class Input
     // DD methods
     using Constants::PARTICLE_PASS; using Constants::CELL_PASS;
     using Constants::CELL_PASS_RMA; using Constants::REPLICATED;
+    using Constants::PARMETIS; using Constants::CUBE; 
     using std::cout;
     using std::endl;
     using std::vector;
@@ -123,6 +124,21 @@ class Input
           cout<<"WARNING: Domain decomposition method not recognized... ";
           cout<<"setting to PARTICLE PASSING method"<<endl;
           dd_mode = PARTICLE_PASS;
+        }
+
+        // domain decomposition method
+        tempString = v.second.get<std::string>("mesh_decomposition",
+                                               std::string("PARMETIS"));
+        if (tempString == "PARMETIS") decomp_mode = PARMETIS;
+        else if (tempString == "CUBE") decomp_mode = CUBE;
+        else {
+          cout<<"WARNING: Mesh decomposition method not recognized... ";
+          cout<<"setting to PARMETIS method"<<endl;
+          decomp_mode = PARMETIS;
+        }
+        if (dd_mode == REPLICATED) {
+          std::cout<<"Replicated transport mode, mesh decomposition method";
+          std::cout<<" ignored"<<std::endl;
         }
       } //end common
 
@@ -376,6 +392,8 @@ class Input
     // DD methods
     using Constants::PARTICLE_PASS; using Constants::CELL_PASS;
     using Constants::CELL_PASS_RMA; using Constants::REPLICATED;
+    // mesh decomposition
+    using Constants::PARMETIS; using Constants::CUBE;
 
     cout<<"Problem Specifications:";
     cout<<"Constants -- c: "<<c<<" (cm/sh) , a: "<<a <<endl;
@@ -454,6 +472,14 @@ class Input
     else {
       cout<<"ERROR: Parallel method not specific correctly";
       cout<<" Exiting..."<<endl;
+      exit(EXIT_FAILURE);
+    }
+
+    cout<<"Mesh decomposition: ";
+    if (decomp_mode == PARMETIS) cout<<"PARMETIS"<<endl;
+    else if (decomp_mode == CUBE) cout<<"CUBE"<<endl;
+    else {
+      cout<<"ERROR: Decomposition mode not specified correctly. Exiting...";
       exit(EXIT_FAILURE);
     }
 
@@ -554,6 +580,8 @@ class Input
   uint32_t get_map_size(void) const {return map_size;}
   //! Return the domain decomposition algorithm
   uint32_t get_dd_mode(void) const {return dd_mode;}
+  //! Return the domain decomposition algorithm
+  uint32_t get_decomposition_mode(void) const {return decomp_mode;}
 
   //source functions
   //! Return the temperature of the face source
@@ -619,6 +647,7 @@ class Input
   bool use_comb; //!< Comb census photons
   bool use_strat; //!< Use strafifed sampling
   uint32_t dd_mode; //!< Mode of domain decomposed transport algorithm
+  uint32_t decomp_mode; //!< Mode of decomposing mesh
 
   // Debug parameters
   int output_freq; //!< How often to print temperature information

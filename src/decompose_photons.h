@@ -20,6 +20,7 @@
 
 #include "mpi_types.h"
 #include "photon.h"
+#include "timer.h"
 
 
 void print_MPI_photons( const std::vector<Photon>& phtn_vec,
@@ -159,68 +160,47 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon>& census,
 
   MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
 
-
   // sort ceneus by cell ID
   sort(census.begin(), census.end());
 
   // make a list of off rank photons
-  vector<Photon> off_rank_census;
-  vector<Photon> on_rank_census;
-  vector<uint32_t> n_census_on_rank(n_rank, 0);
+  std::map<int32_t, uint64_t> rank_start;
+  vector<uint64_t> n_census_on_rank(n_rank, 0);
+  vector<uint64_t> n_census_on_rank_global(n_rank, 0);
   int census_p_rank;
+  uint64_t ip = 0;
   for (auto& p : census) {
     census_p_rank = mesh->get_rank( p.get_cell());
-    if (census_p_rank != rank) {
-      off_rank_census.push_back(p);
-      n_census_on_rank[census_p_rank]++;
+    if (rank_start.find(census_p_rank) == rank_start.end()) {
+      rank_start[census_p_rank] = ip;
     }
-    else
-      on_rank_census.push_back(p);
+    n_census_on_rank[census_p_rank]++;
+    ip++;
   }
 
-  // determine the number of census particles on each rank
-  n_census_on_rank[rank] += on_rank_census.size();
+  // if you have no census on your rank make sure it's recorded
+  if (rank_start.find(rank) == rank_start.end())
+    rank_start[rank] = 0;
+  
+  MPI_Allreduce(&n_census_on_rank[0],&n_census_on_rank_global[0], n_rank, MPI_UNSIGNED_LONG, 
+    MPI_SUM, MPI_COMM_WORLD);
 
-  MPI_Allreduce(MPI_IN_PLACE, &n_census_on_rank[0], n_rank, MPI_UNSIGNED, MPI_SUM,
-    MPI_COMM_WORLD);
-
-  uint64_t avg_census = std::accumulate(n_census_on_rank.begin(), n_census_on_rank.end(), 0)/n_rank;
-  uint64_t max_census = *std::max_element(n_census_on_rank.begin(), n_census_on_rank.end());
+  uint64_t avg_census = std::accumulate(n_census_on_rank_global.begin(), n_census_on_rank_global.end(), 0ul)/n_rank;
+  uint64_t max_census = *std::max_element(n_census_on_rank_global.begin(), n_census_on_rank_global.end());
 
   if (rank == 0) {
     std::cout<<"Max census on rank: "<<max_census;
     std::cout<<", average census: "<<avg_census<<std::endl;
   }
 
-  // take only the on-rank part of the census back with us here
-  census = on_rank_census;
-  on_rank_census.clear();
-
-  //size of census list
-  uint32_t n_census = off_rank_census.size();
+  // check to see how many we should send back
+  // remove from map if larger than avg_census
+  std::unordered_map<int32_t, uint64_t> n_to_send;
   std::set<int32_t> acceptor_ranks;
-
-  // count the photons belonging to each rank and the start index of each
-  // count the ranks that you will send to, add them to a vector
-  // if rank has less than average, return their census, otherwise keep it (it's
-  // probably a hot rank)
-  vector<uint32_t> rank_count(n_rank, 0);
-  vector<uint32_t> rank_start(n_rank, 0);
-  vector<bool> rank_found(n_rank, false);
-  uint32_t r;
-  for (uint32_t i=0; i<n_census; ++i) {
-    r = mesh->get_rank(off_rank_census[i].get_cell());
-    rank_count[r]++;
-    if(rank_found[r]==false) {
-      rank_found[r]=true;
-      rank_start[r] =i;
-      if (n_census_on_rank[r] < avg_census)
-        acceptor_ranks.insert(r);
+  for (auto ir : rank_start) {
+    if (n_census_on_rank_global[ir.first] < avg_census && ir.first != rank) {
+      acceptor_ranks.insert(ir.first);
     }
-
-    // if this rank is already overloaded, save it to your census
-    if (n_census_on_rank[r] >= avg_census)
-      census.push_back(off_rank_census[i]);
   }
 
   int n_global_acceptors = acceptor_ranks.size();
@@ -251,6 +231,7 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon>& census,
   n_donors = n_donors_win[0];
   MPI_Win_free(&win);
 
+
   int n_global_donors = n_donors;
   MPI_Allreduce(MPI_IN_PLACE, &n_global_donors, 1, MPI_INT, MPI_SUM,
     MPI_COMM_WORLD);
@@ -272,7 +253,7 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon>& census,
   // send the number of photons to your acceptor ranks
   int index = 0;
   for (auto ir : acceptor_ranks) {
-    MPI_Isend(&rank_count[ir], 1,  MPI_UNSIGNED, ir, 0,
+    MPI_Isend(&n_census_on_rank[ir], 1,  MPI_UNSIGNED, ir, 0,
       MPI_COMM_WORLD, &s_reqs[index]);
     index++;
   }
@@ -305,7 +286,7 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon>& census,
   index =0;
   for (auto& ir : acceptor_ranks) {
     int start_copy = rank_start[ir];
-    MPI_Isend(&off_rank_census[start_copy], rank_count[ir], MPI_Particle,
+    MPI_Isend(&census[rank_start[ir]], n_census_on_rank[ir], MPI_Particle,
       ir, 0, MPI_COMM_WORLD, &s_reqs[index]);
     index++;
   }
@@ -314,22 +295,29 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon>& census,
   MPI_Waitall(n_donors, r_reqs, MPI_STATUS_IGNORE);
   MPI_Barrier(MPI_COMM_WORLD);
 
-  //free memory from off rank census list
-  off_rank_census.clear();
+  // erase the parts of the census that were sent, reverse iterate over the
+  // starting index so rank_start indices are valid after erasing
+  for(auto ir = rank_start.crbegin(); ir != rank_start.crend();ir++) {
+    if (acceptor_ranks.count(ir->first)) {
+      census.erase(census.begin()+ir->second, census.begin()+ir->second+n_census_on_rank[ir->first]);
+    }
+  }
 
-  //copy received census photons to a new census list
+  //copy received census photons to the end of the census list
   vector<Photon> new_on_rank_census;
   for (uint32_t i=0; i<n_donors; ++i) {
-    new_on_rank_census.insert(new_on_rank_census.end(),
+    census.insert(census.end(),
       recv_photons[i].begin(), recv_photons[i].end());
   }
+
+  census.shrink_to_fit();
 
   // explicitly delete the MPI requests
   delete[] r_status;
   delete[] r_reqs;
   delete[] s_reqs;
 
-  return new_on_rank_census;
+  return census;
 }
 
 /*

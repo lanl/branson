@@ -63,7 +63,7 @@
       <opacC>3.0</opacC>
       <opacS>0.0</opacS>
       <initial_T_e>1.0</initial_T_e>
-      <initial_T_r>0.0</initial_T_r>
+      <initial_T_r>1.0</initial_T_r>
     </region>
   </regions>
 

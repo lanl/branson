@@ -6,11 +6,11 @@
     <dt_start>0.001</dt_start>
     <t_mult>1.0</t_mult>
     <dt_max>1.0</dt_max>
-    <photons>100000000</photons>
+    <photons>2400000000</photons>
     <seed>14706</seed>
     <tilt>FALSE</tilt>
     <stratified_sampling>FALSE</stratified_sampling>
-    <dd_transport_type>CELL_PASS_RMA</dd_transport_type>
+    <dd_transport_type>CELL_PASS</dd_transport_type>
     <grip_size>10000</grip_size>
     <map_size>500000</map_size>
     <batch_size>5000</batch_size>

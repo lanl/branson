@@ -140,7 +140,7 @@ class Source {
   ~Source() {}
 
   //! Get total photon count
-  uint32_t get_n_photon(void) const {return n_photon;}
+  uint64_t get_n_photon(void) const {return n_photon;}
 
   //! Print source census balance
   void print_work_summary(const int& rank) const {
@@ -339,10 +339,10 @@ class Source {
   uint32_t census_index; //!< Index of next census particle to return
   uint32_t iphoton;  //!< Local photon counter
   uint32_t current_source; //!< Current source
-  uint32_t n_sourced; //!< Number of particles returned by source
+  uint64_t n_sourced; //!< Number of particles returned by source
   std::vector<Work_Packet> work; //!< Vector of Work_Packet objects
   std::vector<Work_Packet>::iterator iwork; //!< Work iterator
-  uint32_t n_photon;  //!< Total photons in this source
+  uint64_t n_photon;  //!< Total photons in this source
   std::vector<double> E_cell_emission; //!< Emission energy in each cell
   std::vector<double> E_cell_census; //!< Initial census energy in each cell
 };

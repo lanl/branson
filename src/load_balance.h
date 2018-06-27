@@ -59,7 +59,7 @@ void load_balance(std::vector<Work_Packet>& work,
     MPI_SUM, MPI_COMM_WORLD);
 
   int64_t n_global_particles =
-    std::accumulate(domain_particles.begin(), domain_particles.end(),0);
+    std::accumulate(domain_particles.begin(), domain_particles.end(),0l);
 
   int64_t n_balance_particles = n_global_particles/n_rank;
 
@@ -77,15 +77,16 @@ void load_balance(std::vector<Work_Packet>& work,
       domain_delta_p[ir] = 0;
   }
 
-  unordered_map<int32_t, int32_t> n_send_rank;
-  vector<uint32_t> work_donor_ranks;
+  unordered_map<int64_t, int64_t> n_send_rank;
+  vector<uint64_t> work_donor_ranks;
 
   int64_t max_particles = 0;
+  int64_t rank_delta_p, send_to_nbr;
   uint32_t max_rank = 0;
 
-  double overload_factor = 0.0;
+  double overload_factor = 0.25;
 
-  int send_to_nbr, rank_delta_p, left_node, right_node;
+  int left_node, right_node;
   for (uint32_t ir=0; ir<uint32_t(n_rank); ++ir) {
     if (domain_particles[ir] > max_particles) {
       max_particles=domain_particles[ir];
@@ -156,8 +157,8 @@ void load_balance(std::vector<Work_Packet>& work,
     MPI_Request *phtn_recv_request = new MPI_Request[n_donors];
     MPI_Request *work_recv_size_request = new MPI_Request[n_donors];
     MPI_Request *phtn_recv_size_request = new MPI_Request[n_donors];
-    vector<int32_t> n_work_recv(n_donors);
-    vector<int32_t> n_phtn_recv(n_donors);
+    vector<int64_t> n_work_recv(n_donors);
+    vector<int64_t> n_phtn_recv(n_donors);
     vector<Buffer<Photon> > photon_buffer(n_donors);
     vector<Buffer<Work_Packet> > work_buffer(n_donors);
 
@@ -349,10 +350,10 @@ void bt_load_balance(std::vector<Work_Packet>& work,
   // start with the current number of particles on this rank
   uint64_t balanced_rank_particles = n_particle_on_rank;
   uint64_t partner_rank_particles, avg_particles;
-  int32_t n_send_census;
+  int64_t n_send_census;
   int64_t temp_n_send;
   bool balanced;
-  uint32_t start_cut_index = 0; //! Begin slice of census list
+  uint64_t start_cut_index = 0; //! Begin slice of census list
 
   vector<Work_Packet> work_to_send;
   vector<Photon> census_to_send;
@@ -360,7 +361,7 @@ void bt_load_balance(std::vector<Work_Packet>& work,
   Buffer<Photon> recv_photon_buffer;
   Buffer<Work_Packet> recv_work_buffer;
 
-  uint32_t n_census_remain = census_list.size(); //! Where to cut census list
+  uint64_t n_census_remain = census_list.size(); //! Where to cut census list
 
   // run the binary tree comm pattern going from smallest communication
   // distance to largest. Don't communicate if your partner doesn't exist
