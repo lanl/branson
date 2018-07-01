@@ -150,7 +150,7 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   options[2] = 1242; //random number seed
 
   int edgecut =0;
-  int *part = new int[ncell_on_rank];
+  std::vector<int> part(ncell_on_rank);
 
   ParMETIS_V3_PartKway( &vtxdist[0],   // array describing how cells are distributed
                         &xadj[0],   // how cells are stored locally
@@ -165,7 +165,7 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
                         ubvec,      // unbalance in vertex weight
                         options,    // options array
                         &edgecut,   // OUTPUT: Number of edgecuts
-                        part,       // OUTPUT: partition of each vertex
+                        &part[0],   // OUTPUT: partition of each vertex
                         &comm); // MPI communicator
 
   // if edgecuts are made (edgecut > 0) send cells to other processors
@@ -196,11 +196,6 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
 
       MPI_Irecv(&recv_from_rank[ir], 1, MPI_UNSIGNED, off_rank, 0,
         MPI_COMM_WORLD, &reqs[ir+n_off_rank]);
-
-      // erase sent cells from the mesh
-      for (uint32_t i=0; i<ncell_on_rank; ++i) {
-        if(part[i] == off_rank) mesh->remove_cell(i);
-      }
     }
 
     MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
@@ -228,7 +223,7 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   }
 
   // update the cell list on each processor
-  mesh->set_post_decomposition_mesh_cells();
+  mesh->set_post_decomposition_mesh_cells(part);
 
   // if using grips of cell data, get additional decomposition
   {
@@ -491,7 +486,6 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   // clean up dynamically allocated memory
   delete[] grip_reqs;
   delete[] reqs;
-  delete[] part;
   delete[] ubvec;
   delete[] tpwgts;
   delete[] xyz;
@@ -582,8 +576,10 @@ void replicate_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
 
   recv_cell.clear();
 
-  // update the cell list on each processor
-  mesh->set_post_decomposition_mesh_cells();
+  // update the cell list on each processor (use an identity mapped partition
+  // vector)
+  std::vector<int> part(ncell_on_rank, rank);
+  mesh->set_post_decomposition_mesh_cells(part);
 
   // if using grips of cell data, get additional decomposition
   {
@@ -853,11 +849,6 @@ void decompose_mesh_with_cubes(Mesh* mesh, MPI_Types* mpi_types,
 
       MPI_Irecv(&recv_from_rank[ir], 1, MPI_UNSIGNED, off_rank, 0,
         MPI_COMM_WORLD, &reqs[ir+n_off_rank]);
-
-      // erase sent cells from the mesh
-      for (uint32_t i=0; i<ncell_on_rank; ++i) {
-        if(part[i] == off_rank) mesh->remove_cell(i);
-      }
     }
 
     MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
@@ -885,7 +876,7 @@ void decompose_mesh_with_cubes(Mesh* mesh, MPI_Types* mpi_types,
   }
 
   // update the cell list on each processor
-  mesh->set_post_decomposition_mesh_cells();
+  mesh->set_post_decomposition_mesh_cells(part);
 
   // if using grips of cell data, get additional decomposition
   {

@@ -64,30 +64,22 @@ class Tally_Manager
   {
     using std::vector;
 
-    // send ID variables
-    s_id_reqs = vector<MPI_Request> (max_reqs);
-    s_id_buffers = vector<Buffer<uint32_t> >(max_reqs);
-    s_id_max_index = 0;
-    s_id_count = 0;
-
-    // send abs_E variables
+    // send tally variables
     s_tally_reqs = vector<MPI_Request> (max_reqs);
     s_tally_buffers = vector<Buffer<Tally> > (max_reqs);
     s_tally_max_index = 0;
     s_tally_count = 0;
 
-    // receive ID variables
-    r_id_reqs = vector<MPI_Request> (max_reqs);
-    r_id_buffers = vector<Buffer<uint32_t> >(max_reqs);
-    r_id_status = vector<MPI_Status> (max_reqs);
-
     // receive tally variables
     r_tally_reqs = vector<MPI_Request> (max_reqs);
+    r_tally_status = vector<MPI_Status> (max_reqs);
     r_tally_buffers = vector<Buffer<Tally> > (max_reqs);
-    r_tally_max_index = 0;
-    r_tally_count = 0;
 
     complete_indices = vector<int> (max_reqs);
+
+    // resize buffers for receiving tallies to max tally size
+    for (uint32_t i=0;i<max_reqs;++i)
+      r_tally_buffers[i].resize(max_tally_size);
   }
 
   //! destructor
@@ -119,22 +111,6 @@ class Tally_Manager
 
   private:
 
-  //! Returns the index of the next available send ID request and buffer
-  uint32_t get_next_send_id_request_and_buffer_index(void)
-  {
-    // check to see if request at count is in use
-    while(s_id_in_use.find(s_id_count) != s_id_in_use.end() ) {
-      s_id_count++;
-      if (s_id_count==max_reqs) s_id_count=0;
-    }
-    s_id_max_index = std::max(s_id_count,s_id_max_index);
-
-    // record this index as in use
-    s_id_in_use.insert(s_id_count);
-
-    return s_id_count;
-  }
-
   //! Returns the index of the next available send tally request and buffer
   uint32_t get_next_send_tally_request_and_buffer_index(void)
   {
@@ -151,40 +127,14 @@ class Tally_Manager
     return s_tally_count;
   }
 
-  //! Return the index of the next available receive tally request and buffer
-  uint32_t get_next_receive_tally_request_and_buffer_index(void)
-  {
-    // check to see if request at count is in use
-    while(r_tally_in_use.find(r_tally_count) != r_tally_in_use.end() ) {
-      r_tally_count++;
-      if (r_tally_count==max_reqs) r_tally_count=0;
-    }
-    r_tally_max_index = std::max(r_tally_count,r_tally_max_index);
-
-    // record this index as in use
-    r_tally_in_use.insert(r_tally_count);
-
-    return r_tally_count;
-  }
-
   //! Test active send and receives request objects for completion (sent IDs
   // and sent tallies)
   void test_sends_and_receives(Message_Counter& mctr,
-    std::vector<double>& rank_abs_E)
+    std::vector<double>& rank_abs_E,
+    std::vector<double>& rank_path_E)
   {
-    using Constants::n_tally_tag;
     using Constants::tally_tag;
     using std::vector;
-
-    // test sends of tally IDs, don't test if no active requests
-    if (!s_id_in_use.empty()) {
-      MPI_Testsome(s_id_max_index+1, &s_id_reqs[0], &n_req_complete,
-        &complete_indices[0], MPI_STATUSES_IGNORE);
-
-      for (uint32_t i=0; i<n_req_complete;++i)
-        s_id_in_use.erase(complete_indices[i]);
-      mctr.n_sends_completed+=n_req_complete;
-    }
 
     // test sends of tallies, don't test if no active requests
     if (!s_tally_in_use.empty()) {
@@ -195,66 +145,38 @@ class Tally_Manager
       mctr.n_sends_completed+=n_req_complete;
     }
 
-    // test receives for number of IDs being sent by other ranks
-    MPI_Testsome(max_reqs, &r_id_reqs[0], &n_req_complete,
-      &complete_indices[0], &r_id_status[0]);
-
     int comp_index, n_ids;
     uint32_t g_index, off_rank;
     mctr.n_receives_completed+=n_req_complete;
 
-    // for each complete request, post receive for all tallies
+    // test tally data receives
+    MPI_Testsome(max_reqs, &r_tally_reqs[0], &n_req_complete,
+      &complete_indices[0], &r_tally_status[0]);
+
+    int n_tally_recv;
+    int tallys_in_req;
+
+    mctr.n_receives_completed+=n_req_complete;
+    // for each complete request, add the tallies to local absorbed E
     for (int i = 0;i<n_req_complete;++i) {
       comp_index = complete_indices[i];
-      // get number of ids to be received
-      off_rank = r_id_status[i].MPI_SOURCE;
-      n_ids = r_id_buffers[comp_index].get_object()[0];
 
-      // post receive for tallies from this rank
-      uint32_t r_tally_index =
-        get_next_receive_tally_request_and_buffer_index();
-      r_tally_buffers[r_tally_index].set_receive_size(n_ids);
-      int custom_tag = tally_tag + n_ids;
+      vector<Tally>& recv_tally = r_tally_buffers[comp_index].get_object();
+      MPI_Get_count(&r_tally_status[comp_index], MPI_Tally, &n_tally_recv);
 
-      MPI_Irecv(r_tally_buffers[r_tally_index].get_buffer(), n_ids, MPI_Tally,
-        off_rank, tally_tag, MPI_COMM_WORLD, &r_tally_reqs[r_tally_index]);
-
-      // repost the receive at this index
-      MPI_Irecv(r_id_buffers[comp_index].get_buffer(), 1, MPI_UNSIGNED,
-        MPI_ANY_SOURCE, n_tally_tag, MPI_COMM_WORLD, &r_id_reqs[comp_index]);
+      // request again
+      MPI_Irecv(r_tally_buffers[comp_index].get_buffer(), max_tally_size, MPI_Tally, MPI_ANY_SOURCE, tally_tag, MPI_COMM_WORLD, &r_tally_reqs[comp_index]);
       mctr.n_receives_posted++;
-    }
 
-    // test tally data receives
-    if (!r_tally_in_use.empty()) {
+      uint32_t l_index;
+      for (uint32_t j=0; j<n_tally_recv; ++j) {
+        l_index = recv_tally[j].cell - rank_start;
+        rank_abs_E[l_index] += recv_tally[j].abs_E;
+        rank_path_E[l_index] += recv_tally[j].abs_E;
+      }
 
-      MPI_Testsome(r_tally_max_index+1, &r_tally_reqs[0], &n_req_complete,
-        &complete_indices[0], MPI_STATUSES_IGNORE);
-
-      int n_tally_recv;
-      int tallys_in_req;
-
-      mctr.n_receives_completed+=n_req_complete;
-      // for each complete request, add the tallies to local absorbed E
-      for (int i = 0;i<n_req_complete;++i) {
-        comp_index = complete_indices[i];
-
-        vector<Tally>& recv_tally = r_tally_buffers[comp_index].get_object();
-        n_tally_recv = recv_tally.size();
-
-        // remove request index from index_in_use set
-        r_tally_in_use.erase(comp_index);
-
-        uint32_t l_index;
-        for (uint32_t i=0; i<n_tally_recv; ++i) {
-          l_index = recv_tally[i].cell - rank_start;
-          rank_abs_E[l_index] += recv_tally[i].abs_E;
-        }
-
-      } // end loop over received requests
-    } // end if !r_tally_in_use.empty()
+    } // end loop over received requests
   }
-
 
   void send_tally_data(Message_Counter& mctr,
     std::unordered_map<uint32_t, double>& off_rank_abs_E)
@@ -265,52 +187,41 @@ class Tally_Manager
 
     std::unordered_map<uint32_t, vector<Tally> > rank_tally;
     uint32_t off_rank;
-    vector<Tally> temp_tally_vec(1);
     Tally tally;
-    for( auto const &map_i : off_rank_abs_E)
-    {
+    std::unordered_map<uint32_t, double> overflow_off_rank_abs_E;
+    for( auto const &map_i : off_rank_abs_E) {
       off_rank = get_off_rank_id(map_i.first);
       tally.cell = map_i.first;
       tally.abs_E = map_i.second;
-      if (rank_tally.find(off_rank) == rank_tally.end()) {
-        temp_tally_vec[0] = tally;
-        rank_tally[off_rank] = temp_tally_vec;
-      }
-      else {
+      if( rank_tally[off_rank].size() < max_tally_size)
         rank_tally[off_rank].push_back(tally);
-      }
+      else 
+        overflow_off_rank_abs_E[tally.cell] = tally.abs_E;
     }
-
 
     for (auto &map_i : rank_tally) {
       vector<Tally>& send_tallies = map_i.second;
       uint32_t n_ids = send_tallies.size();
-
-      // get next available ID request and buffer, fill buffer, post send
-      uint32_t s_id_index = get_next_send_id_request_and_buffer_index();
-      s_id_buffers[s_id_index].fill(vector<uint32_t> (1, n_ids));
-
-      MPI_Isend(s_id_buffers[s_id_index].get_buffer(), 1, MPI_UNSIGNED,
-        off_rank, n_tally_tag, MPI_COMM_WORLD, &s_id_reqs[s_id_index]);
 
       // get next available tally request and buffer, fill buffer, post send
       uint32_t s_tally_index = get_next_send_tally_request_and_buffer_index();
       s_tally_buffers[s_tally_index].fill(send_tallies);
 
       MPI_Isend(s_tally_buffers[s_tally_index].get_buffer(), n_ids, MPI_Tally,
-        off_rank, tally_tag, MPI_COMM_WORLD, &s_tally_reqs[s_tally_index]);
+        map_i.first, tally_tag, MPI_COMM_WORLD, &s_tally_reqs[s_tally_index]);
     }
     off_rank_abs_E.clear();
+    off_rank_abs_E = overflow_off_rank_abs_E;
   }
 
   public:
   void process_off_rank_tallies(Message_Counter& mctr,
-    std::vector<double>& rank_abs_E,
+    std::vector<double>& rank_abs_E, std::vector<double>& rank_path_E,
     std::unordered_map<uint32_t, double>& off_rank_abs_E,
     const bool force_send)
   {
     // first, test sends and receives of tally data
-    test_sends_and_receives(mctr, rank_abs_E);
+    test_sends_and_receives(mctr, rank_abs_E, rank_path_E);
 
     // then send off-rank tally data if map is full
     if (off_rank_abs_E.size() > max_tally_size || force_send)
@@ -320,31 +231,26 @@ class Tally_Manager
   //! Begin simulation by posting receives for the number of IDs that will be sent
   // by other ranks
   void start_simulation(Message_Counter& mctr) {
-    using Constants::n_tally_tag;
+    using Constants::tally_tag;
     for (uint32_t i=0; i<max_reqs;++i) {
-      MPI_Irecv(r_id_buffers[i].get_buffer(), 1, MPI_UNSIGNED, MPI_ANY_SOURCE,
-        n_tally_tag, MPI_COMM_WORLD, &r_id_reqs[i]);
+      MPI_Irecv(r_tally_buffers[i].get_buffer(), max_tally_size, MPI_Tally, MPI_ANY_SOURCE, tally_tag, MPI_COMM_WORLD, &r_tally_reqs[i]);
       mctr.n_receives_posted++;
     }
   }
 
   //! End timestep by resetting active indices and request counts
   void end_timestep(void) {
-    s_id_max_index =0;
-    s_id_count=0;
     s_tally_max_index=0;
     s_tally_count=0;
-    r_tally_max_index=0;
-    r_tally_count=0;
   }
 
   //! End simulation by canceling pending receives requests
   void end_simulation(Message_Counter& mctr)
   {
     for (uint32_t i=0; i<max_reqs;++i)
-      MPI_Cancel(&r_id_reqs[i]);
+      MPI_Cancel(&r_tally_reqs[i]);
 
-    MPI_Waitall(max_reqs, &r_id_reqs[0], MPI_STATUSES_IGNORE);
+    MPI_Waitall(max_reqs, &r_tally_reqs[0], MPI_STATUSES_IGNORE);
 
     mctr.n_receives_completed+=max_reqs;
   }
@@ -361,13 +267,6 @@ class Tally_Manager
 
   MPI_Datatype MPI_Tally; //! Custom MPI datatype for tally
 
-  // send id variables
-  std::vector<MPI_Request> s_id_reqs;
-  std::vector<Buffer<uint32_t> > s_id_buffers;
-  std::unordered_set<uint32_t> s_id_in_use;
-  uint32_t s_id_max_index;
-  uint32_t s_id_count;
-
   // send tally variables
   std::vector<MPI_Request> s_tally_reqs;
   std::vector<Buffer<Tally> > s_tally_buffers;
@@ -375,17 +274,10 @@ class Tally_Manager
   uint32_t s_tally_max_index;
   uint32_t s_tally_count;
 
-  //receive id variables
-  std::vector<MPI_Request> r_id_reqs;
-  std::vector<Buffer<uint32_t> > r_id_buffers;
-  std::vector<MPI_Status> r_id_status;
-
   // receive tally variables
   std::vector<MPI_Request> r_tally_reqs;
+  std::vector<MPI_Status> r_tally_status;
   std::vector<Buffer<Tally> > r_tally_buffers;
-  std::unordered_set<uint32_t> r_tally_in_use;
-  uint32_t r_tally_max_index;
-  uint32_t r_tally_count;
 
   //! Returned from MPI_Testsome, indicates completed requests at index
   std::vector<int> complete_indices;

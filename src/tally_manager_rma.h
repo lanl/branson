@@ -22,7 +22,6 @@
 #include "constants.h"
 #include "message_counter.h"
 
-
 struct Tally
 {
   Tally(void)
@@ -270,8 +269,12 @@ class Tally_Manager
     test_remote_writes(mctr);
 
     // then send off-rank tally data if map is full
-    if (off_rank_abs_E.size() > max_tally_size || force_send)
+    if (off_rank_abs_E.size() > max_tally_size)
       remote_tally_accumulate(mctr, off_rank_abs_E);
+
+    // force send is true, keep checking until all operation have finished
+    if (force_send)
+      finish_remote_writes(mctr, off_rank_abs_E);
   }
 
 
@@ -284,6 +287,16 @@ class Tally_Manager
 
       // always send in finish mode
       remote_tally_accumulate(mctr, off_rank_abs_E);
+    }
+  }
+
+  //! Add the remote tallied energy to the local energy and reset the tally
+  void add_remote_tally(std::vector<double> &rank_abs_E) {
+    // add the remote tally operations to the on rank absorbed energy
+    // and reset the tally
+    for (uint32_t i=0; i<rank_abs_E.size();++i) {
+      rank_abs_E[i] += tally[i];
+      tally[i] = 0.0;
     }
   }
 

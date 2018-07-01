@@ -6,12 +6,12 @@
     <dt_start>0.001</dt_start>
     <t_mult>1.0</t_mult>
     <dt_max>1.0</dt_max>
-    <photons>102400001</photons>
+    <photons>1001</photons>
     <seed>14706</seed>
     <map_size>50000</map_size>
     <tilt>FALSE</tilt>
     <stratified_sampling>FALSE</stratified_sampling>
-    <dd_transport_type>CELL_PASS_RMA</dd_transport_type>
+    <dd_transport_type>CELL_PASS</dd_transport_type>
     <completion_routine>RMA</completion_routine>
     <grip_size>100</grip_size>
     <map_size>10000</map_size>
@@ -29,15 +29,15 @@
   <simple_spatial>
     <x_start>0.0</x_start>
     <x_end> 1.0</x_end>
-    <n_x_cells>40</n_x_cells>
+    <n_x_cells>10</n_x_cells>
 
     <y_start>0.0</y_start>
     <y_end> 1.0</y_end>
-    <n_y_cells>40</n_y_cells>
+    <n_y_cells>1</n_y_cells>
 
     <z_start>0.0</z_start>
     <z_end>1.0</z_end>
-    <n_z_cells>40</n_z_cells>
+    <n_z_cells>1</n_z_cells>
 
     <region_ID>6</region_ID>
   </simple_spatial>

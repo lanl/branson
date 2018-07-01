@@ -615,20 +615,20 @@ class Mesh {
   }
 
   //! Remove old mesh cells after decomposition and communication of new cells
-  void set_post_decomposition_mesh_cells(void) {
+  void set_post_decomposition_mesh_cells(const std::vector<int> &partition) {
     using std::vector;
     vector<Cell> new_mesh;
+
+    // all cells that were assigned to this rank are still part of the mesh
     for (uint32_t i =0; i< cell_list.size(); ++i) {
-      bool delete_flag = false;
-      for (auto rmv_itr : remove_cell_list)
-      {
-        if (rmv_itr == i)  delete_flag = true;
-      }
-      if (delete_flag == false) new_mesh.push_back(cell_list[i]);
+      if (partition[i] == rank)
+        new_mesh.push_back(cell_list[i]);
     }
 
-    for (uint32_t i =0; i< new_cell_list.size(); i++)
-      new_mesh.push_back(new_cell_list[i]);
+    // add cells received by other processors
+    new_mesh.insert(new_mesh.end(), new_cell_list.begin(), new_cell_list.end());
+
+    // reassigned the cell_list vector and clear other vectors
     cell_list = new_mesh;
     n_cell = cell_list.size();
     new_cell_list.clear();
@@ -691,11 +691,11 @@ class Mesh {
       Cell& e = cells[i];
       vol = e.get_volume();
       T = e.get_T_e();
-      T_new = T + (abs_E[i+on_rank_start] - m_emission_E[i]/replicated_factor)
+      T_new = T + (abs_E[i] - m_emission_E[i]/replicated_factor)
         / (cV*vol*rho);
-      T_r[i] = std::pow( track_E[i+on_rank_start]/(vol*imc_s->get_dt()*a*c), 0.25);
+      T_r[i] = std::pow( track_E[i]/(vol*imc_s->get_dt()*a*c), 0.25);
       e.set_T_e(T_new);
-      total_abs_E+=abs_E[i+on_rank_start];
+      total_abs_E+=abs_E[i];
       total_post_mat_E+= T_new*cV*vol*rho;
     }
     // zero out absorption tallies for all cells (global)
@@ -751,9 +751,6 @@ class Mesh {
 
   //! Add mesh cell (used during decomposition, not parallel communication)
   void add_mesh_cell(Cell new_cell) {new_cell_list.push_back(new_cell);}
-
-  //! Remove mesh cell (used during decomposition, not parallel communication)
-  void remove_cell(uint32_t index) {remove_cell_list.push_back(index);}
 
   //! Get census energy vector needed to source particles
   std::vector<double>& get_census_E_ref(void) {return m_census_E;}

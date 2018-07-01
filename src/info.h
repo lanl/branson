@@ -47,6 +47,7 @@ class Info
     // like the #elif directive
 #ifdef SNOW_NODE
     machine_name = "snow";
+    /*
     char * proc_name = new char[MPI_MAX_PROCESSOR_NAME];
     int result_length;
     MPI_Get_processor_name(proc_name, &result_length);
@@ -57,10 +58,12 @@ class Info
     color = std::stoi(result.str(1));
     node_mem = 32000000000;
     delete[] proc_name;
+    */
 #endif
 
 #ifdef MOONLIGHT_NODE
     machine_name = "moonlight";
+    /*
     char * proc_name = new char[MPI_MAX_PROCESSOR_NAME];
     int result_length;
     MPI_Get_processor_name(proc_name, &result_length);
@@ -71,10 +74,12 @@ class Info
     color = std::stoi(result.str(1));
     node_mem = 32000000000;
     delete[] proc_name;
+    */
 #endif
 
 #ifdef TRINITITE_NODE
     machine_name = "trinitite";
+    /*
     char * proc_name = new char[MPI_MAX_PROCESSOR_NAME];
     int result_length;
     MPI_Get_processor_name(proc_name, &result_length);
@@ -85,6 +90,7 @@ class Info
     color = std::stoi(result.str(1));
     node_mem = 128000000000;
     delete[] proc_name;
+    */
 #endif
 
   }

@@ -39,18 +39,22 @@ void imc_mesh_pass_driver(Mesh *mesh,
                           const Info &mpi_info)
 {
   using std::vector;
-  vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
-  vector<double> track_E(mesh->get_global_num_cells(), 0.0);
+  vector<double> abs_E(mesh->get_n_local_cells(), 0.0);
+  vector<double> track_E(mesh->get_n_local_cells(), 0.0);
   vector<Photon> census_photons;
   vector<uint32_t> needed_grip_ids; //! Grips needed after load balance
   Message_Counter mctr;
   int rank = mpi_info.get_rank();
 
   // make object that handles requests for local and remote data
-  Mesh_Request_Manager *req_manager = new Mesh_Request_Manager(rank,
-    mesh->get_off_rank_bounds(), mesh->get_global_num_cells(),
+  Mesh_Request_Manager req_manager(rank, mesh->get_off_rank_bounds(), 
     mesh->get_max_grip_size(), mpi_types, mesh->get_const_cells_ptr());
-  req_manager->start_simulation(mctr);
+  req_manager.start_simulation(mctr);
+
+  // make object that handles tally data 
+  Tally_Manager tally_manager(rank, mesh->get_off_rank_bounds(),
+    mesh->get_n_local_cells());
+
 
   while (!imc_state->finished())
   {
@@ -96,18 +100,13 @@ void imc_mesh_pass_driver(Mesh *mesh,
     t_lb.stop_timer("load balance");
     imc_state->set_load_balance_time(t_lb.get_time("load balance"));
 
-    vector<Cell> new_cells = req_manager->process_mesh_requests(mctr);
+    vector<Cell> new_cells = req_manager.process_mesh_requests(mctr);
     if (!new_cells.empty()) mesh->add_non_local_mesh_cells(new_cells);
 
     // transport photons
     census_photons = mesh_pass_transport(source, mesh, imc_state,
-      imc_parameters, req_manager, mctr, abs_E, track_E, mpi_types, mpi_info);
-
-    // reduce the abs_E and the track weighted energy (for T_r)
-    MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(),
-      MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &track_E[0], mesh->get_global_num_cells(),
-      MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+      imc_parameters, req_manager, tally_manager,  mctr, abs_E, track_E, 
+      mpi_types, mpi_info);
 
     mesh->update_temperature(abs_E, track_E, imc_state);
 
@@ -117,16 +116,16 @@ void imc_mesh_pass_driver(Mesh *mesh,
     // invalid
     mesh->purge_working_mesh();
 
-    // reset counters and max indices in mesh request object
-    req_manager->end_timestep();
+    // reset counters and max indices in mesh request object and tally object
+    req_manager.end_timestep();
+    tally_manager.end_timestep();
 
     // update time for next step
     imc_state->next_time_step();
   }
 
-  req_manager->end_simulation(mctr);
-
-  delete req_manager;
+  // cancel outstanding messages before req_manager is deleted
+  req_manager.end_simulation(mctr);
 }
 
 #endif // mesh_pass_driver_h_

@@ -39,7 +39,8 @@ std::vector<Photon> rma_mesh_pass_transport(Source& source,
                                             Mesh* mesh,
                                             IMC_State* imc_state,
                                             IMC_Parameters* imc_parameters,
-                                            RMA_Manager* rma_manager,
+                                            RMA_Manager &rma_manager,
+                                            Tally_Manager &tally_manager,
                                             Message_Counter& mctr,
                                             std::vector<double>& rank_abs_E,
                                             std::vector<double>& rank_track_E,
@@ -75,11 +76,14 @@ std::vector<Photon> rma_mesh_pass_transport(Source& source,
   bool new_data = false; //! New data flag is initially false
   std::vector<Cell> new_cells; // New cells from completed RMA requests
 
-  // Number of particles to run between MPI communication
+  // number of particles to run between MPI communication
   const uint32_t batch_size = imc_parameters->get_batch_size();
 
   event_type event;
   uint32_t wait_list_size;
+
+  // for tallying off rank data
+  std::unordered_map<uint32_t, double> off_rank_abs_E;
 
   //--------------------------------------------------------------------------//
   // main loop over photons
@@ -103,7 +107,7 @@ std::vector<Photon> rma_mesh_pass_transport(Source& source,
       // waiting list
       if (mesh->mesh_available(cell_id)) {
         event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
-                                        census_E, rank_abs_E, rank_track_E);
+                                        census_E, rank_abs_E, rank_track_E, off_rank_abs_E);
         cell_id = phtn.get_cell();
       }
       else event = WAIT;
@@ -112,16 +116,20 @@ std::vector<Photon> rma_mesh_pass_transport(Source& source,
         census_list.push_back(phtn);
       else if (event==WAIT) {
         t_mpi.start_timer("timestep mpi");
-        rma_manager->request_cell_rma(phtn.get_grip(), mctr);
+        rma_manager.request_cell_rma(phtn.get_grip(), mctr);
         t_mpi.stop_timer("timestep mpi");
         wait_list.push(phtn);
       }
       n--;
     } // end batch transport
 
-    //process mesh requests
+    // process off rank tally data don't force send
+    bool force_send = false;
+    tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
+
+    // process mesh requests
     t_mpi.start_timer("timestep mpi");
-    new_cells = rma_manager->process_rma_mesh_requests(mctr);
+    new_cells = rma_manager.process_rma_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data) mesh->add_non_local_mesh_cells(new_cells);
     t_mpi.stop_timer("timestep mpi");
@@ -134,7 +142,7 @@ std::vector<Photon> rma_mesh_pass_transport(Source& source,
         cell_id=phtn.get_cell();
         if (mesh->mesh_available(cell_id)) {
           event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
-            census_E, rank_abs_E, rank_track_E);
+            census_E, rank_abs_E, rank_track_E, off_rank_abs_E);
           cell_id = phtn.get_cell();
         }
         else event = WAIT;
@@ -143,7 +151,7 @@ std::vector<Photon> rma_mesh_pass_transport(Source& source,
           census_list.push_back(phtn);
         else if (event==WAIT) {
           t_mpi.start_timer("timestep mpi");
-          rma_manager->request_cell_rma(phtn.get_grip(), mctr);
+          rma_manager.request_cell_rma(phtn.get_grip(), mctr);
           wait_list.push(phtn);
           t_mpi.stop_timer("timestep mpi");
         }
@@ -157,15 +165,24 @@ std::vector<Photon> rma_mesh_pass_transport(Source& source,
   //--------------------------------------------------------------------------//
   wait_list_size = wait_list.size();
   while (!wait_list.empty()) {
+
     t_mpi.start_timer("timestep mpi");
-    new_cells = rma_manager->process_rma_mesh_requests(mctr);
+
+    // process off rank tally data don't force send
+    bool force_send = false;
+    tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
+
+    // process mesh requests
+    new_cells = rma_manager.process_rma_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data) mesh->add_non_local_mesh_cells(new_cells);
+
     t_mpi.stop_timer("timestep mpi");
+
     // if new data received or there are no active mesh requests, try to
     // transport waiting list (it could be that there are no active memory
     // requests because the request queue was full at the time)
-    if (new_data || rma_manager->no_active_requests()) {
+    if (new_data || rma_manager.no_active_requests()) {
       wait_list_size = wait_list.size();
       for (uint32_t wp =0; wp<wait_list_size; ++wp) {
         phtn = wait_list.front();
@@ -173,7 +190,7 @@ std::vector<Photon> rma_mesh_pass_transport(Source& source,
         cell_id=phtn.get_cell();
         if (mesh->mesh_available(cell_id)) {
           event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
-                                          census_E, rank_abs_E, rank_track_E);
+                                          census_E, rank_abs_E, rank_track_E, off_rank_abs_E);
           cell_id = phtn.get_cell();
         }
         else event = WAIT;
@@ -182,7 +199,7 @@ std::vector<Photon> rma_mesh_pass_transport(Source& source,
           census_list.push_back(phtn);
         else if (event==WAIT) {
           t_mpi.start_timer("timestep mpi");
-          rma_manager->request_cell_rma(phtn.get_grip(), mctr);
+          rma_manager.request_cell_rma(phtn.get_grip(), mctr);
           wait_list.push(phtn);
           t_mpi.stop_timer("timestep mpi");
         }
@@ -190,10 +207,18 @@ std::vector<Photon> rma_mesh_pass_transport(Source& source,
     } // end if new_data
   } //end while wait_list not empty
 
+  // process off rank tally data and force send (force send requires completion
+  // of all tallies before continuing
+  bool force_send = true;
+  tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
+
   // record time of transport work for this rank
   t_transport.stop_timer("timestep transport");
 
   MPI_Barrier(MPI_COMM_WORLD);
+
+  // append remote tally to the current tally
+  tally_manager.add_remote_tally(rank_abs_E);
 
   // set the preffered census size to 10% of the user photon number and comb
   uint64_t max_census_photons = 0.1*imc_parameters->get_n_user_photon();

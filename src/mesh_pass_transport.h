@@ -30,6 +30,7 @@
 #include "sampling_functions.h"
 #include "source.h"
 #include "timer.h"
+#include "tally_manager_rma.h"
 
 //! Transport a single photon until it has a terminating event (kill, exit,
 // wait for data, census)
@@ -40,7 +41,8 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
                               double& exit_E,
                               double& census_E,
                               std::vector<double>& rank_abs_E,
-                              std::vector<double>& rank_track_E)
+                              std::vector<double>& rank_track_E,
+                              std::unordered_map<uint32_t, double> &off_rank_abs_E)
 
 {
   using Constants::VACUUM; using Constants::REFLECT;
@@ -63,6 +65,7 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
   Cell cell;
 
   uint32_t surface_cross = 0;
+  uint32_t on_rank_start = mesh->get_offset();
   const double cutoff_fraction = 0.01; // note: get this from IMC_state
 
   cell_id=phtn.get_cell();
@@ -93,8 +96,13 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
     ew_factor = exp(-sigma_a*f*dist_to_event);
     absorbed_E = phtn.get_E()*(1.0 - ew_factor);
 
-    rank_track_E[cell_id] += absorbed_E / (sigma_a*f);
-    rank_abs_E[cell_id] += absorbed_E;
+    // process on rank tallies as usual
+    if (mesh->on_processor(cell_id)) {
+      rank_track_E[cell_id-on_rank_start] += absorbed_E / (sigma_a*f);
+      rank_abs_E[cell_id-on_rank_start] += absorbed_E;
+    }
+    else 
+      off_rank_abs_E[cell_id] +=absorbed_E;
 
     phtn.set_E(phtn.get_E() - absorbed_E);
 
@@ -103,7 +111,10 @@ Constants::event_type transport_photon_mesh_pass(Photon& phtn,
 
     // apply variance/runtime reduction
     if (phtn.below_cutoff(cutoff_fraction)) {
-      rank_abs_E[cell_id] += phtn.get_E();
+      if (mesh->on_processor(cell_id))
+        rank_abs_E[cell_id-on_rank_start] += phtn.get_E();
+      else
+        off_rank_abs_E[cell_id] +=phtn.get_E();
       active=false;
       event=KILL;
     }
@@ -161,7 +172,8 @@ std::vector<Photon> mesh_pass_transport(Source& source,
                                         Mesh* mesh,
                                         IMC_State* imc_state,
                                         IMC_Parameters* imc_parameters,
-                                        Mesh_Request_Manager* req_manager,
+                                        Mesh_Request_Manager& req_manager,
+                                        Tally_Manager& tally_manager,
                                         Message_Counter& mctr,
                                         std::vector<double>& rank_abs_E,
                                         std::vector<double>& rank_track_E,
@@ -204,6 +216,9 @@ std::vector<Photon> mesh_pass_transport(Source& source,
   event_type event;
   uint32_t wait_list_size;
 
+  // for tallying off rank data
+  std::unordered_map<uint32_t, double> off_rank_abs_E;
+
   //--------------------------------------------------------------------------//
   // main loop over photons
   //--------------------------------------------------------------------------//
@@ -226,7 +241,7 @@ std::vector<Photon> mesh_pass_transport(Source& source,
       // waiting list
       if (mesh->mesh_available(cell_id)) {
         event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
-          census_E, rank_abs_E, rank_track_E);
+          census_E, rank_abs_E, rank_track_E, off_rank_abs_E);
         cell_id = phtn.get_cell();
       }
       else event = WAIT;
@@ -236,16 +251,20 @@ std::vector<Photon> mesh_pass_transport(Source& source,
       }
       else if (event==WAIT) {
         t_mpi.start_timer("timestep mpi");
-        req_manager->request_cell(phtn.get_grip(), mctr);
+        req_manager.request_cell(phtn.get_grip(), mctr);
         t_mpi.stop_timer("timestep mpi");
         wait_list.push(phtn);
       }
       n--;
     } // end batch transport
 
+    // process off rank tally data don't force send
+    bool force_send = false;
+    tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
+
     //process mesh requests
     t_mpi.start_timer("timestep mpi");
-    new_cells = req_manager->process_mesh_requests(mctr);
+    new_cells = req_manager.process_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data) mesh->add_non_local_mesh_cells(new_cells);
     t_mpi.stop_timer("timestep mpi");
@@ -258,7 +277,7 @@ std::vector<Photon> mesh_pass_transport(Source& source,
         cell_id=phtn.get_cell();
         if (mesh->mesh_available(cell_id)) {
           event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
-                                          census_E, rank_abs_E, rank_track_E);
+                                          census_E, rank_abs_E, rank_track_E, off_rank_abs_E);
           cell_id = phtn.get_cell();
         }
         else event = WAIT;
@@ -268,7 +287,7 @@ std::vector<Photon> mesh_pass_transport(Source& source,
         }
         else if (event==WAIT) {
           t_mpi.start_timer("timestep mpi");
-          req_manager->request_cell(phtn.get_grip(), mctr);
+          req_manager.request_cell(phtn.get_grip(), mctr);
           t_mpi.stop_timer("timestep mpi");
           wait_list.push(phtn);
         }
@@ -280,15 +299,21 @@ std::vector<Photon> mesh_pass_transport(Source& source,
   // Main transport loop finished, transport photons waiting for data
   //--------------------------------------------------------------------------//
   while (!wait_list.empty()) {
-    //process mesh requests
+
     t_mpi.start_timer("timestep mpi");
-    new_cells = req_manager->process_mesh_requests(mctr);
+    // process off rank tally data don't force send
+    bool force_send = false;
+    tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
+
+    // process mesh requests
+    new_cells = req_manager.process_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data) mesh->add_non_local_mesh_cells(new_cells);
+
     t_mpi.stop_timer("timestep mpi");
 
     // if new data received, transport waiting list
-    if (new_data || req_manager->no_active_requests() ) {
+    if (new_data || req_manager.no_active_requests() ) {
       wait_list_size = wait_list.size();
       for (uint32_t wp =0; wp<wait_list_size; ++wp) {
         phtn = wait_list.front();
@@ -296,7 +321,7 @@ std::vector<Photon> mesh_pass_transport(Source& source,
         cell_id=phtn.get_cell();
         if (mesh->mesh_available(cell_id)) {
           event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
-            census_E, rank_abs_E, rank_track_E);
+            census_E, rank_abs_E, rank_track_E, off_rank_abs_E);
           cell_id = phtn.get_cell();
         }
         else event = WAIT;
@@ -306,13 +331,18 @@ std::vector<Photon> mesh_pass_transport(Source& source,
         }
         else if (event==WAIT) {
           t_mpi.start_timer("timestep mpi");
-          req_manager->request_cell(phtn.get_grip(), mctr);
+          req_manager.request_cell(phtn.get_grip(), mctr);
           t_mpi.stop_timer("timestep mpi");
           wait_list.push(phtn);
         }
       }
     }
   } //end while wait_list not empty
+
+  // process off rank tally data and force send (force send requires completion
+  // of all tallies before continuing
+  bool force_send = true;
+  tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
 
   // record time of transport work for this rank
   t_transport.stop_timer("timestep transport");
@@ -329,13 +359,16 @@ std::vector<Photon> mesh_pass_transport(Source& source,
   // While waiting for other ranks to finish, check for other messages
   //--------------------------------------------------------------------------//
   while (!finished) {
-    req_manager->process_mesh_requests(mctr);
+    req_manager.process_mesh_requests(mctr);
     MPI_Test(&completion_request, &finished, MPI_STATUS_IGNORE);
   } // end while
 
   // wait for all ranks to finish transport to finish off cell and cell id
   // requests and sends
   MPI_Barrier(MPI_COMM_WORLD);
+
+  // append remote tally to the current tally
+  tally_manager.add_remote_tally(rank_abs_E);
 
   // set the preffered census size to 10% of the user photon number and comb
   uint64_t max_census_photons = 0.1*imc_parameters->get_n_user_photon();

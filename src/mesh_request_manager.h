@@ -41,16 +41,16 @@ class Mesh_Request_Manager
   public:
   //! constructor
   Mesh_Request_Manager(const int& _rank,
-    const std::vector<uint32_t>& _rank_bounds, const uint32_t n_global_cell,
-    const uint32_t _grip_size, MPI_Types * mpi_types, const Cell * const _cells)
+    const std::vector<uint32_t>& _rank_bounds, const uint32_t _grip_size, 
+    MPI_Types * mpi_types, const Cell * const _cells)
   : rank_bounds(_rank_bounds),
     MPI_Cell(mpi_types->get_cell_type()),
     cells(_cells),
     grip_size(_grip_size),
     rank_start(rank_bounds[_rank]),
     rank_end(rank_bounds[_rank+1]),
-    max_reqs(100),
-    max_ids(100)
+    max_reqs(20),
+    max_ids(20)
   {
     using std::vector;
 
@@ -83,7 +83,6 @@ class Mesh_Request_Manager
       r_id_buffers[i].resize(max_ids);
 
     complete_indices = vector<int> (max_reqs);
-    n_requests_vec= vector<uint32_t> (n_global_cell,0);
   }
 
   //! destructor
@@ -434,7 +433,6 @@ class Mesh_Request_Manager
     s_cell_count=0;
     r_cell_max_index=0;
     r_cell_count=0;
-    for(uint32_t i=0; i<n_requests_vec.size();i++) n_requests_vec[i]=0;
   }
 
   //! End simulation by cancelling pending receives requests
@@ -447,9 +445,6 @@ class Mesh_Request_Manager
 
     mctr.n_receives_completed+=max_reqs;
   }
-
-  //! Return vector of requets counts (used only for plotting SILO file)
-  std::vector<uint32_t> get_n_request_vec(void) {return n_requests_vec;}
 
   //! If IDs requested is empty that means all outstanding requests for remote
   // mesh have completed
@@ -498,9 +493,6 @@ class Mesh_Request_Manager
 
   //! Stack of buffers to process IDs
   std::queue<Buffer<uint32_t> > r_id_stack;
-
-  //! Number of times a cell was requested
-  std::vector<uint32_t> n_requests_vec;
 
   //! Returned from MPI_Testsome, indicates completed requests at index
   std::vector<int> complete_indices;

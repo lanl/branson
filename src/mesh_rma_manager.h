@@ -38,7 +38,7 @@ class RMA_Manager
   public:
   //! constructor
   RMA_Manager(const std::vector<uint32_t>& _rank_bounds,
-    const uint32_t n_global_cell, const uint32_t _grip_size,
+    const uint32_t _grip_size,
     MPI_Types * mpi_types, MPI_Win& _mesh_window)
   :
     rank_bounds(_rank_bounds),
@@ -53,8 +53,6 @@ class RMA_Manager
     requests = std::vector<MPI_Request> (n_max_requests);
     recv_cell_buffer = vector<Buffer<Cell> > (n_max_requests);
     complete_indices = vector<int> (n_max_requests);
-
-    n_requests_vec= std::vector<uint32_t> (n_global_cell,0);
 
     int flag;
     MPI_Win_get_attr(mesh_window, MPI_WIN_MODEL, &memory_model, &flag);
@@ -188,25 +186,19 @@ class RMA_Manager
         index_in_use.erase(comp_index);
         // remove global cell ID from mesh_requesed set
         mesh_requested.erase(g_index);
-        // increment request count (for plotting)
-        n_requests_vec[g_index]++;
       }
     }
     mctr.n_cells_sent+=new_cells.size();
     return new_cells;
   }
 
-  //! End timestep and set the number of requests to zero
+  //! End timestep and set the active requests to zero
   void end_timestep(void) {
     max_active_index=0;
-    for(uint32_t i=0; i<n_requests_vec.size();i++) n_requests_vec[i]=0;
   }
 
   //! Check to see if any MPI requests are active
   bool no_active_requests(void) {return index_in_use.empty();}
-
-  //! Return vector of requets counts (used only for plotting SILO file)
-  std::vector<uint32_t> get_n_request_vec(void) {return n_requests_vec;}
 
   private:
   std::vector<uint32_t> rank_bounds; //!< Global cell ID bounds on each rank
@@ -217,9 +209,6 @@ class RMA_Manager
   uint32_t grip_size;
 
   uint32_t n_max_requests; //!< Maximum concurrent MPI requests (parameter)
-
-  //! Number of times a cell was requested
-  std::vector<uint32_t> n_requests_vec;
 
   uint32_t max_active_index; //!< Last index that contains an active MPI request
   uint32_t count; //!< Last used index in the MPI request array

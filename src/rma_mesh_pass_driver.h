@@ -38,8 +38,8 @@ void imc_rma_mesh_pass_driver(Mesh *mesh,
                               const Info &mpi_info)
 {
   using std::vector;
-  vector<double> abs_E(mesh->get_global_num_cells(), 0.0);
-  vector<double> track_E(mesh->get_global_num_cells(), 0.0);
+  vector<double> abs_E(mesh->get_n_local_cells(), 0.0);
+  vector<double> track_E(mesh->get_n_local_cells(), 0.0);
   vector<Photon> census_photons;
   vector<uint32_t> needed_grip_ids; //! Grips needed after load balance
   Message_Counter mctr;
@@ -47,10 +47,13 @@ void imc_rma_mesh_pass_driver(Mesh *mesh,
   int n_rank = mpi_info.get_n_rank();
 
   //make object that handles RMA mesh requests and start access
-  RMA_Manager *rma_manager = new RMA_Manager(mesh->get_off_rank_bounds(),
-    mesh->get_global_num_cells(), mesh->get_max_grip_size(), mpi_types,
-    mesh->get_mesh_window_ref());
-  rma_manager->start_access();
+  RMA_Manager rma_manager(mesh->get_off_rank_bounds(), 
+    mesh->get_max_grip_size(), mpi_types, mesh->get_mesh_window_ref());
+  rma_manager.start_access();
+
+  // make object that handles tally data 
+  Tally_Manager tally_manager(rank, mesh->get_off_rank_bounds(), 
+    mesh->get_n_local_cells());
 
   while (!imc_state->finished())
   {
@@ -58,11 +61,11 @@ void imc_rma_mesh_pass_driver(Mesh *mesh,
 
     mctr.reset_counters();
 
-    //set opacity, Fleck factor, all energy to source
+    // set opacity, Fleck factor, all energy to source
     mesh->calculate_photon_energy(imc_state);
 
-    //all reduce to get total source energy to make correct number of
-    //particles on each rank
+    // all reduce to get total source energy to make correct number of
+    // particles on each rank
     double global_source_energy = mesh->get_total_photon_E();
     MPI_Allreduce(MPI_IN_PLACE, &global_source_energy, 1, MPI_DOUBLE,
       MPI_SUM, MPI_COMM_WORLD);
@@ -91,7 +94,7 @@ void imc_rma_mesh_pass_driver(Mesh *mesh,
     // when transport starts
     MPI_Barrier(MPI_COMM_WORLD);
 
-    vector<Cell> new_cells = rma_manager->process_rma_mesh_requests(mctr);
+    vector<Cell> new_cells = rma_manager.process_rma_mesh_requests(mctr);
     if (!new_cells.empty()) mesh->add_non_local_mesh_cells(new_cells);
 
     t_lb.stop_timer("load balance");
@@ -99,15 +102,10 @@ void imc_rma_mesh_pass_driver(Mesh *mesh,
 
     // transport photons
     census_photons =  rma_mesh_pass_transport( source, mesh, imc_state,
-      imc_parameters, rma_manager, mctr, abs_E, track_E, mpi_types, mpi_info);
+      imc_parameters, rma_manager, tally_manager, mctr, abs_E, track_E, 
+      mpi_types, mpi_info);
 
     imc_state->set_transported_particles(source.get_n_photon());
-
-    // reduce the abs_E and the track weighted energy (for T_r)
-    MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh->get_global_num_cells(),
-      MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, &track_E[0], mesh->get_global_num_cells(),
-      MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     //cout<<"updating temperature..."<<endl;
     mesh->update_temperature(abs_E, track_E, imc_state);
@@ -120,20 +118,22 @@ void imc_rma_mesh_pass_driver(Mesh *mesh,
 
     if (imc_parameters->get_write_silo_flag()) {
       // write SILO file
-      vector<uint32_t> n_requests = rma_manager->get_n_request_vec();
+      // don't plot the n_requests vector
+      vector<uint32_t> n_requests(mesh->get_n_local_cells(), 0);
       write_silo(mesh, imc_state->get_time(), imc_state->get_step(),
         imc_state->get_rank_transport_runtime(),
         imc_state->get_rank_mpi_time(), rank, n_rank, n_requests);
     }
-    //reset rma_manager object for next timestep
-    rma_manager->end_timestep();
+    // reset rma_manager object for next timestep
+    rma_manager.end_timestep();
+    tally_manager.end_timestep();
 
-    //update time for next step
+    // update time for next step
     imc_state->next_time_step();
   }
-  //close access to MPI windows in RMA_Manger object and delete
-  rma_manager->end_access();
-  delete rma_manager;
+
+  // close access to MPI windows in RMA_Manger object
+  rma_manager.end_access();
 }
 
 #endif // rma_mesh_pass_driver_h_
