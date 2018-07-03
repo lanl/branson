@@ -17,6 +17,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "buffer.h"
@@ -295,17 +296,74 @@ class Mesh {
     return local_map;
   }
 
-  //! returns a mapping of new global cell indices to the global cell index of
-  // a grip, this must be used after grips with cell IDs have been set
+  //! returns a mapping of old cell indices to new simple global indices
   std::unordered_map<uint32_t, uint32_t> get_grip_map(void) const {
     std::unordered_map<uint32_t, uint32_t> local_grip_map;
-    uint32_t new_g_ID;
+    uint32_t g_ID;
     for (uint32_t i=0; i<n_cell; i++) {
-      new_g_ID = i+on_rank_start;
-      local_grip_map[new_g_ID] = cell_list[i].get_grip_ID();
+      g_ID = cell_list[i].get_ID();
+      local_grip_map[g_ID] = cell_list[i].get_grip_ID();
     }
     return local_grip_map;
   }
+
+  //! returns a set of boundary indices 
+  std::unordered_set<uint32_t> get_boundary_neighbors(void) const {
+    std::unordered_set<uint32_t> local_nodes;
+    std::unordered_set<uint32_t> boundary_neighbors;
+
+    // first, make a set of on processor indices
+    for (uint32_t i=0; i<n_cell; ++i) 
+      local_nodes.insert(cell_list[i].get_ID());
+
+    for (uint32_t i=0; i<n_cell; ++i) {
+      const Cell &cell = cell_list[i];
+      for (uint32_t d=0; d<6; ++d) {
+        if (local_nodes.find(cell.get_next_cell(d)) == local_nodes.end())
+          boundary_neighbors.insert(cell.get_next_cell(d));
+      } 
+    }
+    return boundary_neighbors;
+  }
+
+  //! returns a map of boundary cells of old to new indices
+  std::unordered_map<uint32_t, uint32_t> get_boundary_nodes(void) const {
+    std::unordered_set<uint32_t> local_nodes;
+    std::unordered_map<uint32_t, uint32_t> boundary_nodes;
+
+    // first, make a set of on processor indices
+    for (uint32_t i=0; i<n_cell; ++i) 
+      local_nodes.insert(cell_list[i].get_ID());
+
+    for (uint32_t i=0; i<n_cell; ++i) {
+      const Cell &cell = cell_list[i];
+      for (uint32_t d=0; d<6; ++d) {
+        if (local_nodes.find(cell.get_next_cell(d)) == local_nodes.end())
+          boundary_nodes[cell.get_ID()] = i + on_rank_start;
+      } 
+    }
+    return boundary_nodes;
+  }
+
+  //! returns a map of boundary cells with old to new grip indices
+  std::unordered_map<uint32_t, uint32_t> get_boundary_grips(void) const {
+    std::unordered_set<uint32_t> local_nodes;
+    std::unordered_map<uint32_t, uint32_t> boundary_grips;
+
+    // first, make a set of on processor indices
+    for (uint32_t i=0; i<n_cell; ++i) 
+      local_nodes.insert(cell_list[i].get_ID());
+
+    for (uint32_t i=0; i<n_cell; ++i) {
+      const Cell &cell = cell_list[i];
+      for (uint32_t d=0; d<6; ++d) {
+        if (local_nodes.find(cell.get_next_cell(d)) == local_nodes.end())
+          boundary_grips[cell.get_ID()] = cell.get_grip_ID();
+      } 
+    }
+    return boundary_grips;
+  }
+
 
   //! Gets cell from vector list of cells before it's deleted
   Cell get_pre_window_allocation_cell(const uint32_t& local_ID) const
@@ -531,51 +589,6 @@ class Mesh {
     if(imc_s->get_step() == 1) imc_s->set_pre_census_E(tot_census_E);
   }
 
-
-  //! Correctly set the connectivity of cells given a new mesh numbering
-  // after mesh decomposition. Also, determine adjacent ranks.
-  void update_off_rank_connectivity(
-    std::unordered_map<uint32_t, uint32_t> off_map,
-    std::unordered_map<uint32_t, uint32_t> off_grip_map,
-    std::vector< std::vector<bool> >& remap_flag) {
-
-    using Constants::PROCESSOR;
-    using Constants::dir_type;
-    using std::unordered_map;
-    using std::set;
-
-    uint32_t next_index;
-    unordered_map<uint32_t, uint32_t>::iterator end = off_map.end();
-    uint32_t new_index, new_grip_index;
-    // check to see if neighbors are on or off processor
-    for (uint32_t i=0; i<n_cell; ++i) {
-      Cell& cell = cell_list[i];
-      for (uint32_t d=0; d<6; ++d) {
-        next_index = cell.get_next_cell(d);
-        unordered_map<uint32_t, uint32_t>::iterator map_i =
-          off_map.find(next_index);
-        if (map_i != end && remap_flag[i][d] ==false ) {
-          // update index and bc type, this will always be an off processor cell
-          // so if an index is updated it will always be at a processor bound
-          remap_flag[i][d] = true;
-          new_index = map_i->second;
-          // new_grip_map maps new global indices to new grip IDs
-          new_grip_index = off_grip_map[new_index];
-          cell.set_neighbor( dir_type(d) , new_index );
-          cell.set_grip_neighbor(dir_type(d), new_grip_index);
-          cell.set_bc(dir_type(d), PROCESSOR);
-
-          // determine adjacent ranks for minimizing communication
-          uint32_t off_rank = get_off_rank_id(new_index);
-          if (adjacent_procs.find(off_rank) == adjacent_procs.end()) {
-            uint32_t rank_count = adjacent_procs.size();
-            adjacent_procs[off_rank] = rank_count;
-          } // if adjacent_proc.find(off_rank)
-        }
-      }
-    }
-  }
-
   //! Renumber the local cell IDs and connectivity of local cells after
   // decomposition using simple global numbering
   void renumber_local_cell_indices(
@@ -584,31 +597,36 @@ class Mesh {
   {
 
     using Constants::PROCESSOR;
-    using Constants::bc_type;
     using Constants::dir_type;
     using std::unordered_map;
 
+    std::unordered_set<uint32_t> boundary_ids(get_boundary_neighbors());
+
     uint32_t next_index;
-    unordered_map<uint32_t, uint32_t>::iterator end = local_map.end();
-    uint32_t new_index, new_grip_index;
-    bc_type current_bc;
-    // renumber global cell and check to see if neighbors are on or off
-    // processor
+    // grip index is already set for cells, neighbors are not set!
+    // renumber global cell index,  adjacent cells and adjacent
+    // grips, also mark processor boundaries
     for (uint32_t i=0; i<n_cell; ++i) {
       Cell& cell = cell_list[i];
       cell.set_ID(i+on_rank_start);
       for (uint32_t d=0; d<6; ++d) {
-        current_bc = cell.get_bc(bc_type(d));
+        // get the un-remapped next index
         next_index = cell.get_next_cell(d);
-        unordered_map<uint32_t, uint32_t>::iterator map_i =
-          local_map.find(next_index);
-        //if this index is not a processor boundary, update it
-        if (local_map.find(next_index) != end && current_bc != PROCESSOR) {
-          new_index = map_i->second;
-          // new_grip_map maps new global indices to new grip IDs
-          new_grip_index = local_grip_map[new_index];
-          cell.set_neighbor( dir_type(d) , new_index );
-          cell.set_grip_neighbor( dir_type(d) , new_grip_index);
+        // remap it
+        cell.set_neighbor( dir_type(d) , local_map[next_index]);
+        cell.set_grip_neighbor( dir_type(d) , local_grip_map[next_index]);
+        if (local_map[next_index] > off_rank_bounds.back() || 
+          local_grip_map[next_index] > off_rank_bounds.back())
+          std::cout<<"this is bad, g > global bounds!"<<std::endl;
+        // if this index is a processor boundary, mark boundary condition
+        if (boundary_ids.find(next_index) != boundary_ids.end()) {
+          cell.set_bc(dir_type(d), PROCESSOR);
+          // determine adjacent ranks for minimizing communication
+          uint32_t off_rank = get_off_rank_id(local_map[next_index]);
+           if (adjacent_procs.find(off_rank) == adjacent_procs.end()) {
+             uint32_t rank_count = adjacent_procs.size();
+             adjacent_procs[off_rank] = rank_count;
+           } // if adjacent_proc.find(off_rank)
         }
       } // end direction
     } // end cell

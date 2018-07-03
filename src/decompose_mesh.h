@@ -24,7 +24,7 @@
 #include "mesh.h"
 #include "mpi_types.h"
 #include "buffer.h"
-
+#include "timer.h"
 
 //! Print the mesh information for each rank, one at a time
 void print_MPI_out(Mesh *mesh, uint32_t rank, uint32_t size) {
@@ -216,9 +216,8 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
 
     for (uint32_t ir=0; ir<n_off_rank; ++ir) {
       vector<Cell> new_cells = recv_cell[ir].get_object();
-      for (uint32_t i = 0; i< new_cells.size(); ++i) {
+      for (uint32_t i = 0; i< new_cells.size(); ++i)
         mesh->add_mesh_cell(new_cells[i]);
-      }
     }
   }
 
@@ -401,81 +400,103 @@ void decompose_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   prefix_cells_proc.insert(prefix_cells_proc.begin(), 0);
   mesh->set_off_rank_bounds(prefix_cells_proc);
 
-  //make sure each off rank cell index and grip ID is remapped ONLY ONCE!
-  vector< vector<bool> > remap_flag;
-  for (uint32_t i=0; i<n_cell_post_decomp; ++i)
-    remap_flag.push_back(vector<bool> (6,false));
-
   // change global indices to match a simple number system for easy sorting,
   // this involves sending maps to each processor to get new indicies
-  unordered_map<uint32_t, uint32_t> local_map = mesh->get_new_global_index_map();
-  unordered_map<uint32_t, uint32_t> local_grip_map = mesh->get_grip_map();
-  vector<uint32_t> packed_map(n_cell_post_decomp*2);
-  vector<uint32_t> packed_grip_map(n_cell_post_decomp*2);
-  vector<Buffer<uint32_t> > recv_packed_maps(n_off_rank);
-  vector<Buffer<uint32_t> > recv_packed_grip_maps(n_off_rank);
-
-  MPI_Request *grip_reqs = new MPI_Request[n_off_rank*2];
-
-  // pack up the index map
-  uint32_t i_packed = 0;
-  for(auto map_i : local_map) {
-    packed_map[i_packed] = map_i.first;
-    i_packed++;
-    packed_map[i_packed] = map_i.second;
-    i_packed++;
+  unordered_map<uint32_t, uint32_t> local_boundary_map = mesh->get_boundary_nodes();
+  unordered_map<uint32_t, uint32_t> local_boundary_grip_map = mesh->get_boundary_grips();
+  
+  int n_boundary = local_boundary_map.size();
+  // get the size of boundary cells on each rank
+  std::vector<int> boundary_cell_size(nrank, 0);
+  boundary_cell_size[rank] = n_boundary;
+  MPI_Allreduce(MPI_IN_PLACE, &boundary_cell_size[0], nrank, MPI_INT, MPI_SUM, 
+    MPI_COMM_WORLD);
+  
+  
+  vector<uint32_t> packed_map(n_boundary*2);
+  vector<uint32_t> packed_grip_map(n_boundary*2);
+  vector<Buffer<uint32_t>> recv_packed_maps(n_boundary*2);
+  vector<Buffer<uint32_t>> recv_packed_grip_maps(n_boundary*2);
+                                                                                 
+  MPI_Request *grip_reqs = new MPI_Request[n_off_rank*2];                        
+                                                                                 
+  // pack up the index map                                                       
+  uint32_t i_packed = 0;                                                         
+  for(auto map_i : local_boundary_map) {                                                  
+    packed_map[i_packed] = map_i.first;                                          
+    i_packed++;                                                                  
+    packed_map[i_packed] = map_i.second;                                         
+    i_packed++;                                                                  
+  }                                                                              
+                                                                                 
+  // pack up the grip map                                                        
+  uint32_t i_grip_packed = 0;                                                    
+  for(auto map_i : local_boundary_grip_map) {                                             
+    packed_grip_map[i_grip_packed] = map_i.first;                                
+    i_grip_packed++;                                                             
+    packed_grip_map[i_grip_packed] = map_i.second;                               
+    i_grip_packed++;                                                             
+  }                                                                              
+                                                                                 
+  // Send and receive packed maps for remapping boundaries                       
+  for (uint32_t ir=0; ir<n_off_rank; ++ir) {                                     
+    int off_rank = proc_map[ir];                                                 
+    // Send your packed index map                                                
+    MPI_Isend(&packed_map[0], n_boundary*2, MPI_UNSIGNED, off_rank,         
+      0, MPI_COMM_WORLD, &reqs[ir]);                                             
+                                                                                 
+    // Send your packed grip map                                                 
+    MPI_Isend(&packed_grip_map[0], n_boundary*2, MPI_UNSIGNED, off_rank, 
+      1, MPI_COMM_WORLD, &grip_reqs[ir]);                                        
+                                                                                 
+    // Receive other packed index maps                                           
+    recv_packed_maps[ir].resize(boundary_cell_size[off_rank]*2);                     
+    MPI_Irecv(recv_packed_maps[ir].get_buffer(), boundary_cell_size[off_rank]*2,        
+      MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD, &reqs[ir+n_off_rank]);          
+                                                                                 
+    // Receive other packed grip maps                                            
+    recv_packed_grip_maps[ir].resize(boundary_cell_size[off_rank]*2);
+    MPI_Irecv(recv_packed_grip_maps[ir].get_buffer(),                            
+      boundary_cell_size[off_rank]*2, MPI_UNSIGNED, off_rank, 1, MPI_COMM_WORLD,        
+      &grip_reqs[ir+n_off_rank]);                                                
   }
+                                                                                 
+  // wait for completion of all sends/receives                                   
+  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);                            
+  MPI_Waitall(n_off_rank*2, grip_reqs, MPI_STATUS_IGNORE);                       
+  
+  // we just need to build a map for the non-local indices, everything else can
+  // be remapped locally
+  std::unordered_set<uint32_t> boundary_indices = mesh->get_boundary_neighbors();
+  std::unordered_map<uint32_t,uint32_t> boundary_map;
+  std::unordered_map<uint32_t,uint32_t> boundary_grip_map;
+                                                                                 
+  // remake the map objects from the packed maps and take boundary data from
+  // them
+  for (uint32_t ir=0; ir<n_off_rank; ++ir) {                                     
+    vector<uint32_t> off_packed_map = recv_packed_maps[ir].get_object();         
+    vector<uint32_t> off_packed_grip_map =                                       
+      recv_packed_grip_maps[ir].get_object();                                    
+    unordered_map<uint32_t, uint32_t> off_map;                                   
+    unordered_map<uint32_t, uint32_t> off_grip_map;                              
 
-  // pack up the grip map
-  uint32_t i_grip_packed = 0;
-  for(auto map_i : local_grip_map) {
-    packed_grip_map[i_grip_packed] = map_i.first;
-    i_grip_packed++;
-    packed_grip_map[i_grip_packed] = map_i.second;
-    i_grip_packed++;
-  }
-
-  // Send and receive packed maps for remapping boundaries
-  for (uint32_t ir=0; ir<n_off_rank; ++ir) {
-    int off_rank = proc_map[ir];
-    // Send your packed index map
-    MPI_Isend(&packed_map[0], n_cell_post_decomp*2, MPI_UNSIGNED, off_rank,
-      0, MPI_COMM_WORLD, &reqs[ir]);
-
-    // Send your packed grip map
-    MPI_Isend(&packed_grip_map[0], n_cell_post_decomp*2, MPI_UNSIGNED, off_rank,
-      1, MPI_COMM_WORLD, &grip_reqs[ir]);
-
-    // Receive other packed index maps
-    recv_packed_maps[ir].resize(out_cells_proc[off_rank]*2);
-    MPI_Irecv(recv_packed_maps[ir].get_buffer(), out_cells_proc[off_rank]*2,
-      MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD, &reqs[ir+n_off_rank]);
-
-    // Receive other packed grip maps
-    recv_packed_grip_maps[ir].resize(out_cells_proc[off_rank]*2);
-    MPI_Irecv(recv_packed_grip_maps[ir].get_buffer(),
-      out_cells_proc[off_rank]*2, MPI_UNSIGNED, off_rank, 1, MPI_COMM_WORLD,
-      &grip_reqs[ir+n_off_rank]);
-  }
-
-  // wait for completion of all sends/receives
-  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
-  MPI_Waitall(n_off_rank*2, grip_reqs, MPI_STATUS_IGNORE);
-
-  // remake the map objects from the packed maps
-  for (uint32_t ir=0; ir<n_off_rank; ++ir) {
-    vector<uint32_t> off_packed_map = recv_packed_maps[ir].get_object();
-    vector<uint32_t> off_packed_grip_map =
-      recv_packed_grip_maps[ir].get_object();
-    unordered_map<uint32_t, uint32_t> off_map;
-    unordered_map<uint32_t, uint32_t> off_grip_map;
-
-    for (uint32_t m=0; m<off_packed_map.size(); m+=2) {
+    for (uint32_t m=0; m<off_packed_map.size(); m+=2) {                          
       off_map[off_packed_map[m]] =off_packed_map[m+1];
       off_grip_map[off_packed_grip_map[m]] =off_packed_grip_map[m+1];
     }
-    mesh->update_off_rank_connectivity(off_map, off_grip_map, remap_flag);
-  }
+    for (auto& iset : boundary_indices) {
+      if (off_map.find(iset) != off_map.end())
+        boundary_map[iset] = off_map[iset];
+      if (off_grip_map.find(iset) != off_grip_map.end())
+        boundary_grip_map[iset] = off_grip_map[iset];
+    }
+  }                                                                              
+
+  // combine local index map with boundary map from communication
+  unordered_map<uint32_t, uint32_t> local_map = mesh->get_new_global_index_map();
+  unordered_map<uint32_t, uint32_t> local_grip_map = mesh->get_grip_map();
+  local_map.insert(boundary_map.begin(), boundary_map.end());
+  local_grip_map.insert(boundary_grip_map.begin(), boundary_grip_map.end());
 
   // now update the indices of local IDs
   mesh->renumber_local_cell_indices(local_map, local_grip_map);
@@ -738,9 +759,8 @@ void replicate_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
   mesh->set_off_rank_bounds(prefix_cells_proc);
 
   // change global indices to match a simple number system for easy sorting
-  unordered_map<uint32_t, uint32_t> local_map = mesh->get_new_global_index_map();
   unordered_map<uint32_t, uint32_t> local_grip_map = mesh->get_grip_map();
-  vector< vector<bool> > remap_flag;
+  unordered_map<uint32_t, uint32_t> local_map = mesh->get_new_global_index_map();
 
   // now update the indices of local IDs
   mesh->renumber_local_cell_indices(local_map, local_grip_map);
@@ -758,6 +778,13 @@ void replicate_mesh(Mesh* mesh, MPI_Types* mpi_types, const Info& mpi_info,
 void decompose_mesh_with_cubes(Mesh* mesh, MPI_Types* mpi_types, 
   const Info& mpi_info, const uint32_t& grip_size)
 {
+
+  Timer phase_1;
+  Timer phase_2;
+  Timer phase_3;
+
+  phase_1.start_timer("phase_1");
+
 
   using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
   using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
@@ -877,6 +904,7 @@ void decompose_mesh_with_cubes(Mesh* mesh, MPI_Types* mpi_types,
 
   // update the cell list on each processor
   mesh->set_post_decomposition_mesh_cells(part);
+
 
   // if using grips of cell data, get additional decomposition
   {
@@ -1015,6 +1043,7 @@ void decompose_mesh_with_cubes(Mesh* mesh, MPI_Types* mpi_types,
 
   } // end within rank partitioning scope
 
+
   // gather the number of cells on each processor
   uint32_t n_cell_post_decomp = mesh->get_n_local_cells();
   vector<uint32_t> out_cells_proc(nrank, 0);
@@ -1054,81 +1083,109 @@ void decompose_mesh_with_cubes(Mesh* mesh, MPI_Types* mpi_types,
   prefix_cells_proc.insert(prefix_cells_proc.begin(), 0);
   mesh->set_off_rank_bounds(prefix_cells_proc);
 
-  //make sure each off rank cell index and grip ID is remapped ONLY ONCE!
-  vector< vector<bool> > remap_flag;
-  for (uint32_t i=0; i<n_cell_post_decomp; ++i)
-    remap_flag.push_back(vector<bool> (6,false));
+  phase_1.stop_timer("phase_1");
+  phase_2.start_timer("phase_2");
 
   // change global indices to match a simple number system for easy sorting,
   // this involves sending maps to each processor to get new indicies
-  unordered_map<uint32_t, uint32_t> local_map = mesh->get_new_global_index_map();
-  unordered_map<uint32_t, uint32_t> local_grip_map = mesh->get_grip_map();
-  vector<uint32_t> packed_map(n_cell_post_decomp*2);
-  vector<uint32_t> packed_grip_map(n_cell_post_decomp*2);
-  vector<Buffer<uint32_t> > recv_packed_maps(n_off_rank);
-  vector<Buffer<uint32_t> > recv_packed_grip_maps(n_off_rank);
-
-  MPI_Request *grip_reqs = new MPI_Request[n_off_rank*2];
-
-  // pack up the index map
-  uint32_t i_packed = 0;
-  for(auto map_i : local_map) {
-    packed_map[i_packed] = map_i.first;
-    i_packed++;
-    packed_map[i_packed] = map_i.second;
-    i_packed++;
+  unordered_map<uint32_t, uint32_t> local_boundary_map = mesh->get_boundary_nodes();
+  unordered_map<uint32_t, uint32_t> local_boundary_grip_map = mesh->get_boundary_grips();
+  
+  int n_boundary = local_boundary_map.size();
+  // get the size of boundary cells on each rank
+  std::vector<int> boundary_cell_size(nrank, 0);
+  boundary_cell_size[rank] = n_boundary;
+  MPI_Allreduce(MPI_IN_PLACE, &boundary_cell_size[0], nrank, MPI_INT, MPI_SUM, 
+    MPI_COMM_WORLD);
+  
+  
+  vector<uint32_t> packed_map(n_boundary*2);
+  vector<uint32_t> packed_grip_map(n_boundary*2);
+  vector<Buffer<uint32_t>> recv_packed_maps(n_boundary*2);
+  vector<Buffer<uint32_t>> recv_packed_grip_maps(n_boundary*2);
+                                                                                 
+  MPI_Request *grip_reqs = new MPI_Request[n_off_rank*2];                        
+                                                                                 
+  // pack up the index map                                                       
+  uint32_t i_packed = 0;                                                         
+  for(auto map_i : local_boundary_map) {                                                  
+    packed_map[i_packed] = map_i.first;                                          
+    i_packed++;                                                                  
+    packed_map[i_packed] = map_i.second;                                         
+    i_packed++;                                                                  
+  }                                                                              
+                                                                                 
+  // pack up the grip map                                                        
+  uint32_t i_grip_packed = 0;                                                    
+  for(auto map_i : local_boundary_grip_map) {                                             
+    packed_grip_map[i_grip_packed] = map_i.first;                                
+    i_grip_packed++;                                                             
+    packed_grip_map[i_grip_packed] = map_i.second;                               
+    i_grip_packed++;                                                             
+  }                                                                              
+                                                                                 
+  // Send and receive packed maps for remapping boundaries                       
+  for (uint32_t ir=0; ir<n_off_rank; ++ir) {                                     
+    int off_rank = proc_map[ir];                                                 
+    // Send your packed index map                                                
+    MPI_Isend(&packed_map[0], n_boundary*2, MPI_UNSIGNED, off_rank,         
+      0, MPI_COMM_WORLD, &reqs[ir]);                                             
+                                                                                 
+    // Send your packed grip map                                                 
+    MPI_Isend(&packed_grip_map[0], n_boundary*2, MPI_UNSIGNED, off_rank, 
+      1, MPI_COMM_WORLD, &grip_reqs[ir]);                                        
+                                                                                 
+    // Receive other packed index maps                                           
+    recv_packed_maps[ir].resize(boundary_cell_size[off_rank]*2);                     
+    MPI_Irecv(recv_packed_maps[ir].get_buffer(), boundary_cell_size[off_rank]*2,        
+      MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD, &reqs[ir+n_off_rank]);          
+                                                                                 
+    // Receive other packed grip maps                                            
+    recv_packed_grip_maps[ir].resize(boundary_cell_size[off_rank]*2);
+    MPI_Irecv(recv_packed_grip_maps[ir].get_buffer(),                            
+      boundary_cell_size[off_rank]*2, MPI_UNSIGNED, off_rank, 1, MPI_COMM_WORLD,        
+      &grip_reqs[ir+n_off_rank]);                                                
   }
+                                                                                 
+  // wait for completion of all sends/receives                                   
+  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);                            
+  MPI_Waitall(n_off_rank*2, grip_reqs, MPI_STATUS_IGNORE);                       
+  
+  phase_2.stop_timer("phase_2");
+  phase_3.start_timer("phase_3");
 
-  // pack up the grip map
-  uint32_t i_grip_packed = 0;
-  for(auto map_i : local_grip_map) {
-    packed_grip_map[i_grip_packed] = map_i.first;
-    i_grip_packed++;
-    packed_grip_map[i_grip_packed] = map_i.second;
-    i_grip_packed++;
-  }
+  // we just need to build a map for the non-local indices, everything else can
+  // be remapped locally
+  std::unordered_set<uint32_t> boundary_indices = mesh->get_boundary_neighbors();
+  std::unordered_map<uint32_t,uint32_t> boundary_map;
+  std::unordered_map<uint32_t,uint32_t> boundary_grip_map;
+                                                                                 
+  // remake the map objects from the packed maps and take boundary data from
+  // them
+  for (uint32_t ir=0; ir<n_off_rank; ++ir) {                                     
+    vector<uint32_t> off_packed_map = recv_packed_maps[ir].get_object();         
+    vector<uint32_t> off_packed_grip_map =                                       
+      recv_packed_grip_maps[ir].get_object();                                    
+    unordered_map<uint32_t, uint32_t> off_map;                                   
+    unordered_map<uint32_t, uint32_t> off_grip_map;                              
 
-  // Send and receive packed maps for remapping boundaries
-  for (uint32_t ir=0; ir<n_off_rank; ++ir) {
-    int off_rank = proc_map[ir];
-    // Send your packed index map
-    MPI_Isend(&packed_map[0], n_cell_post_decomp*2, MPI_UNSIGNED, off_rank,
-      0, MPI_COMM_WORLD, &reqs[ir]);
-
-    // Send your packed grip map
-    MPI_Isend(&packed_grip_map[0], n_cell_post_decomp*2, MPI_UNSIGNED, off_rank,
-      1, MPI_COMM_WORLD, &grip_reqs[ir]);
-
-    // Receive other packed index maps
-    recv_packed_maps[ir].resize(out_cells_proc[off_rank]*2);
-    MPI_Irecv(recv_packed_maps[ir].get_buffer(), out_cells_proc[off_rank]*2,
-      MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD, &reqs[ir+n_off_rank]);
-
-    // Receive other packed grip maps
-    recv_packed_grip_maps[ir].resize(out_cells_proc[off_rank]*2);
-    MPI_Irecv(recv_packed_grip_maps[ir].get_buffer(),
-      out_cells_proc[off_rank]*2, MPI_UNSIGNED, off_rank, 1, MPI_COMM_WORLD,
-      &grip_reqs[ir+n_off_rank]);
-  }
-
-  // wait for completion of all sends/receives
-  MPI_Waitall(n_off_rank*2, reqs, MPI_STATUS_IGNORE);
-  MPI_Waitall(n_off_rank*2, grip_reqs, MPI_STATUS_IGNORE);
-
-  // remake the map objects from the packed maps
-  for (uint32_t ir=0; ir<n_off_rank; ++ir) {
-    vector<uint32_t> off_packed_map = recv_packed_maps[ir].get_object();
-    vector<uint32_t> off_packed_grip_map =
-      recv_packed_grip_maps[ir].get_object();
-    unordered_map<uint32_t, uint32_t> off_map;
-    unordered_map<uint32_t, uint32_t> off_grip_map;
-
-    for (uint32_t m=0; m<off_packed_map.size(); m+=2) {
+    for (uint32_t m=0; m<off_packed_map.size(); m+=2) {                          
       off_map[off_packed_map[m]] =off_packed_map[m+1];
       off_grip_map[off_packed_grip_map[m]] =off_packed_grip_map[m+1];
     }
-    mesh->update_off_rank_connectivity(off_map, off_grip_map, remap_flag);
-  }
+    for (auto& iset : boundary_indices) {
+      if (off_map.find(iset) != off_map.end())
+        boundary_map[iset] = off_map[iset];
+      if (off_grip_map.find(iset) != off_grip_map.end())
+        boundary_grip_map[iset] = off_grip_map[iset];
+    }
+  }                                                                              
+
+  // combine local index map with boundary map from communication
+  unordered_map<uint32_t, uint32_t> local_map = mesh->get_new_global_index_map();
+  unordered_map<uint32_t, uint32_t> local_grip_map = mesh->get_grip_map();
+  local_map.insert(boundary_map.begin(), boundary_map.end());
+  local_grip_map.insert(boundary_grip_map.begin(), boundary_grip_map.end());
 
   // now update the indices of local IDs
   mesh->renumber_local_cell_indices(local_map, local_grip_map);
@@ -1139,6 +1196,13 @@ void decompose_mesh_with_cubes(Mesh* mesh, MPI_Types* mpi_types,
   // clean up dynamically allocated memory
   delete[] grip_reqs;
   delete[] reqs;
+  phase_3.stop_timer("phase_3");
+
+  if (rank==0) {
+    std::cout<<phase_1.get_time("phase_1")<<std::endl;
+    std::cout<<phase_2.get_time("phase_2")<<std::endl;
+    std::cout<<phase_3.get_time("phase_3")<<std::endl;
+  }
 }
 
 
