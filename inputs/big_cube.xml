@@ -27,15 +27,15 @@
   <simple_spatial>
     <x_start>0.0</x_start>
     <x_end> 4.0</x_end>
-    <n_x_cells>600</n_x_cells>
+    <n_x_cells>1000</n_x_cells>
 
     <y_start>0.0</y_start>
     <y_end> 4.0</y_end>
-    <n_y_cells>600</n_y_cells>
+    <n_y_cells>1000</n_y_cells>
 
     <z_start>0.0</z_start>
     <z_end>4.0</z_end>
-    <n_z_cells>600</n_z_cells>
+    <n_z_cells>1000</n_z_cells>
 
     <region_ID>6</region_ID>
   </simple_spatial>
@@ -66,4 +66,3 @@
   </regions>
 
 </prototype>
-
