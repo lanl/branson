@@ -288,6 +288,7 @@ class Tally_Manager
       // always send in finish mode
       remote_tally_accumulate(mctr, off_rank_abs_E);
     }
+    MPI_Win_flush_all(tally_window);
   }
 
   //! Add the remote tallied energy to the local energy and reset the tally

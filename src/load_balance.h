@@ -139,13 +139,6 @@ void load_balance(std::vector<Work_Packet>& work,
     } //end while
   } // end for ir in n_rank
 
-  if (rank==0) {
-    std::cout<<"Load balancing "<<n_global_particles<<" particles"<<std::endl;
-    std::cout<<"Max particles: "<<max_particles<<" on rank "<<max_rank<<", ";
-    std::cout<<100.0*double(max_particles)/double(n_global_particles);
-    std::cout<<" percent of total work"<<std::endl;
-  }
-
   //--------------------------------------------------------------------------//
   // Receive work from donating ranks
   //--------------------------------------------------------------------------//
@@ -303,6 +296,13 @@ void load_balance(std::vector<Work_Packet>& work,
     delete[] phtn_send_request;
 
   } // end if(n_acceptors)
+
+  if (rank==0) {
+    std::cout<<"Load balancing "<<n_global_particles<<" particles"<<std::endl;
+    std::cout<<"Max particles: "<<max_particles<<" on rank "<<max_rank<<", ";
+    std::cout<<100.0*double(max_particles)/double(n_global_particles);
+    std::cout<<" percent of total work"<<std::endl;
+  }
 }
 
 

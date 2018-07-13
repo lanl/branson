@@ -85,9 +85,9 @@ int main(int argc, char **argv)
   if (input->get_dd_mode() == REPLICATED)
     replicate_mesh(mesh, mpi_types, mpi_info, imc_p->get_grip_size());
   else if (input->get_decomposition_mode() == PARMETIS)
-    decompose_mesh(mesh, mpi_types, mpi_info, imc_p->get_grip_size());
+    decompose_mesh(mesh, mpi_types, mpi_info, imc_p->get_grip_size(), PARMETIS);
   else if (input->get_decomposition_mode() == CUBE)
-    decompose_mesh_with_cubes(mesh, mpi_types, mpi_info, imc_p->get_grip_size());
+    decompose_mesh(mesh, mpi_types, mpi_info, imc_p->get_grip_size(), CUBE);
   else {
     std::cout<<"Method/decomposition not recognized, exiting...";
     exit(EXIT_FAILURE);
