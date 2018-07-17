@@ -12,15 +12,15 @@
 #ifndef input_h_
 #define input_h_
 
-#include <boost/property_tree/xml_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
 #include <boost/foreach.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/xml_parser.hpp>
 #include <functional>
 #include <iostream>
-#include <unordered_map>
 #include <numeric>
 #include <stdlib.h>
 #include <string>
+#include <unordered_map>
 
 #include "config.h"
 #include "constants.h"
@@ -36,23 +36,28 @@
  * problem information.
  */
 //==============================================================================
-class Input
-{
-  public:
-
+class Input {
+public:
   //! Constructor
-  Input( std::string fileName)
-    : using_simple_mesh(false),
-      using_detailed_mesh(false)
-  {
+  Input(std::string fileName)
+      : using_simple_mesh(false), using_detailed_mesh(false) {
     using boost::property_tree::ptree;
-    using Constants::VACUUM; using Constants::REFLECT; using Constants::ELEMENT;
-    using Constants::X_POS;  using Constants::Y_POS; using Constants::Z_POS;
-    using Constants::X_NEG;  using Constants::Y_NEG; using Constants::Z_NEG;
+    using Constants::VACUUM;
+    using Constants::REFLECT;
+    using Constants::ELEMENT;
+    using Constants::X_POS;
+    using Constants::Y_POS;
+    using Constants::Z_POS;
+    using Constants::X_NEG;
+    using Constants::Y_NEG;
+    using Constants::Z_NEG;
     // DD methods
-    using Constants::PARTICLE_PASS; using Constants::CELL_PASS;
-    using Constants::CELL_PASS_RMA; using Constants::REPLICATED;
-    using Constants::PARMETIS; using Constants::CUBE; 
+    using Constants::PARTICLE_PASS;
+    using Constants::CELL_PASS;
+    using Constants::CELL_PASS_RMA;
+    using Constants::REPLICATED;
+    using Constants::PARMETIS;
+    using Constants::CUBE;
     using std::cout;
     using std::endl;
     using std::vector;
@@ -72,97 +77,112 @@ class Input
     read_xml(fileName, pt);
     std::string tempString;
     // traverse pt
-    BOOST_FOREACH( ptree::value_type const& v, pt.get_child("prototype") )
-    {
-      //read in basic problem parameters
-      if(v.first =="common")
-      {
+    BOOST_FOREACH (ptree::value_type const &v, pt.get_child("prototype")) {
+      // read in basic problem parameters
+      if (v.first == "common") {
         tFinish = v.second.get<double>("t_stop");
         dt = v.second.get<double>("dt_start");
-        tStart= v.second.get<double>("t_start");
-        tMult = v.second.get<double>("t_mult" , 1.0);
-        dtMax = v.second.get<double>("dt_max" , dt);
-        n_photons =v.second.get<uint64_t>("photons");
+        tStart = v.second.get<double>("t_start");
+        tMult = v.second.get<double>("t_mult", 1.0);
+        dtMax = v.second.get<double>("dt_max", dt);
+        n_photons = v.second.get<uint64_t>("photons");
         seed = v.second.get<int>("seed");
         grip_size = v.second.get<int>("grip_size", 10);
         map_size = v.second.get<int>("map_size");
-        output_freq = v.second.get<int>("output_frequency",1);
+        output_freq = v.second.get<int>("output_frequency", 1);
         tempString = v.second.get<std::string>("tilt", std::string("FALSE"));
-        if (tempString == "TRUE") use_tilt = 1;
-        else use_tilt = 0;
-        tempString = v.second.get<std::string>("use_combing",
-                                                std::string("TRUE"));
-        if (tempString == "TRUE") use_comb= 1;
-        else use_comb = 0;
+        if (tempString == "TRUE")
+          use_tilt = 1;
+        else
+          use_tilt = 0;
+        tempString =
+            v.second.get<std::string>("use_combing", std::string("TRUE"));
+        if (tempString == "TRUE")
+          use_comb = 1;
+        else
+          use_comb = 0;
 
         // stratified sampling
         tempString = v.second.get<std::string>("stratified_sampling",
-                                                std::string("FALSE"));
-        if (tempString == "TRUE") use_strat= true;
-        else use_strat = false;
+                                               std::string("FALSE"));
+        if (tempString == "TRUE")
+          use_strat = true;
+        else
+          use_strat = false;
 
         // write silo flag
-        tempString = v.second.get<std::string>("write_silo",
-          std::string("FALSE"));
-        if (tempString == "TRUE") write_silo = true;
-        else write_silo = false;
+        tempString =
+            v.second.get<std::string>("write_silo", std::string("FALSE"));
+        if (tempString == "TRUE")
+          write_silo = true;
+        else
+          write_silo = false;
 
-        //number of particles to run between MPI message checks
+        // number of particles to run between MPI message checks
         batch_size = v.second.get<uint32_t>("batch_size", 100);
 
-        //preferred number of particles per MPI send
-        particle_message_size = v.second.get<uint32_t>("particle_message_size", 100);
+        // preferred number of particles per MPI send
+        particle_message_size =
+            v.second.get<uint32_t>("particle_message_size", 100);
 
         // domain decomposed transport aglorithm
         tempString = v.second.get<std::string>("dd_transport_type",
                                                std::string("CELL_PASS"));
-        if (tempString == "CELL_PASS") dd_mode = CELL_PASS;
-        else if (tempString == "CELL_PASS_RMA") dd_mode = CELL_PASS_RMA;
-        else if (tempString == "PARTICLE_PASS") dd_mode = PARTICLE_PASS;
-        else if (tempString == "REPLICATED") dd_mode = REPLICATED;
+        if (tempString == "CELL_PASS")
+          dd_mode = CELL_PASS;
+        else if (tempString == "CELL_PASS_RMA")
+          dd_mode = CELL_PASS_RMA;
+        else if (tempString == "PARTICLE_PASS")
+          dd_mode = PARTICLE_PASS;
+        else if (tempString == "REPLICATED")
+          dd_mode = REPLICATED;
         else {
-          cout<<"WARNING: Domain decomposition method not recognized... ";
-          cout<<"setting to PARTICLE PASSING method"<<endl;
+          cout << "WARNING: Domain decomposition method not recognized... ";
+          cout << "setting to PARTICLE PASSING method" << endl;
           dd_mode = PARTICLE_PASS;
         }
 
         // domain decomposition method
         tempString = v.second.get<std::string>("mesh_decomposition",
                                                std::string("PARMETIS"));
-        if (tempString == "PARMETIS") decomp_mode = PARMETIS;
-        else if (tempString == "CUBE") decomp_mode = CUBE;
+        if (tempString == "PARMETIS")
+          decomp_mode = PARMETIS;
+        else if (tempString == "CUBE")
+          decomp_mode = CUBE;
         else {
-          cout<<"WARNING: Mesh decomposition method not recognized... ";
-          cout<<"setting to PARMETIS method"<<endl;
+          cout << "WARNING: Mesh decomposition method not recognized... ";
+          cout << "setting to PARMETIS method" << endl;
           decomp_mode = PARMETIS;
         }
         if (dd_mode == REPLICATED) {
-          std::cout<<"Replicated transport mode, mesh decomposition method";
-          std::cout<<" ignored"<<std::endl;
+          std::cout << "Replicated transport mode, mesh decomposition method";
+          std::cout << " ignored" << std::endl;
         }
-      } //end common
+      } // end common
 
       // read in basic problem parameters
-      else if(v.first =="debug_options")
-      {
+      else if (v.first == "debug_options") {
         tempString = v.second.get<std::string>("print_verbose", "FALSE");
-        if (tempString == "TRUE") print_verbose = true;
-        else print_verbose = false;
+        if (tempString == "TRUE")
+          print_verbose = true;
+        else
+          print_verbose = false;
         tempString = v.second.get<std::string>("print_mesh_info", "FALSE");
-        if (tempString == "TRUE") print_mesh_info = true;
-        else print_mesh_info = false;
-      } //end common
+        if (tempString == "TRUE")
+          print_mesh_info = true;
+        else
+          print_mesh_info = false;
+      } // end common
 
       // read in detailed spatial information
-      else if(v.first == "spatial") {
+      else if (v.first == "spatial") {
         using_detailed_mesh = true;
         double d_x_start, d_x_end, d_y_start, d_y_end, d_z_start, d_z_end;
         uint32_t d_x_cells, d_y_cells, d_z_cells;
-        BOOST_FOREACH( ptree::value_type const& g, v.second )
-        {
-          if(g.first == "x_division") {
-            //x information for this region
-            d_x_start =g.second.get<double>("x_start");
+        BOOST_FOREACH (ptree::value_type const &g, v.second) {
+          if (g.first == "x_division") {
+            // x information for this region
+            d_x_start = g.second.get<double>("x_start");
             d_x_end = g.second.get<double>("x_end");
             d_x_cells = g.second.get<uint32_t>("n_x_cells");
             x_start.push_back(d_x_start);
@@ -170,13 +190,13 @@ class Input
             n_x_cells.push_back(d_x_cells);
             nx_divisions++;
             // push back the master x points for silo
-            for (uint32_t i=0;i<d_x_cells;++i)
-              x.push_back(d_x_start+i*(d_x_end-d_x_start)/d_x_cells);
+            for (uint32_t i = 0; i < d_x_cells; ++i)
+              x.push_back(d_x_start + i * (d_x_end - d_x_start) / d_x_cells);
           }
 
-          if(g.first == "y_division") {
-            //y information for this region
-            d_y_start =g.second.get<double>("y_start");
+          if (g.first == "y_division") {
+            // y information for this region
+            d_y_start = g.second.get<double>("y_start");
             d_y_end = g.second.get<double>("y_end");
             d_y_cells = g.second.get<uint32_t>("n_y_cells");
             y_start.push_back(d_y_start);
@@ -184,13 +204,13 @@ class Input
             n_y_cells.push_back(d_y_cells);
             ny_divisions++;
             // push back the master y points for silo
-            for (uint32_t i=0;i<d_y_cells;++i)
-              y.push_back(d_y_start+i*(d_y_end-d_y_start)/d_y_cells);
+            for (uint32_t i = 0; i < d_y_cells; ++i)
+              y.push_back(d_y_start + i * (d_y_end - d_y_start) / d_y_cells);
           }
 
-          if(g.first == "z_division") {
-            //z information for this region
-            d_z_start =g.second.get<double>("z_start");
+          if (g.first == "z_division") {
+            // z information for this region
+            d_z_start = g.second.get<double>("z_start");
             d_z_end = g.second.get<double>("z_end");
             d_z_cells = g.second.get<uint32_t>("n_z_cells");
             z_start.push_back(d_z_start);
@@ -198,11 +218,11 @@ class Input
             n_z_cells.push_back(d_z_cells);
             nz_divisions++;
             // push back the master z points for silo
-            for (uint32_t i=0;i<d_z_cells;++i)
-              z.push_back(d_z_start+i*(d_z_end-d_z_start)/d_z_cells);
+            for (uint32_t i = 0; i < d_z_cells; ++i)
+              z.push_back(d_z_start + i * (d_z_end - d_z_start) / d_z_cells);
           }
 
-          if(g.first == "region_map") {
+          if (g.first == "region_map") {
             x_key = (g.second.get<uint32_t>("x_div_ID"));
             y_key = (g.second.get<uint32_t>("y_div_ID"));
             z_key = (g.second.get<uint32_t>("z_div_ID"));
@@ -210,15 +230,14 @@ class Input
             // make a unique key using the division ID of x,y and z
             // this mapping allows for 1000 unique divisions in
             // each dimension (way too many)
-            key = z_key*1000000 + y_key*1000 + x_key;
+            key = z_key * 1000000 + y_key * 1000 + x_key;
             region_map[key] = region_ID;
           }
         }
       }
 
-      //read in simple spatial data
-      else if(v.first =="simple_spatial")
-      {
+      // read in simple spatial data
+      else if (v.first == "simple_spatial") {
         using_simple_mesh = true;
 
         x_start.push_back(v.second.get<double>("x_start"));
@@ -233,65 +252,81 @@ class Input
         z_end.push_back(v.second.get<double>("z_end"));
         n_z_cells.push_back(v.second.get<uint32_t>("n_z_cells"));
 
-        region_ID = (v.second.get<uint32_t>("region_ID",0));
+        region_ID = (v.second.get<uint32_t>("region_ID", 0));
 
         // add spatial information to SILO information
-        for (uint32_t i=0;i<n_x_cells[0];++i)
-          x.push_back(x_start[0]+i*(x_end[0]-x_start[0])/n_x_cells[0]);
-        for (uint32_t i=0;i<n_y_cells[0];++i)
-          y.push_back(y_start[0]+i*(y_end[0]-y_start[0])/n_y_cells[0]);
-        for (uint32_t i=0;i<n_z_cells[0];++i)
-          z.push_back(z_start[0]+i*(z_end[0]-z_start[0])/n_z_cells[0]);
+        for (uint32_t i = 0; i < n_x_cells[0]; ++i)
+          x.push_back(x_start[0] + i * (x_end[0] - x_start[0]) / n_x_cells[0]);
+        for (uint32_t i = 0; i < n_y_cells[0]; ++i)
+          y.push_back(y_start[0] + i * (y_end[0] - y_start[0]) / n_y_cells[0]);
+        for (uint32_t i = 0; i < n_z_cells[0]; ++i)
+          z.push_back(z_start[0] + i * (z_end[0] - z_start[0]) / n_z_cells[0]);
 
         // map zero key to region_ID
         region_map[0] = region_ID;
       }
 
-
-      else if(v.first =="boundary")
-      {
-        //read in boundary conditions
+      else if (v.first == "boundary") {
+        // read in boundary conditions
         bool b_error = false;
         tempString = v.second.get<std::string>("bc_right");
-        if      (tempString == "REFLECT") bc[X_POS] = REFLECT;
-        else if (tempString == "VACUUM")  bc[X_POS] = VACUUM;
-        else    b_error = true;
+        if (tempString == "REFLECT")
+          bc[X_POS] = REFLECT;
+        else if (tempString == "VACUUM")
+          bc[X_POS] = VACUUM;
+        else
+          b_error = true;
 
         tempString = v.second.get<std::string>("bc_left");
-        if      (tempString == "REFLECT") bc[X_NEG] = REFLECT;
-        else if (tempString == "VACUUM")  bc[X_NEG] = VACUUM;
-        else    b_error = true;
+        if (tempString == "REFLECT")
+          bc[X_NEG] = REFLECT;
+        else if (tempString == "VACUUM")
+          bc[X_NEG] = VACUUM;
+        else
+          b_error = true;
 
         tempString = v.second.get<std::string>("bc_up");
-        if      (tempString == "REFLECT") bc[Y_POS] = REFLECT;
-        else if (tempString == "VACUUM")  bc[Y_POS] = VACUUM;
-        else    b_error = true;
+        if (tempString == "REFLECT")
+          bc[Y_POS] = REFLECT;
+        else if (tempString == "VACUUM")
+          bc[Y_POS] = VACUUM;
+        else
+          b_error = true;
 
         tempString = v.second.get<std::string>("bc_down");
-        if      (tempString == "REFLECT") bc[Y_NEG] = REFLECT;
-        else if (tempString == "VACUUM")  bc[Y_NEG] = VACUUM;
-        else    b_error = true;
+        if (tempString == "REFLECT")
+          bc[Y_NEG] = REFLECT;
+        else if (tempString == "VACUUM")
+          bc[Y_NEG] = VACUUM;
+        else
+          b_error = true;
 
         tempString = v.second.get<std::string>("bc_top");
-        if      (tempString == "REFLECT") bc[Z_POS] = REFLECT;
-        else if (tempString == "VACUUM")  bc[Z_POS] = VACUUM;
-        else    b_error = true;
+        if (tempString == "REFLECT")
+          bc[Z_POS] = REFLECT;
+        else if (tempString == "VACUUM")
+          bc[Z_POS] = VACUUM;
+        else
+          b_error = true;
 
         tempString = v.second.get<std::string>("bc_bottom");
-        if      (tempString == "REFLECT") bc[Z_NEG] = REFLECT;
-        else if (tempString == "VACUUM")  bc[Z_NEG] = VACUUM;
-        else    b_error = true;
+        if (tempString == "REFLECT")
+          bc[Z_NEG] = REFLECT;
+        else if (tempString == "VACUUM")
+          bc[Z_NEG] = VACUUM;
+        else
+          b_error = true;
 
         if (b_error) {
-          cout<<"ERROR: Boundary type not reconginzed. Exiting..."<<endl;
+          cout << "ERROR: Boundary type not reconginzed. Exiting..." << endl;
           exit(EXIT_FAILURE);
         }
       }
 
       // read in region data
-      else if(v.first == "regions") {
-        BOOST_FOREACH( ptree::value_type const& g, v.second ) {
-          if(g.first == "region") {
+      else if (v.first == "regions") {
+        BOOST_FOREACH (ptree::value_type const &g, v.second) {
+          if (g.first == "region") {
             Region temp_region;
             temp_region.set_ID(g.second.get<uint32_t>("ID"));
             temp_region.set_cV(g.second.get<double>("CV", 0.0));
@@ -302,7 +337,8 @@ class Input
             temp_region.set_opac_S(g.second.get<double>("opacS", 0.0));
             temp_region.set_T_e(g.second.get<double>("initial_T_e", 0.0));
             // default T_r to T_e if not specified
-            temp_region.set_T_r(g.second.get<double>("initial_T_r", temp_region.get_T_e()));
+            temp_region.set_T_r(
+                g.second.get<double>("initial_T_r", temp_region.get_T_e()));
             // map user defined ID to index in region vector
             region_ID_to_index[temp_region.get_ID()] = regions.size();
             // add to list of regions
@@ -313,40 +349,43 @@ class Input
 
       // if both simple_spatial and detailed_spatial are true, exit with an
       // error message
-      if ( using_detailed_mesh && using_simple_mesh) {
-        cout<<"ERROR: Spatial information cannot be specified in both";
-        cout<<" simple and detailed XML regions. Exiting...\n";
+      if (using_detailed_mesh && using_simple_mesh) {
+        cout << "ERROR: Spatial information cannot be specified in both";
+        cout << " simple and detailed XML regions. Exiting...\n";
         exit(EXIT_FAILURE);
       }
-    } //end xml parse
+    } // end xml parse
 
-    //get global cell counts
+    // get global cell counts
     n_global_x_cells = std::accumulate(n_x_cells.begin(), n_x_cells.end(), 0);
     n_global_y_cells = std::accumulate(n_y_cells.begin(), n_y_cells.end(), 0);
     n_global_z_cells = std::accumulate(n_z_cells.begin(), n_z_cells.end(), 0);
 
     // set total number of divisions
-    if (using_simple_mesh) n_divisions=1;
-    else n_divisions = nx_divisions*ny_divisions*nz_divisions;
+    if (using_simple_mesh)
+      n_divisions = 1;
+    else
+      n_divisions = nx_divisions * ny_divisions * nz_divisions;
 
-    //make sure at least one region is specified
+    // make sure at least one region is specified
     if (!regions.size()) {
-      cout<<"ERROR: No regions were specified. Exiting..."<<endl;
+      cout << "ERROR: No regions were specified. Exiting..." << endl;
       exit(EXIT_FAILURE);
     }
 
     // only one region can be specified in simple mesh mode
     if (using_simple_mesh && regions.size() != 1) {
-      cout<<"ERROR: Only one region may be specified in simple mesh mode. ";
-      cout<<" Exiting..."<<endl;
+      cout << "ERROR: Only one region may be specified in simple mesh mode. ";
+      cout << " Exiting..." << endl;
       exit(EXIT_FAILURE);
     }
 
     // for simple spatial input, region ID must match region ID in region map
     if (using_simple_mesh) {
-      if(regions[0].get_ID() != region_map[0]) {
-        cout<<"ERROR: Region ID in simple spatial blocl must match region ID ";
-        cout<<"in region block. Exiting..."<<endl;
+      if (regions[0].get_ID() != region_map[0]) {
+        cout
+            << "ERROR: Region ID in simple spatial blocl must match region ID ";
+        cout << "in region block. Exiting..." << endl;
         exit(EXIT_FAILURE);
       }
     }
@@ -354,8 +393,8 @@ class Input
     // for detailed meshes, the total number of divisions  must equal the
     // number of unique region maps
     if (using_detailed_mesh && n_divisions != region_map.size()) {
-      cout<<"ERROR: Number of total divisions must match the number of ";
-      cout<<"unique region maps. Exiting..."<<endl;
+      cout << "ERROR: Number of total divisions must match the number of ";
+      cout << "unique region maps. Exiting..." << endl;
       exit(EXIT_FAILURE);
     }
 
@@ -366,9 +405,12 @@ class Input
     silo_x = new float[x.size()];
     silo_y = new float[y.size()];
     silo_z = new float[z.size()];
-    for (uint32_t i=0;i<x.size();++i) silo_x[i] = x[i];
-    for (uint32_t j=0;j<y.size();++j) silo_y[j] = y[j];
-    for (uint32_t k=0;k<z.size();++k) silo_z[k] = z[k];
+    for (uint32_t i = 0; i < x.size(); ++i)
+      silo_x[i] = x[i];
+    for (uint32_t j = 0; j < y.size(); ++j)
+      silo_y[j] = y[j];
+    for (uint32_t k = 0; k < z.size(); ++k)
+      silo_z[k] = z[k];
 
     // batch size should be very large in replicated mode since there is no
     // need to check buffers
@@ -390,243 +432,252 @@ class Input
     using std::cout;
     using std::endl;
     // DD methods
-    using Constants::PARTICLE_PASS; using Constants::CELL_PASS;
-    using Constants::CELL_PASS_RMA; using Constants::REPLICATED;
+    using Constants::PARTICLE_PASS;
+    using Constants::CELL_PASS;
+    using Constants::CELL_PASS_RMA;
+    using Constants::REPLICATED;
     // mesh decomposition
-    using Constants::PARMETIS; using Constants::CUBE;
+    using Constants::PARMETIS;
+    using Constants::CUBE;
 
-    cout<<"Problem Specifications:";
-    cout<<"Constants -- c: "<<c<<" (cm/sh) , a: "<<a <<endl;
-    cout<<"Run Parameters-- Photons: "<<n_photons<<", time finish: "<<tFinish;
-    cout<<" (sh), time step: "<<dt<<" (sh) ,"<<endl;
+    cout << "Problem Specifications:";
+    cout << "Constants -- c: " << c << " (cm/sh) , a: " << a << endl;
+    cout << "Run Parameters-- Photons: " << n_photons
+         << ", time finish: " << tFinish;
+    cout << " (sh), time step: " << dt << " (sh) ," << endl;
 
-    cout<<" time multiplier: "<<tMult<<" , max dt:"<<dtMax;
-    cout<<" (sh), Random number seed: "<<seed;
-    cout<<" , output frequency: "<<output_freq<<endl;
+    cout << " time multiplier: " << tMult << " , max dt:" << dtMax;
+    cout << " (sh), Random number seed: " << seed;
+    cout << " , output frequency: " << output_freq << endl;
 
-    //cout<<"Sampling -- Emission Position: ";
-    //if (use_tilt) cout<<"source tilting (x only), ";
-    //else cout<<"uniform (default), ";
-    //cout<<" Angle: ";
-    cout<<"Stratified sampling in angle: ";
-    if(use_strat) cout<<"TRUE"<<endl;
-    else cout<<"FALSE"<<endl;
+    // cout<<"Sampling -- Emission Position: ";
+    // if (use_tilt) cout<<"source tilting (x only), ";
+    // else cout<<"uniform (default), ";
+    // cout<<" Angle: ";
+    cout << "Stratified sampling in angle: ";
+    if (use_strat)
+      cout << "TRUE" << endl;
+    else
+      cout << "FALSE" << endl;
 
-    if (use_comb) cout<<"Combing census enabled (default)"<<endl;
-    else cout<<"No combing"<<endl;
+    if (use_comb)
+      cout << "Combing census enabled (default)" << endl;
+    else
+      cout << "No combing" << endl;
 
-    if (print_verbose) cout<<"Verbose printing mode enabled"<<endl;
-    else cout<<"Terse printing mode (default)"<<endl;
+    if (print_verbose)
+      cout << "Verbose printing mode enabled" << endl;
+    else
+      cout << "Terse printing mode (default)" << endl;
 
-    #ifdef VIZ_LIBRARIES_FOUND
-      if (write_silo) cout<<"SILO output enabled"<<endl;
-      else cout<<"SILO output disabled (default)"<<endl;
-    #else
-      if (write_silo)
-        cout<<"NOTE: SILO libraries not linked... no visualization"<<endl;
-    #endif
-    cout<<"Spatial Information -- cells x,y,z: "<<n_global_x_cells<<" ";
-    cout<<n_global_y_cells<<" "<<n_global_z_cells<<endl;
+#ifdef VIZ_LIBRARIES_FOUND
+    if (write_silo)
+      cout << "SILO output enabled" << endl;
+    else
+      cout << "SILO output disabled (default)" << endl;
+#else
+    if (write_silo)
+      cout << "NOTE: SILO libraries not linked... no visualization" << endl;
+#endif
+    cout << "Spatial Information -- cells x,y,z: " << n_global_x_cells << " ";
+    cout << n_global_y_cells << " " << n_global_z_cells << endl;
     if (using_simple_mesh) {
-      cout<<"dx: "<< (x_end[0] - x_start[0])/n_x_cells[0]
-        <<" dy: "<< (y_end[0] - y_start[0])/n_y_cells[0]
-        <<" dz: "<< (z_end[0] - z_start[0])/n_z_cells[0]<<endl;
+      cout << "dx: " << (x_end[0] - x_start[0]) / n_x_cells[0]
+           << " dy: " << (y_end[0] - y_start[0]) / n_y_cells[0]
+           << " dz: " << (z_end[0] - z_start[0]) / n_z_cells[0] << endl;
     }
 
-    cout<<"--Material Information--"<<endl;
-    for(uint32_t r=0; r<regions.size();++r) {
-      cout<<" heat capacity: "<<regions[r].get_cV();
-      cout<<" opacity constants: "<<regions[r].get_opac_A()
-        <<" + "<<regions[r].get_opac_B()<<"^"<<regions[r].get_opac_C();
-      cout<<", scattering opacity: "<<regions[r].get_scattering_opacity()<<endl;
+    cout << "--Material Information--" << endl;
+    for (uint32_t r = 0; r < regions.size(); ++r) {
+      cout << " heat capacity: " << regions[r].get_cV();
+      cout << " opacity constants: " << regions[r].get_opac_A() << " + "
+           << regions[r].get_opac_B() << "^" << regions[r].get_opac_C();
+      cout << ", scattering opacity: " << regions[r].get_scattering_opacity()
+           << endl;
     }
 
-    cout<<"--Parallel Information--"<<endl;
-    cout<<"DD algorithm: ";
+    cout << "--Parallel Information--" << endl;
+    cout << "DD algorithm: ";
     if (dd_mode == CELL_PASS) {
-      cout<<"CELL PASSING"<<endl;
-      cout<<"grip size: "<<grip_size;
-      cout<<", map size: "<<map_size;
-      cout<<", batch size: "<<batch_size;
-      cout<<endl;
-    }
-    else if (dd_mode ==CELL_PASS_RMA) {
-      cout<<"CELL PASSING (with RMA on MPI windows)"<<endl;
-      cout<<"COMPILE PARAMETER: maximum number of RMA requests"<<endl;
-      cout<<"grip size: "<<grip_size;
-      cout<<", map size: "<<map_size;
-      cout<<", batch size: "<<batch_size;
-      cout<<endl;
-    }
-    else if (dd_mode == PARTICLE_PASS) {
-      cout<<"PARTICLE PASSING"<<endl;
-      cout<<"Batch size: "<<batch_size;
-      cout<<", particle message size: "<<particle_message_size;
-      cout<<endl;
-    }
-    else if (dd_mode == REPLICATED) {
-      cout<<"REPLICATED"<<endl;
-      cout<<"No parameters are needed in replicated mode";
-      cout<<endl;
-    }
-    else {
-      cout<<"ERROR: Parallel method not specific correctly";
-      cout<<" Exiting..."<<endl;
+      cout << "CELL PASSING" << endl;
+      cout << "grip size: " << grip_size;
+      cout << ", map size: " << map_size;
+      cout << ", batch size: " << batch_size;
+      cout << endl;
+    } else if (dd_mode == CELL_PASS_RMA) {
+      cout << "CELL PASSING (with RMA on MPI windows)" << endl;
+      cout << "COMPILE PARAMETER: maximum number of RMA requests" << endl;
+      cout << "grip size: " << grip_size;
+      cout << ", map size: " << map_size;
+      cout << ", batch size: " << batch_size;
+      cout << endl;
+    } else if (dd_mode == PARTICLE_PASS) {
+      cout << "PARTICLE PASSING" << endl;
+      cout << "Batch size: " << batch_size;
+      cout << ", particle message size: " << particle_message_size;
+      cout << endl;
+    } else if (dd_mode == REPLICATED) {
+      cout << "REPLICATED" << endl;
+      cout << "No parameters are needed in replicated mode";
+      cout << endl;
+    } else {
+      cout << "ERROR: Parallel method not specific correctly";
+      cout << " Exiting..." << endl;
       exit(EXIT_FAILURE);
     }
 
-    cout<<"Mesh decomposition: ";
-    if (decomp_mode == PARMETIS) cout<<"PARMETIS"<<endl;
-    else if (decomp_mode == CUBE) cout<<"CUBE"<<endl;
+    cout << "Mesh decomposition: ";
+    if (decomp_mode == PARMETIS)
+      cout << "PARMETIS" << endl;
+    else if (decomp_mode == CUBE)
+      cout << "CUBE" << endl;
     else {
-      cout<<"ERROR: Decomposition mode not specified correctly. Exiting...";
+      cout << "ERROR: Decomposition mode not specified correctly. Exiting...";
       exit(EXIT_FAILURE);
     }
 
-    cout<<endl;
+    cout << endl;
   }
 
   //! Return the number of global cells in the x direction
-  uint32_t get_global_n_x_cells(void) const {return n_global_x_cells;}
+  uint32_t get_global_n_x_cells(void) const { return n_global_x_cells; }
   //! Return the number of global cells in the y direction
-  uint32_t get_global_n_y_cells(void) const {return n_global_y_cells;}
+  uint32_t get_global_n_y_cells(void) const { return n_global_y_cells; }
   //! Return the number of global cells in the z direction
-  uint32_t get_global_n_z_cells(void) const {return n_global_z_cells;}
+  uint32_t get_global_n_z_cells(void) const { return n_global_z_cells; }
 
   //! Return the number of x cells in a given x division
-  uint32_t get_x_division_cells(const uint32_t& div) const {
+  uint32_t get_x_division_cells(const uint32_t &div) const {
     return n_x_cells[div];
   }
   //! Return the number of y cells in a given y division
-  uint32_t get_y_division_cells(const uint32_t& div) const {
+  uint32_t get_y_division_cells(const uint32_t &div) const {
     return n_y_cells[div];
   }
   //! Return the number of z cells in a given z division
-  uint32_t get_z_division_cells(const uint32_t& div) const {
+  uint32_t get_z_division_cells(const uint32_t &div) const {
     return n_z_cells[div];
   }
 
   //! Return a pointer to the x coordinates of the mesh in SILO format
-  float* get_silo_x_ptr(void) {return silo_x;}
+  float *get_silo_x_ptr(void) { return silo_x; }
   //! Return a pointer to the y coordinates of the mesh in SILO format
-  float* get_silo_y_ptr(void) {return silo_y;}
+  float *get_silo_y_ptr(void) { return silo_y; }
   //! Return a pointer to the z coordinates of the mesh in SILO format
-  float* get_silo_z_ptr(void) {return silo_z;}
+  float *get_silo_z_ptr(void) { return silo_z; }
 
   //! Return the total number of x divisions in the problem
-  uint32_t get_n_x_divisions(void) const {return n_x_cells.size();}
+  uint32_t get_n_x_divisions(void) const { return n_x_cells.size(); }
   //! Return the total number of y divisions in the problem
-  uint32_t get_n_y_divisions(void) const {return n_y_cells.size();}
+  uint32_t get_n_y_divisions(void) const { return n_y_cells.size(); }
   //! Return the total number of z divisions in the problem
-  uint32_t get_n_z_divisions(void) const {return n_z_cells.size();}
+  uint32_t get_n_z_divisions(void) const { return n_z_cells.size(); }
 
   //! Return the x grid spacing in a given x division
-  double get_dx(const uint32_t& div) const {
-    return (x_end[div] - x_start[div])/n_x_cells[div];
+  double get_dx(const uint32_t &div) const {
+    return (x_end[div] - x_start[div]) / n_x_cells[div];
   }
   //! Return the y grid spacing in a given y division
-  double get_dy(const uint32_t& div) const {
-    return (y_end[div] - y_start[div])/n_y_cells[div];
+  double get_dy(const uint32_t &div) const {
+    return (y_end[div] - y_start[div]) / n_y_cells[div];
   }
   //! Return the z grid spacing in a given z division
-  double get_dz(const uint32_t& div) const {
-    return (z_end[div] - z_start[div])/n_z_cells[div];
+  double get_dz(const uint32_t &div) const {
+    return (z_end[div] - z_start[div]) / n_z_cells[div];
   }
 
-
   //! Return the starting x position of a given x division
-  double get_x_start(const uint32_t& div) const { return x_start[div];}
+  double get_x_start(const uint32_t &div) const { return x_start[div]; }
   //! Return the starting y position of a given y division
-  double get_y_start(const uint32_t& div) const { return y_start[div];}
+  double get_y_start(const uint32_t &div) const { return y_start[div]; }
   //! Return the starting z position of a given z division
-  double get_z_start(const uint32_t& div) const { return z_start[div];}
+  double get_z_start(const uint32_t &div) const { return z_start[div]; }
 
   //! Return the value of the use tilt option
-  bool get_tilt_bool(void) const {return use_tilt;}
+  bool get_tilt_bool(void) const { return use_tilt; }
   //! Return the value of the use comb option
-  bool get_comb_bool(void) const {return use_comb;}
+  bool get_comb_bool(void) const { return use_comb; }
   //! Return the value of the stratified option
-  bool get_stratified_bool(void) const {return use_strat;}
+  bool get_stratified_bool(void) const { return use_strat; }
   //! Return the value of the write SILO option
-  bool get_write_silo_bool(void) const {return write_silo;}
+  bool get_write_silo_bool(void) const { return write_silo; }
   //! Return the value of the verbose printing option
-  bool get_verbose_print_bool(void) const {return print_verbose;}
+  bool get_verbose_print_bool(void) const { return print_verbose; }
   //! Return the value of the mesh print option
-  bool get_print_mesh_info_bool(void) const {return print_mesh_info;}
+  bool get_print_mesh_info_bool(void) const { return print_mesh_info; }
   //! Return the frequency of timestep summary printing
-  int get_output_freq(void) const {return output_freq;}
+  int get_output_freq(void) const { return output_freq; }
 
   //! Return the timestep size (shakes)
-  double get_dt(void) const {return dt;}
+  double get_dt(void) const { return dt; }
   //! Return the starting time (shakes)
-  double get_time_start(void) const {return tStart;}
+  double get_time_start(void) const { return tStart; }
   //! Return the finish time (shakes)
-  double get_time_finish(void) const {return tFinish;}
+  double get_time_finish(void) const { return tFinish; }
   //! Return the multiplication factor for the timestep
-  double get_time_mult(void) const {return tMult;}
+  double get_time_mult(void) const { return tMult; }
   //! Return the maximum timestep size (shakes)
-  double get_dt_max(void) const {return dtMax;}
+  double get_dt_max(void) const { return dtMax; }
   //! Return the input seed for the RNG
-  int get_rng_seed(void) const {return seed;}
+  int get_rng_seed(void) const { return seed; }
   //! Return the number of photons set in the input file to run
-  uint64_t get_number_photons(void) const {return n_photons;}
+  uint64_t get_number_photons(void) const { return n_photons; }
   //! Return the batch size (particles to run between parallel processing)
-  uint32_t get_batch_size(void) const {return batch_size;}
+  uint32_t get_batch_size(void) const { return batch_size; }
   //! Return the user requested number of particles in a message
-  uint32_t get_particle_message_size(void) const {return particle_message_size;}
+  uint32_t get_particle_message_size(void) const {
+    return particle_message_size;
+  }
   //! Return the user requested grip size
-  uint32_t get_grip_size(void) const {return grip_size;}
+  uint32_t get_grip_size(void) const { return grip_size; }
   //! Return the size of the working mesh map
-  uint32_t get_map_size(void) const {return map_size;}
+  uint32_t get_map_size(void) const { return map_size; }
   //! Return the domain decomposition algorithm
-  uint32_t get_dd_mode(void) const {return dd_mode;}
+  uint32_t get_dd_mode(void) const { return dd_mode; }
   //! Return the domain decomposition algorithm
-  uint32_t get_decomposition_mode(void) const {return decomp_mode;}
+  uint32_t get_decomposition_mode(void) const { return decomp_mode; }
 
-  //source functions
+  // source functions
   //! Return the temperature of the face source
-  double get_source_T(void) const {return T_source;}
+  double get_source_T(void) const { return T_source; }
 
   //! Return the number of material regions
-  uint32_t get_n_regions(void) const {return regions.size();}
+  uint32_t get_n_regions(void) const { return regions.size(); }
 
   //! Return vector of regions
-  const std::vector<Region>& get_regions(void) const {return regions;}
+  const std::vector<Region> &get_regions(void) const { return regions; }
 
   //! Return unique index given division indices
 
   //! Make a unique key using the division ID of x,y and z. This mapping
   //! allows for 1000 unique divisions in each dimension (way too many)
   uint32_t get_region_index(const uint32_t x_div, const uint32_t y_div,
-    const uint32_t z_div) const
-  {
-    const uint32_t key = z_div*1000000 + y_div*1000 + x_div;
-    return  region_ID_to_index.at(region_map.at(key));
+                            const uint32_t z_div) const {
+    const uint32_t key = z_div * 1000000 + y_div * 1000 + x_div;
+    return region_ID_to_index.at(region_map.at(key));
   }
 
   //! Return boundary condition at this direction index
-  Constants::bc_type get_bc(const Constants::dir_type& direction) const
-  {
+  Constants::bc_type get_bc(const Constants::dir_type &direction) const {
     return bc[direction];
   }
 
-  private:
-
+private:
   // flags
-  bool using_simple_mesh; //!< Use the simple mesh specification
+  bool using_simple_mesh;   //!< Use the simple mesh specification
   bool using_detailed_mesh; //!< Use the detailed mesh specification
-  bool write_silo; //!< Dump SILO output files
+  bool write_silo;          //!< Dump SILO output files
 
   Constants::bc_type bc[6]; //!< Boundary condition array
 
   // timing
-  double tStart; //!< Starting time
-  double dt; //!< Timestep size
+  double tStart;  //!< Starting time
+  double dt;      //!< Timestep size
   double tFinish; //!< Finish time
-  double tMult; //!< Timestep multiplier
-  double dtMax; //!< Maximum timestep size
+  double tMult;   //!< Timestep multiplier
+  double dtMax;   //!< Maximum timestep size
 
-  //material
+  // material
   std::vector<Region> regions; //!< Vector of regions in the problem
 
   //! Maps unique key to user set ID for a region
@@ -635,39 +686,40 @@ class Input
   //! Maps user set region ID to the index in the regions vector
   std::unordered_map<uint32_t, uint32_t> region_ID_to_index;
 
-  //source
+  // source
   double T_source; //!< Temperature of source
 
   // Monte Carlo parameters
   uint64_t n_photons; //!< Photons to source each timestep
-  uint32_t seed; //!< Random number seed
+  uint32_t seed;      //!< Random number seed
 
   // Method parameters
-  bool use_tilt; //!< Use tilting for emission sampling
-  bool use_comb; //!< Comb census photons
-  bool use_strat; //!< Use strafifed sampling
-  uint32_t dd_mode; //!< Mode of domain decomposed transport algorithm
+  bool use_tilt;        //!< Use tilting for emission sampling
+  bool use_comb;        //!< Comb census photons
+  bool use_strat;       //!< Use strafifed sampling
+  uint32_t dd_mode;     //!< Mode of domain decomposed transport algorithm
   uint32_t decomp_mode; //!< Mode of decomposing mesh
 
   // Debug parameters
-  int output_freq; //!< How often to print temperature information
-  bool print_verbose; //!< Verbose printing flag
+  int output_freq;      //!< How often to print temperature information
+  bool print_verbose;   //!< Verbose printing flag
   bool print_mesh_info; //!< Mesh information printing flag
 
   // parallel performance parameters
   uint32_t grip_size; //!< Preferred number of cells in a parallel communication
-  uint32_t map_size; //!< Size of stored off-rank mesh cells
+  uint32_t map_size;  //!< Size of stored off-rank mesh cells
   uint32_t batch_size; //!< Particles to run between MPI message checks
-  uint32_t particle_message_size; //!< Preferred number of particles in MPI sends
+  uint32_t
+      particle_message_size; //!< Preferred number of particles in MPI sends
 
   // detailed mesh specifications
-  uint32_t n_divisions; //!< Number of divisions in the mesh
-  std::vector<double> x_start; //!< x starting positions for each division
-  std::vector<double> x_end; //!< x ending positions for each division
-  std::vector<double> y_start; //!< y starting positions for each division
-  std::vector<double> y_end; //!< y ending positions for each division
-  std::vector<double> z_start; //!< z starting positions for each division
-  std::vector<double> z_end; //!< z ending positions for each division
+  uint32_t n_divisions;            //!< Number of divisions in the mesh
+  std::vector<double> x_start;     //!< x starting positions for each division
+  std::vector<double> x_end;       //!< x ending positions for each division
+  std::vector<double> y_start;     //!< y starting positions for each division
+  std::vector<double> y_end;       //!< y ending positions for each division
+  std::vector<double> z_start;     //!< z starting positions for each division
+  std::vector<double> z_end;       //!< z ending positions for each division
   std::vector<uint32_t> n_x_cells; //!< Number of x cells in each division
   std::vector<uint32_t> n_y_cells; //!< Number of y cells in each division
   std::vector<uint32_t> n_z_cells; //!< Number of z cells in each division
