@@ -2,18 +2,18 @@
   <common>
     <method>IMC</method>
     <t_start>0.0</t_start>
-    <t_stop>0.1</t_stop>
-    <dt_start>0.001</dt_start>
+    <t_stop>0.0005</t_stop>
+    <dt_start>0.00025</dt_start>
     <t_mult>1.0</t_mult>
     <dt_max>1.0</dt_max>
-    <photons>1105920000000</photons>
+    <photons>331776000000</photons>
     <seed>14706</seed>
     <tilt>FALSE</tilt>
     <stratified_sampling>FALSE</stratified_sampling>
     <dd_transport_type>CELL_PASS</dd_transport_type>
     <mesh_decomposition>CUBE</mesh_decomposition>
-    <grip_size>10000</grip_size>
-    <map_size>500000</map_size>
+    <grip_size>500</grip_size>
+    <map_size>50000</map_size>
     <batch_size>5000</batch_size>
     <output_frequency>1</output_frequency>
     <write_silo>FALSE</write_silo>
@@ -39,8 +39,8 @@
  
     <x_division>
       <x_start>2.4</x_start>
-      <x_end>12.0</x_end>
-      <n_x_cells>960</n_x_cells>
+      <x_end>8.0</x_end>
+      <n_x_cells>560</n_x_cells>
     </x_division>
  
     <y_division>
@@ -57,8 +57,8 @@
  
     <y_division>
       <y_start>2.4</y_start>
-      <y_end>12.0</y_end>
-      <n_y_cells>960</n_y_cells>
+      <y_end>8.0</y_end>
+      <n_y_cells>560</n_y_cells>
     </y_division>
  
     <z_division>
@@ -75,8 +75,8 @@
  
     <z_division>
       <z_start>2.4</z_start>
-      <z_end>12.0</z_end>
-      <n_z_cells>960</n_z_cells>
+      <z_end>8.0</z_end>
+      <n_z_cells>560</n_z_cells>
     </z_division>
  
     <region_map>

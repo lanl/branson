@@ -49,8 +49,8 @@ class Mesh_Request_Manager
     grip_size(_grip_size),
     rank_start(rank_bounds[_rank]),
     rank_end(rank_bounds[_rank+1]),
-    max_reqs(20),
-    max_ids(20)
+    max_reqs(10),
+    max_ids(10)
   {
     using std::vector;
 

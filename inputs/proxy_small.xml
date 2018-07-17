@@ -2,21 +2,20 @@
   <common>
     <method>IMC</method>
     <t_start>0.0</t_start>
-    <t_stop>0.1</t_stop>
+    <t_stop>0.01</t_stop>
     <dt_start>0.001</dt_start>
     <t_mult>1.0</t_mult>
     <dt_max>1.0</dt_max>
-    <photons>1105920000000</photons>
+    <photons>160000000</photons>
     <seed>14706</seed>
     <tilt>FALSE</tilt>
     <stratified_sampling>FALSE</stratified_sampling>
     <dd_transport_type>CELL_PASS</dd_transport_type>
-    <mesh_decomposition>CUBE</mesh_decomposition>
     <grip_size>10000</grip_size>
     <map_size>500000</map_size>
     <batch_size>5000</batch_size>
     <output_frequency>1</output_frequency>
-    <write_silo>FALSE</write_silo>
+    <write_silo>TRUE</write_silo>
   </common>
  
   <debug_options>
@@ -27,56 +26,56 @@
   <spatial>
     <x_division>
       <x_start>0.0</x_start>
-      <x_end>1.2</x_end>
-      <n_x_cells>120</n_x_cells>
+      <x_end>0.1</x_end>
+      <n_x_cells>10</n_x_cells>
     </x_division>
  
     <x_division>
-      <x_start>1.2</x_start>
-      <x_end>2.4</x_end>
-      <n_x_cells>120</n_x_cells>
+      <x_start>0.1</x_start>
+      <x_end>0.2</x_end>
+      <n_x_cells>10</n_x_cells>
     </x_division>
  
     <x_division>
-      <x_start>2.4</x_start>
-      <x_end>10.0</x_end>
-      <n_x_cells>760</n_x_cells>
+      <x_start>0.20</x_start>
+      <x_end>1.0</x_end>
+      <n_x_cells>80</n_x_cells>
     </x_division>
  
     <y_division>
       <y_start>0.0</y_start>
+      <y_end>0.1</y_end>
+      <n_y_cells>10</n_y_cells>
+    </y_division>
+ 
+    <y_division>
+      <y_start>0.1</y_start>
+      <y_end>0.2</y_end>
+      <n_y_cells>10</n_y_cells>
+    </y_division>
+ 
+    <y_division>
+      <y_start>0.2</y_start>
       <y_end>1.0</y_end>
-      <n_y_cells>120</n_y_cells>
-    </y_division>
- 
-    <y_division>
-      <y_start>1.2</y_start>
-      <y_end>2.4</y_end>
-      <n_y_cells>120</n_y_cells>
-    </y_division>
- 
-    <y_division>
-      <y_start>2.4</y_start>
-      <y_end>10.0</y_end>
-      <n_y_cells>760</n_y_cells>
+      <n_y_cells>80</n_y_cells>
     </y_division>
  
     <z_division>
       <z_start>0.0</z_start>
-      <z_end>1.2</z_end>
-      <n_z_cells>120</n_z_cells>
+      <z_end>0.1</z_end>
+      <n_z_cells>10</n_z_cells>
     </z_division>
  
     <z_division>
-      <z_start>1.2</z_start>
-      <z_end>2.4</z_end>
-      <n_z_cells>120</n_z_cells>
+      <z_start>0.1</z_start>
+      <z_end>0.2</z_end>
+      <n_z_cells>10</n_z_cells>
     </z_division>
  
     <z_division>
-      <z_start>2.4</z_start>
-      <z_end>10.0</z_end>
-      <n_z_cells>760</n_z_cells>
+      <z_start>0.2</z_start>
+      <z_end>1.0</z_end>
+      <n_z_cells>80</n_z_cells>
     </z_division>
  
     <region_map>
@@ -293,4 +292,3 @@
   </regions>
  
 </prototype>
-

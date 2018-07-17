@@ -45,7 +45,7 @@ class RMA_Manager
     MPI_Cell(mpi_types->get_cell_type()),
     mesh_window(_mesh_window),
     grip_size(_grip_size),
-    n_max_requests(1000)
+    n_max_requests(100)
   {
     using std::vector;
     max_active_index = 0;

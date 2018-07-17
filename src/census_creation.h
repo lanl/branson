@@ -18,7 +18,7 @@
 
 #include "photon.h"
 
-double get_photon_list_E(std::vector<Photon> photons) {
+double get_photon_list_E(const std::vector<Photon> &photons) {
   double total_E = 0.0;
   for (auto const &iphtn : photons)
     total_E += iphtn.get_E();

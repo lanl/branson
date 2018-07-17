@@ -367,6 +367,9 @@ std::vector<Photon> mesh_pass_transport(Source& source,
   // requests and sends
   MPI_Barrier(MPI_COMM_WORLD);
 
+  if (mpi_info.get_rank() ==0)
+    std::cout<<"Transport complete"<<std::endl;
+
   // append remote tally to the current tally
   tally_manager.add_remote_tally(rank_abs_E);
 
