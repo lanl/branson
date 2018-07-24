@@ -891,7 +891,7 @@ void remap_cell_and_grip_indices_staged(Mesh *mesh, const int rank,
     int send_ranks_start = n * (n_rank / 8);
     int send_ranks_end = (n + 1) * (n_rank / 8);
     if (n == 7)
-      send_ranks_end == n_rank;
+      send_ranks_end = n_rank;
     int n_senders = send_ranks_end - send_ranks_start;
 
     std::vector<MPI_Request> id_reqs(n_senders);
