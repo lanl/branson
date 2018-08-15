@@ -12,9 +12,35 @@
 #ifndef input_h_
 #define input_h_
 
+// Suppresses warnings found in Boost headers...
+// http://wiki.services.openoffice.org/wiki/Writing_warning-free_code#When_all_else_fails
+#if defined __GNUC__
+#pragma GCC system_header
+// Intel defines __GNUC__ by default
+#ifdef __INTEL_COMPILER
+#pragma warning push
+#endif
+#elif defined __SUNPRO_CC
+#pragma disable_warn
+#elif defined _MSC_VER
+#pragma warning(push, 1)
+#endif
+
 #include <boost/foreach.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
+
+#if defined __GNUC__
+#pragma GCC system_header
+#ifdef __INTEL_COMPILER
+#pragma warning pop
+#endif
+#elif defined __SUNPRO_CC
+#pragma enable_warn
+#elif defined _MSC_VER
+#pragma warning(pop)
+#endif
+
 #include <functional>
 #include <iostream>
 #include <numeric>

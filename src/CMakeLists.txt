@@ -6,187 +6,142 @@
 # correctly (load compiler, mpi, boost, metis, parmetis and optionally hdf5 and
 # silo)
 
-# Enbable debug mode by passing -DCMAKE_BUILD_TYPE=Debug to CMake, default is 
+# Enbable debug mode by passing -DCMAKE_BUILD_TYPE=Debug to CMake, default is
 # Release
 
-cmake_minimum_required (VERSION 2.8)
-project (BRANSON)
+cmake_minimum_required (VERSION 3.11)
+project (BRANSON
+  VERSION 0.8
+  DESCRIPTION "Branson can be used to study different algorithms for parallel Monte Carlo transport. Currently it contains particle passing and mesh passing methods for domain decomposition."
+#  HOMEPAGE URL "https://github.com/lanl/branson" # needs cmake 3.12+
+  LANGUAGES CXX C)
 
-################################################################################
-site_name( SITENAME )
-string( REGEX REPLACE "([A-z0-9]+).*" "\\1" SITENAME ${SITENAME} )
-if( ${SITENAME} MATCHES "c[it]" )
-  set( SITENAME "Cielito")
-  set(CIELITO_NODE TRUE)
-elseif( ${SITENAME} MATCHES "sn" OR ${SITENAME} MATCHES "ic" OR ${SITENAME} MATCHES "fi")
-   set( SITENAME "Snow")
-   set(SNOW_NODE TRUE)
-elseif( ${SITENAME} MATCHES "ba")
-  set( SITENAME "Badger")
-  set(BADGER_NODE TRUE)
-elseif( ${SITENAME} MATCHES "tt") #" -login[0-9]+" OR ${SITENAME} MATCHES "tt-fey[0-9]+" )
-  set( SITENAME "Trinitite")
-  set(TRINITITE_NODE TRUE)
-elseif( ${SITENAME} MATCHES "tr") #" -login[0-9]+" OR ${SITENAME} MATCHES "tr-fe[0-9]+" )
-  set( SITENAME "Trinity")
-  set(TRINITY_NODE TRUE)
-elseif( ${SITENAME} MATCHES "ccscs[0-9]+" )
-  # do nothing (keep the fullname)
-  set(TRINITY_NODE TRUE)
-elseif( ${SITENAME} MATCHES "nid[0-9]+" )
-  set( SITENAME "Trinitite")
-  set(TRINITITE_NODE TRUE)
-endif()
-set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
-message("Machine name: ${SITENAME}")
-################################################################################
+# Build system support files are located here.
+set( CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/config )
 
-#set version number
-set(BRANSON_VERSION_MAJOR 0)
-set(BRANSON_VERSION_MINOR 8)
+message( "
+This is ${CMAKE_PROJECT_NAME} v. ${PROJECT_VERSION}.
+")
 
-# add compiler flags
-set (BRANSON_FLAGS "-g -Wall")
-
-# Intel/GCC C++ 11 flags (I think this works for both now)
-set( BRANSON_FLAGS "${BRANSON_FLAGS} -std=c++11")
-#set( DEBUG_FLAGS "${DEBUG_FLAGS} -Wall -std=c++0x")
-# Cray flag for C++11
-#set (DEBUG_FLAGS "${DEBUG_FLAGS} -h std=c++11")
-
-set (BRANSON_BUILD_TYPE  ${CMAKE_BUILD_TYPE})
-if ("${BRANSON_BUILD_TYPE}x" STREQUAL "x")
-  message("CMAKE_BUILD_TYPE not set, setting to \"Release\"")
-  set(BRANSON_BUILD_TYPE "Release")
-else ()
-  message("CMAKE_BUILD_TYPE set on command line: ${CMAKE_BUILD_TYPE}")
-endif ()
-
-if ("${BRANSON_BUILD_TYPE}" STREQUAL "Debug")
-  message("CMake build type = Debug")
-  set( BRANSON_FLAGS "${BRANSON_FLAGS} -O0")
-else ()
-  message("CMake build type = Release")
-  set( BRANSON_FLAGS "${BRANSON_FLAGS} -O3")
-endif()
+#------------------------------------------------------------------------------#
+# User configurable options
 
 set (BRANSON_N_GROUPS ${N_GROUPS})
 if ("${BRANSON_N_GROUPS}x" STREQUAL "x")
-  message("HARDCODED NUMBER OF GROUPS NOT SET, DEFAULTING TO ONE GROUP (GRAY)")
+  message(STATUS
+    "HARDCODED NUMBER OF GROUPS NOT SET, DEFAULTING TO ONE GROUP (GRAY)
+     use '-DN_GROUPS=<int>' when running cmake to select multigroup.\n")
   set(BRANSON_N_GROUPS "1")
 else ()
-  message("HARDCODE NUMBER OF GROUPS SET TO ${BRANSON_N_GROUPS} (FAUX MULTIGROUP)")
+  message(STATUS
+    "HARDCODED NUMBER OF GROUPS SET TO ${BRANSON_N_GROUPS} (FAUX MULTIGROUP)\n")
+endif()
+set(BRANSON_N_GROUPS "1" CACHE STRING "Number of energy groups." FORCE)
+
+#------------------------------------------------------------------------------#
+# Record the site name
+
+site_name( SITENAME )
+string( REGEX REPLACE "([A-z0-9]+).*" "\\1" SITENAME ${SITENAME} )
+include (lanl-setup)
+set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
+
+#------------------------------------------------------------------------------#
+# Setup compiler options
+
+# C11 support:
+set( CMAKE_C_STANDARD 11 )
+
+# C++14 support:
+set( CMAKE_CXX_STANDARD 14 )
+set( CXX_STANDARD_REQUIRED ON )
+
+# Do not enable extensions (e.g.: --std=gnu++11)
+set( CMAKE_CXX_EXTENSIONS OFF )
+set( CMAKE_C_EXTENSIONS   OFF )
+
+#------------------------------------------------------------------------------#
+# Build type and custom compiler flags
+
+if ("${CMAKE_BUID_TYPE}x" STREQUAL "x")
+  set(CMAKE_BUID_TYPE "Release")
+endif ()
+
+# add compiler flags
+if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
+  #set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
+elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
+  #set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
 endif()
 
-set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${BRANSON_FLAGS}" )
-message ("Compiler Flags: " ${CMAKE_CXX_FLAGS} )
+#------------------------------------------------------------------------------#
+# Look for Third Party Libraries (metis, parmetis, etc.)
 
-# set compiler 
-if ("${SITENAME}" STREQUAL "Moonlight" OR ${SITENAME} MATCHES "ccscs[0-9]+" OR "${SITENAME}" STREQUAL "Snow" OR "${SITENAME}" STREQUAL "Badger")
-  set(CMAKE_CXX_COMPILER mpic++)
-elseif ("${SITENAME}" STREQUAL "Trinitite")
-  set(CMAKE_CXX_COMPILER cc)
-endif ()
-message ("Compiler: " ${CMAKE_CXX_COMPILER} )
+include(find_tpls)
+setupTPLs()
 
-include(ExternalProject)
-###############################################################################
-# Caliper
-###############################################################################
-#set(CALIPER_INSTALL_DIR ${CMAKE_BINARY_DIR}/caliper)
-#ExternalProject_Add(caliper_local SOURCE_DIR "${CMAKE_SOURCE_DIR}/Caliper" PREFIX ${CALIPER_INSTALL_DIR} CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CALIPER_INSTALL_DIR}")
-#include_directories(${CALIPER_INSTALL_DIR}/include/caliper)
-#link_directories(${CALIPER_INSTALL_DIR}/lib)
+#------------------------------------------------------------------------------#
+# Report build configuration
 
-###############################################################################
-# metis and parmetis
-# Load modules for metis and parmetis to get correct environment variables
-###############################################################################
-message("ParMetis from: " $ENV{ParMETIS_ROOT_DIR})
-include_directories( $ENV{PARMETIS_INC_DIR})
-link_directories($ENV{PARMETIS_LIB_DIR})
+# Summary of TPLs
+include(FeatureSummary)
+message(" ")
+feature_summary( WHAT ALL
+  INCLUDE_QUIET_PACKAGES
+  FATAL_ON_MISSING_REQUIRED_PACKAGES
+  QUIET_ON_EMPTY )
 
-message("Metis from: " $ENV{METIS_ROOT_DIR})
-include_directories( $ENV{METIS_INC_DIR})
-link_directories($ENV{METIS_LIB_DIR})
+# Summary of user-selectable build options
+message( "\nBuild Summary:\n")
+message( STATUS "Machine name    : ${SITENAME}")
+report_lanl_hpc_features()
+if( ${BRANSON_N_GROUPS} GREATER 1 )
+  message( STATUS "Energy groups   : ${BRANSON_N_GROUPS}")
+else()
+  message( STATUS "Energy groups   : Gray (1-group)")
+endif()
+message( STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message( STATUS "Compiler        : ${CMAKE_CXX_COMPILER}")
+if( CMAKE_CONFIGURATION_TYPES )
+  message( STATUS "Compiler Flags (All)    : ${CMAKE_CXX_FLAGS}")
+  message( STATUS "Compiler Flags (Debug)  : ${CMAKE_CXX_FLAGS_DEBUG}")
+  message( STATUS "Compiler Flags (Release): ${CMAKE_CXX_FLAGS_RELEASE}")
+else()
+  string( TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_UPPER )
+  message( STATUS "Compiler Flags  : ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
+endif()
+message("\n")
 
-###############################################################################
-# boost (headers only)
-# Load boost module to get correct environement variables
-###############################################################################
-message("Boost from: " $ENV{BOOST_ROOT})
-set(Boost_INCLUDE_DIR $ENV{BOOST_ROOT}/include)
-
-include_directories(${Boost_INCLUDE_DIR})
-
-###############################################################################
-# Silo and HDF5 libraries
-# Load modules for hdf5 and solo to get correct environment variables
-# use find package
-###############################################################################
-message("OPTIONAL: Silo from: $ENV{SILO_ROOT_DIR} " )
-include_directories($ENV{SILO_ROOT_DIR}/include)
-link_directories($ENV{SILO_ROOT_DIR}/lib)
-if ("$ENV{SILO_ROOT_DIR}x" STREQUAL "x")
-  set(SILO_FOUND FALSE)
-else ()
-  set(SILO_FOUND TRUE)
-endif ()
-message("OPTIONAL: SILO_FOUND = ${SILO_FOUND}")
-
-find_package(HDF5)
-message("OPTIONAL: HDF5_FOUND = ${HDF5_FOUND}")
-if (${HDF5_FOUND} STREQUAL "TRUE")
-  message("OPTIONAL: HDF5 from: $ENV{HDF5_ROOT_DIR}" )
-  include_directories("$ENV{HDF5_ROOT_DIR}/include")
-  link_directories("$ENV{HDF5_ROOT_DIR}/lib")
-endif ()
-
-if (HDF5_FOUND AND SILO_FOUND)
-  set(VIZ_LIBRARIES_FOUND TRUE)
-else ()
-  message("OPTIONAL: Visualization libraries not loaded...skipping")
-endif ()
-
-###############################################################################
+#------------------------------------------------------------------------------#
 # Set up libraries for Cray RMA routines
-###############################################################################
-#SET(DMAPP_DYNAMIC -Wl,--whole-archive,-ldmapp,--no-whole-archive)
 
-###############################################################################
-# Create config file
-###############################################################################
+# set(DMAPP_DYNAMIC -Wl,--whole-archive,-ldmapp,--no-whole-archive)
+
+#------------------------------------------------------------------------------#
+# Generate config.h
+
 configure_file(config.h.in ${PROJECT_BINARY_DIR}/config.h)
-include_directories(${PROJECT_BINARY_DIR})
 
-###############################################################################
-# Configure executable and link libraries
-###############################################################################
+#------------------------------------------------------------------------------#
+# Targets
+
 add_executable(BRANSON main.cc)
+target_include_directories( BRANSON PRIVATE
+  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> )
+target_link_libraries( BRANSON PUBLIC
+  ParMETIS::parmetis;MPI::MPI_CXX;MPI::MPI_C;METIS::metis )
 
-#add_dependencies(BRANSON caliper_local)
-
-# these lines link the Cray DMAPP library
-#first, create the dynamic version of dmapp library
-#target_link_libraries(BRANSON ${DMAPP_DYNAMIC})
-#then link to it dynamically
-#target_link_libraries(BRANSON dmapp)
-
-#target_link_libraries(BRANSON caliper)
-#target_link_libraries(BRANSON ${CALIPER_INSTALL_DIR}/lib/libcaliper.so)
-target_link_libraries(BRANSON parmetis)
-target_link_libraries(BRANSON metis)
-if (VIZ_LIBRARIES_FOUND)
-  target_link_libraries(BRANSON hdf5)
-  target_link_libraries(BRANSON siloh5)
-endif ()
+#------------------------------------------------------------------------------#
+# Testing
 
 enable_testing()
-
 add_subdirectory(test)
-# Define variables needed to compile and link unit test executables
-get_directory_property(Boost_INCLUDE_DIR DIRECTORY test VARIABLES Boost_INCLUDE_DIR)
-get_directory_property(VIZ_LIBRARIES_FOUND test VARIABLES VIZ_LIBRARIES_FOUND)
-get_directory_property(SITENAME test VARIABLES SITENAME)
 
-#install(TARGETS BRANSON DESTINATION bin)
+#------------------------------------------------------------------------------#
+# Targets for installation
+
+install(TARGETS BRANSON DESTINATION bin)
+
+#------------------------------------------------------------------------------#
+# End src/CMakeLists.txt
+#------------------------------------------------------------------------------#
