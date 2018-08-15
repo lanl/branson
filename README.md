@@ -2,7 +2,7 @@ Branson
 ----------------
 
 [![Linux Build Status](https://travis-ci.org/lanl/branson.svg?branch=develop)](https://travis-ci.org/lanl/branson)
-[![Windows Build Status](https://ci.appveyor.com/api/projects/status/yp8r9jxl2gc9n1fs/branch/develop?svg=true)](https://ci.appveyor.com/project/lanl/branson)
+[![Windows Build Status](https://ci.appveyor.com/api/projects/status/xxxx/branch/develop?svg=true)](https://ci.appveyor.com/project/lanl/branson)
 [![codecov.io](https://codecov.io/github/lanl/branson/coverage.svg?branch=develop)](https://codecov.io/github/lanl/branson/branch/develop)
 [![Latest Version](https://img.shields.io/github/release/lanl/branson.svg?style=flat-square)](https://github.com/lanl/branson/releases)
 [![PyPI](https://img.shields.io/pypi/l/Django.svg)](https://github.com/lanl/branson/blob/develop/LICENSE.md)
@@ -65,6 +65,13 @@ EXPORT CXX=`which g++`
 cd $build_dir
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<install-location> ${branson_source_dir}/src
 make -j
+```
+
+Testing the build:
+
+```
+cd $build_dir
+ctest -j 32
 ```
 
 ## Special builds
