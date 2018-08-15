@@ -85,14 +85,6 @@ macro(setupTPLs)
 
 endif()
 
-  # message("ParMetis from: " $ENV{ParMETIS_ROOT_DIR})
-  # include_directories( $ENV{PARMETIS_INC_DIR})
-  # link_directories($ENV{PARMETIS_LIB_DIR})
-
-  # message("Metis from: " $ENV{METIS_ROOT_DIR})
-  # include_directories( $ENV{METIS_INC_DIR})
-  # link_directories($ENV{METIS_LIB_DIR})
-
   ###############################################################################
   # boost (headers only)
   # Load boost module to get correct environement variables
@@ -118,10 +110,6 @@ endif()
    non-commercial use.")
 
   endif()
-
-  # message("Boost from: " $ENV{BOOST_ROOT})
-  # set(Boost_INCLUDE_DIR $ENV{BOOST_ROOT}/include)
-  # include_directories(${Boost_INCLUDE_DIR})
 
   ##############################################################################
   # Silo and HDF5 libraries
@@ -171,48 +159,11 @@ endif()
 
   endif()
 
-  # message("OPTIONAL: Silo from: $ENV{SILO_ROOT_DIR} " )
-  # include_directories($ENV{SILO_ROOT_DIR}/include)
-  # link_directories($ENV{SILO_ROOT_DIR}/lib)
-  # if ("$ENV{SILO_ROOT_DIR}x" STREQUAL "x")
-  #   set(SILO_FOUND FALSE)
-  # else ()
-  #   set(SILO_FOUND TRUE)
-  # endif ()
-  # message("OPTIONAL: SILO_FOUND = ${SILO_FOUND}")
-
-  # find_package(HDF5)
-  # message("OPTIONAL: HDF5_FOUND = ${HDF5_FOUND}")
-  # if (${HDF5_FOUND} STREQUAL "TRUE")
-  #   message("OPTIONAL: HDF5 from: $ENV{HDF5_ROOT_DIR}" )
-  #   include_directories("$ENV{HDF5_ROOT_DIR}/include")
-  #   link_directories("$ENV{HDF5_ROOT_DIR}/lib")
-  # endif ()
-
   if (HDF5_FOUND AND Silo_FOUND)
     set(VIZ_LIBRARIES_FOUND TRUE)
   else ()
     message(STATUS "Optional visualization libraries not loaded...skipping")
   endif ()
-
-
-#add_dependencies(BRANSON caliper_local)
-
-# these lines link the Cray DMAPP library
-#first, create the dynamic version of dmapp library
-#target_link_libraries(BRANSON ${DMAPP_DYNAMIC})
-#then link to it dynamically
-#target_link_libraries(BRANSON dmapp)
-
-#target_link_libraries(BRANSON caliper)
-#target_link_libraries(BRANSON ${CALIPER_INSTALL_DIR}/lib/libcaliper.so)
-# target_link_libraries(BRANSON parmetis)
-# target_link_libraries(BRANSON metis)
-# if (VIZ_LIBRARIES_FOUND)
-#   target_link_libraries(BRANSON hdf5)
-#   target_link_libraries(BRANSON siloh5)
-# endif ()
-
 
 endmacro()
 
