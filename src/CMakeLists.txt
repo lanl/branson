@@ -69,9 +69,9 @@ endif ()
 
 # add compiler flags
 if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
-  #set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
+  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
-  #set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
+  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
 endif()
 
 #------------------------------------------------------------------------------#

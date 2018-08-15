@@ -61,7 +61,7 @@ Installing Branson:
   default is Release.
 
 ```
-EXPORT CXX=`which mpic++`
+EXPORT CXX=`which g++`
 cd $build_dir
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=<install-location> ${branson_source_dir}/src
 make -j
