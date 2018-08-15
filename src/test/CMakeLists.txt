@@ -26,8 +26,7 @@ function( add_branson_test )
   add_executable( ${build_target} ${abt_SOURCE} )
   target_include_directories( ${build_target} PRIVATE
     $<BUILD_INTERFACE:${BRANSON_BINARY_DIR}> )
-  target_link_libraries( ${build_target} PUBLIC
-    ParMETIS::parmetis;MPI::MPI_CXX;MPI::MPI_C;METIS::metis )
+  target_link_libraries( ${build_target} PUBLIC ${branson_deps} )
 
   # Register the test command with ctest.
   foreach( np ${abt_PE_LIST} )
@@ -76,15 +75,16 @@ foreach( ifile ${inputfiles} )
   configure_file(${ifile} ${CMAKE_CURRENT_BINARY_DIR}/${ifile} COPYONLY)
 endforeach()
 
-# # write_silo function test
-# if (VIZ_LIBRARIES_FOUND)
-#   add_executable(test_write_silo_exe test_write_silo.cc)
-#   target_link_libraries(test_write_silo_exe parmetis)
-#   target_link_libraries(test_write_silo_exe metis)
-#   target_link_libraries(test_write_silo_exe hdf5)
-#   target_link_libraries(test_write_silo_exe siloh5)
-#   add_test(NAME test_write_silo COMMAND ${MPI_EXEC} -n 1 ./test_write_silo_exe)
-# endif ()
+#------------------------------------------------------------------------------#
+# write_silo function test
+if (VIZ_LIBRARIES_FOUND)
+  # KT - comment out for now due to compile error:
+  #
+  # test/test_write_silo.cc(53): error #165: too few arguments in function call
+  #    decompose_mesh(mesh, mpi_types, mpi_info, grip_size);
+  #                                                       ^
+  # add_branson_test( SOURCE test_write_silo.cc "1")
+endif()
 
 #------------------------------------------------------------------------------#
 # End test/CMakeLists.txt
