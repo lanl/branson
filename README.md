@@ -59,7 +59,15 @@ Installing Branson:
 - There is only one CMake user option right now: `CMAKE_BUILD_TYPE` which can be
   set on the command line with `-DCMAKE_BUILD_TYPE=<Debug|Release>` and the
   default is Release.
-
+- If cmake has trouble finding your installed TPLs, you can try
+  - appending their locations to `CMAKE_PREFIX_PATH`,
+  - Setting helper variables like `BOOST_ROOT` or `HDF5_ROOT` (refer to the
+    [cmake
+    documentation](https://cmake.org/cmake/help/latest/module/FindHDF5.html?highlight=findhdf5)
+    or the `FindXXX.cmake` scripts in Branson's `src/config` directory for a
+    list of variables), or
+  - try running `ccmake .` from the build directory and changing the values of
+    build system variables related to TPL locations.
 ```
 EXPORT CXX=`which g++`
 cd $build_dir
