@@ -50,6 +50,7 @@
 
 #include "config.h"
 #include "constants.h"
+#include "mpi.h"
 #include "region.h"
 
 //==============================================================================
@@ -68,25 +69,29 @@ public:
   Input(std::string fileName)
       : using_simple_mesh(false), using_detailed_mesh(false) {
     using boost::property_tree::ptree;
-    using Constants::VACUUM;
-    using Constants::REFLECT;
     using Constants::ELEMENT;
-    using Constants::X_POS;
-    using Constants::Y_POS;
-    using Constants::Z_POS;
+    using Constants::REFLECT;
+    using Constants::VACUUM;
     using Constants::X_NEG;
+    using Constants::X_POS;
     using Constants::Y_NEG;
+    using Constants::Y_POS;
     using Constants::Z_NEG;
+    using Constants::Z_POS;
     // DD methods
-    using Constants::PARTICLE_PASS;
     using Constants::CELL_PASS;
     using Constants::CELL_PASS_RMA;
-    using Constants::REPLICATED;
-    using Constants::PARMETIS;
     using Constants::CUBE;
+    using Constants::PARMETIS;
+    using Constants::PARTICLE_PASS;
+    using Constants::REPLICATED;
     using std::cout;
     using std::endl;
     using std::vector;
+
+    // this is just use to print wanrings for the head node
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     uint32_t x_key, y_key, z_key, key;
     // initialize nunmber of divisions in each dimension to zero
@@ -163,8 +168,10 @@ public:
         else if (tempString == "REPLICATED")
           dd_mode = REPLICATED;
         else {
-          cout << "WARNING: Domain decomposition method not recognized... ";
-          cout << "setting to PARTICLE PASSING method" << endl;
+          if (rank == 0) {
+            cout << "WARNING: Domain decomposition method not recognized... ";
+            cout << "setting to PARTICLE PASSING method" << endl;
+          }
           dd_mode = PARTICLE_PASS;
         }
 
@@ -176,13 +183,17 @@ public:
         else if (tempString == "CUBE")
           decomp_mode = CUBE;
         else {
-          cout << "WARNING: Mesh decomposition method not recognized... ";
-          cout << "setting to PARMETIS method" << endl;
+          if (rank == 0) {
+            cout << "WARNING: Mesh decomposition method not recognized... ";
+            cout << "setting to PARMETIS method" << endl;
+          }
           decomp_mode = PARMETIS;
         }
         if (dd_mode == REPLICATED) {
-          std::cout << "Replicated transport mode, mesh decomposition method";
-          std::cout << " ignored" << std::endl;
+          if (rank == 0) {
+            std::cout << "Replicated transport mode, mesh decomposition method";
+            std::cout << " ignored" << std::endl;
+          }
         }
       } // end common
 
@@ -458,13 +469,13 @@ public:
     using std::cout;
     using std::endl;
     // DD methods
-    using Constants::PARTICLE_PASS;
     using Constants::CELL_PASS;
     using Constants::CELL_PASS_RMA;
+    using Constants::PARTICLE_PASS;
     using Constants::REPLICATED;
     // mesh decomposition
-    using Constants::PARMETIS;
     using Constants::CUBE;
+    using Constants::PARMETIS;
 
     cout << "Problem Specifications:";
     cout << "Constants -- c: " << c << " (cm/sh) , a: " << a << endl;
@@ -553,10 +564,12 @@ public:
     }
 
     cout << "Mesh decomposition: ";
-    if (decomp_mode == PARMETIS)
+    if (decomp_mode == PARMETIS && dd_mode != REPLICATED)
       cout << "PARMETIS" << endl;
-    else if (decomp_mode == CUBE)
+    else if (decomp_mode == CUBE && dd_mode != REPLICATED)
       cout << "CUBE" << endl;
+    else if (dd_mode == REPLICATED)
+      cout << "N/A (no decomposition in replicated mode)" << std::endl;
     else {
       cout << "ERROR: Decomposition mode not specified correctly. Exiting...";
       exit(EXIT_FAILURE);

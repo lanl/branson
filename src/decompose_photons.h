@@ -47,8 +47,8 @@ void print_MPI_photons(const std::vector<Photon> &phtn_vec,
 
 std::vector<Photon> rebalance_census(std::vector<Photon> &off_rank_census,
                                      Mesh *mesh, MPI_Types *mpi_types) {
-  using std::unordered_map;
   using std::sort;
+  using std::unordered_map;
   using std::vector;
 
   int rank, n_rank;
@@ -144,8 +144,8 @@ std::vector<Photon> rebalance_census(std::vector<Photon> &off_rank_census,
 
 std::vector<Photon> rebalance_raw_census(std::vector<Photon> &census,
                                          Mesh *mesh, MPI_Types *mpi_types) {
-  using std::unordered_map;
   using std::sort;
+  using std::unordered_map;
   using std::vector;
 
   int rank, n_rank;
@@ -281,7 +281,6 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon> &census,
 
   index = 0;
   for (auto &ir : acceptor_ranks) {
-    int start_copy = rank_start[ir];
     MPI_Isend(&census[rank_start[ir]], n_census_on_rank[ir], MPI_Particle, ir,
               0, MPI_COMM_WORLD, &s_reqs[index]);
     index++;
