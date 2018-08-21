@@ -85,6 +85,33 @@ macro(setupTPLs)
 
 endif()
 
+  ###############################################################################
+  # boost (headers only)
+  # Load boost module to get correct environement variables
+  ###############################################################################
+  if( NOT TARGET Boost::boost )
+
+    message( STATUS "Looking for Boost..." )
+    find_package( Boost QUIET REQUIRED )
+    if( Boost_FOUND )
+      message( STATUS "Looking for Boost..found ${Boost_INCLUDE_DIRS}" )
+      include_directories(${Boost_INCLUDE_DIRS})
+    else()
+      message( STATUS "Looking for Boost..not found" )
+    endif()
+
+    set_package_properties( Boost PROPERTIES
+      DESCRIPTION "Boost provides free peer-reviewed portable C++ source libraries."
+      TYPE REQUIRED
+      URL "http://www.boost.org"
+      PURPOSE "Boost provides free peer-reviewed portable C++ source libraries,
+   emphasizing libraries that work well with the C++ Standard Library.  Boost
+   libraries are intended to be widely useful, and usable across a broad
+   spectrum of applications. The Boost license encourages both commercial and
+   non-commercial use.")
+
+  endif()
+
   ##############################################################################
   # Silo and HDF5 libraries
   # Load modules for hdf5 and solo to get correct environment variables
