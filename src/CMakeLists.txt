@@ -53,7 +53,7 @@ set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
 set( CMAKE_C_STANDARD 11 )
 
 # C++14 support:
-set( CMAKE_CXX_STANDARD 14 )
+set( CMAKE_CXX_STANDARD 11 )
 set( CXX_STANDARD_REQUIRED ON )
 
 # Do not enable extensions (e.g.: --std=gnu++11)
@@ -74,6 +74,9 @@ if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
+elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
+  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -DR123_USE_GNU_UINT128=0")
+  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DR123_USE_GNU_UINT128=0")
 endif()
 
 #------------------------------------------------------------------------------#
