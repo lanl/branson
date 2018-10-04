@@ -74,7 +74,6 @@ public:
     m_RNG->set_seed(input->get_rng_seed() + rank * 4106);
 
     rank_transport_runtime = 0.0;
-    rank_mpi_time = 0.0;
     rank_rebalance_time = 0.0;
     rank_load_balance_time = 0.0;
   }
@@ -169,9 +168,6 @@ public:
   //! Get transport time for this rank on current timestep
   double get_rank_transport_runtime(void) { return rank_transport_runtime; }
 
-  //! Get MPI time for this rank on current timestep
-  double get_rank_mpi_time(void) { return rank_mpi_time; }
-
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
   //--------------------------------------------------------------------------//
@@ -194,8 +190,6 @@ public:
     double g_post_mat_E = 0.0;
     double g_exit_E = 0.0;
     // timing values
-    double max_mpi_time = 0.0;
-    double min_mpi_time = 0.0;
     double max_transport_time = 0.0;
     double min_transport_time = 0.0;
     double max_rebalance_time = 0.0;
@@ -233,10 +227,6 @@ public:
                   MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&rank_transport_runtime, &min_transport_time, 1, MPI_DOUBLE,
                   MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(&rank_mpi_time, &max_mpi_time, 1, MPI_DOUBLE, MPI_MAX,
-                  MPI_COMM_WORLD);
-    MPI_Allreduce(&rank_mpi_time, &min_mpi_time, 1, MPI_DOUBLE, MPI_MIN,
-                  MPI_COMM_WORLD);
     MPI_Allreduce(&rank_rebalance_time, &max_rebalance_time, 1, MPI_DOUBLE,
                   MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&rank_rebalance_time, &min_rebalance_time, 1, MPI_DOUBLE,
@@ -306,8 +296,6 @@ public:
       }
       cout << "Transport time max/min: " << max_transport_time << "/";
       cout << min_transport_time << endl;
-      cout << "Transport MPI time max/min: " << max_mpi_time << "/";
-      cout << min_mpi_time << endl;
       if (dd_type != PARTICLE_PASS && dd_type != REPLICATED) {
         cout << "Census Rebalance time max/min: " << max_rebalance_time << "/";
         cout << min_rebalance_time << endl;
@@ -381,11 +369,6 @@ public:
     rank_transport_runtime = _rank_transport_runtime;
   }
 
-  //! Set MPI time for this timestep
-  void set_rank_mpi_time(double _rank_mpi_time) {
-    rank_mpi_time = _rank_mpi_time;
-  }
-
   //! Set load balance time for this timestep
   void set_rank_rebalance_time(double _rebalance_time) {
     rank_rebalance_time = _rebalance_time;
@@ -450,7 +433,6 @@ private:
   uint64_t step_receives_completed; //!< Number of received messages completed
 
   double rank_transport_runtime; //!< Transport step runtime for this rank
-  double rank_mpi_time;       //!< Time set in MPI related calls for this rank
   double rank_rebalance_time; //!< Time to rebalance census after transport
 
   //! Time to load balance particles this timestep

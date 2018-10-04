@@ -65,7 +65,6 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
 
   // timing
   Timer t_transport;
-  Timer t_mpi;
   Timer t_rebalance_census;
   t_transport.start_timer("timestep transport");
 
@@ -112,9 +111,7 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
       if (event == CENSUS)
         census_list.push_back(phtn);
       else if (event == WAIT) {
-        t_mpi.start_timer("timestep mpi");
         rma_manager.request_cell_rma(phtn.get_grip(), mctr);
-        t_mpi.stop_timer("timestep mpi");
         wait_list.push(phtn);
       }
       n--;
@@ -125,12 +122,10 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
     tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
 
     // process mesh requests
-    t_mpi.start_timer("timestep mpi");
     new_cells = rma_manager.process_rma_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data)
       mesh->add_non_local_mesh_cells(new_cells);
-    t_mpi.stop_timer("timestep mpi");
     // if data was received, try to transport photons on waiting list
     if (new_data) {
       wait_list_size = wait_list.size();
@@ -149,10 +144,8 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
         if (event == CENSUS)
           census_list.push_back(phtn);
         else if (event == WAIT) {
-          t_mpi.start_timer("timestep mpi");
           rma_manager.request_cell_rma(phtn.get_grip(), mctr);
           wait_list.push(phtn);
-          t_mpi.stop_timer("timestep mpi");
         }
       } // end wp in wait_list
     }   // end if no data
@@ -165,7 +158,6 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
   wait_list_size = wait_list.size();
   while (!wait_list.empty()) {
 
-    t_mpi.start_timer("timestep mpi");
 
     // process off rank tally data don't force send
     bool force_send = false;
@@ -177,7 +169,6 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
     if (new_data)
       mesh->add_non_local_mesh_cells(new_cells);
 
-    t_mpi.stop_timer("timestep mpi");
 
     // if new data received or there are no active mesh requests, try to
     // transport waiting list (it could be that there are no active memory
@@ -199,10 +190,8 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
         if (event == CENSUS)
           census_list.push_back(phtn);
         else if (event == WAIT) {
-          t_mpi.start_timer("timestep mpi");
           rma_manager.request_cell_rma(phtn.get_grip(), mctr);
           wait_list.push(phtn);
-          t_mpi.stop_timer("timestep mpi");
         }
       } // end wp in wait_list
     }   // end if new_data
@@ -240,7 +229,6 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
       rebalance_raw_census(census_list, mesh, mpi_types);
   t_rebalance_census.stop_timer("timestep rebalance_census");
 
-  imc_state->set_rank_mpi_time(t_mpi.get_time("timestep mpi"));
   imc_state->set_rank_rebalance_time(
       t_rebalance_census.get_time("timestep rebalance_census"));
 

@@ -195,7 +195,6 @@ std::vector<Photon> mesh_pass_transport(
 
   // timing
   Timer t_transport;
-  Timer t_mpi;
   Timer t_rebalance_census;
   t_transport.start_timer("timestep transport");
 
@@ -244,9 +243,7 @@ std::vector<Photon> mesh_pass_transport(
       if (event == CENSUS) {
         census_list.push_back(phtn);
       } else if (event == WAIT) {
-        t_mpi.start_timer("timestep mpi");
         req_manager.request_cell(phtn.get_grip(), mctr);
-        t_mpi.stop_timer("timestep mpi");
         wait_list.push(phtn);
       }
       n--;
@@ -257,12 +254,10 @@ std::vector<Photon> mesh_pass_transport(
     tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
 
     // process mesh requests
-    t_mpi.start_timer("timestep mpi");
     new_cells = req_manager.process_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data)
       mesh->add_non_local_mesh_cells(new_cells);
-    t_mpi.stop_timer("timestep mpi");
     // if data was received, try to transport photons on waiting list
     if (new_data) {
       wait_list_size = wait_list.size();
@@ -281,9 +276,7 @@ std::vector<Photon> mesh_pass_transport(
         if (event == CENSUS) {
           census_list.push_back(phtn);
         } else if (event == WAIT) {
-          t_mpi.start_timer("timestep mpi");
           req_manager.request_cell(phtn.get_grip(), mctr);
-          t_mpi.stop_timer("timestep mpi");
           wait_list.push(phtn);
         }
       } // end wp in wait_list
@@ -295,7 +288,6 @@ std::vector<Photon> mesh_pass_transport(
   //--------------------------------------------------------------------------//
   while (!wait_list.empty()) {
 
-    t_mpi.start_timer("timestep mpi");
     // process off rank tally data don't force send
     bool force_send = false;
     tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
@@ -305,8 +297,6 @@ std::vector<Photon> mesh_pass_transport(
     new_data = !new_cells.empty();
     if (new_data)
       mesh->add_non_local_mesh_cells(new_cells);
-
-    t_mpi.stop_timer("timestep mpi");
 
     // if new data received, transport waiting list
     if (new_data || req_manager.no_active_requests()) {
@@ -326,9 +316,7 @@ std::vector<Photon> mesh_pass_transport(
         if (event == CENSUS) {
           census_list.push_back(phtn);
         } else if (event == WAIT) {
-          t_mpi.start_timer("timestep mpi");
           req_manager.request_cell(phtn.get_grip(), mctr);
-          t_mpi.stop_timer("timestep mpi");
           wait_list.push(phtn);
         }
       }
@@ -388,7 +376,6 @@ std::vector<Photon> mesh_pass_transport(
       rebalance_raw_census(census_list, mesh, mpi_types);
   t_rebalance_census.stop_timer("timestep rebalance_census");
 
-  imc_state->set_rank_mpi_time(t_mpi.get_time("timestep mpi"));
   imc_state->set_rank_rebalance_time(
       t_rebalance_census.get_time("timestep rebalance_census"));
 

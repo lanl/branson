@@ -173,7 +173,6 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
 
   // timing
   Timer t_transport;
-  Timer t_mpi;
   t_transport.start_timer("timestep transport");
 
   // Number of particles to run between MPI communication
@@ -284,7 +283,6 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
         n_complete++;
         break;
       case PASS:
-        t_mpi.start_timer("timestep mpi");
         send_rank = mesh->get_rank(phtn.get_cell());
         int i_b = adjacent_procs[send_rank];
         send_list[i_b].push_back(phtn);
@@ -317,7 +315,6 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
           mctr.n_sends_posted++;
           mctr.n_particle_messages++;
         }
-        t_mpi.stop_timer("timestep mpi");
         break;
       }
       n--;
@@ -328,7 +325,6 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
     //------------------------------------------------------------------------//
     // process photon send and receives
     //------------------------------------------------------------------------//
-    t_mpi.start_timer("timestep mpi");
     {
       int send_req_flag;
       int recv_req_flag;
@@ -422,8 +418,6 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
       }
     }
 
-    t_mpi.stop_timer("timestep mpi");
-
   } // end while
 
   // record time of transport work for this rank
@@ -477,7 +471,6 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
   imc_state->set_network_message_counts(mctr);
   imc_state->set_rank_transport_runtime(
       t_transport.get_time("timestep transport"));
-  imc_state->set_rank_mpi_time(t_mpi.get_time("timestep mpi"));
 
   return census_list;
 }

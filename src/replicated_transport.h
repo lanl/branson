@@ -56,7 +56,6 @@ std::vector<Photon> replicated_transport( Source& source,
 
   // timing
   Timer t_transport;
-  Timer t_mpi;
   t_transport.start_timer("timestep transport");
 
   // get global photon count
@@ -122,7 +121,6 @@ std::vector<Photon> replicated_transport( Source& source,
   imc_state->set_network_message_counts(mctr);
   imc_state->set_rank_transport_runtime(
     t_transport.get_time("timestep transport"));
-  imc_state->set_rank_mpi_time(t_mpi.get_time("timestep mpi"));
 
   return census_list;
 }
