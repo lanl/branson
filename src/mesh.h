@@ -731,7 +731,7 @@ public:
 
   //! Add off-rank mesh data to the temporary mesh storage and manage the
   // temporary mesh
-  void add_non_local_mesh_cells(std::vector<Cell> new_recv_cells) {
+  void add_non_local_mesh_cells(std::vector<Cell> &new_recv_cells) {
     using std::advance;
     using std::unordered_map;
 

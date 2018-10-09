@@ -97,7 +97,7 @@ void imc_mesh_pass_driver(Mesh *mesh, IMC_State *imc_state,
     t_lb.stop_timer("load balance");
     imc_state->set_load_balance_time(t_lb.get_time("load balance"));
 
-    vector<Cell> new_cells = req_manager.process_mesh_requests(mctr);
+    vector<Cell> &new_cells = req_manager.process_mesh_requests(mctr);
     if (!new_cells.empty())
       mesh->add_non_local_mesh_cells(new_cells);
 

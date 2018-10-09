@@ -27,7 +27,7 @@ This is ${CMAKE_PROJECT_NAME} v. ${PROJECT_VERSION}.
 # User configurable options
 
 set (BRANSON_N_GROUPS ${N_GROUPS})
-if ("${BRANSON_N_GROUPS}x" STREQUAL "x")
+if (NOT BRANSON_N_GROUPS)
   message(STATUS
     "HARDCODED NUMBER OF GROUPS NOT SET, DEFAULTING TO ONE GROUP (GRAY)
      use '-DN_GROUPS=<int>' when running cmake to select multigroup.\n")
@@ -36,7 +36,7 @@ else ()
   message(STATUS
     "HARDCODED NUMBER OF GROUPS SET TO ${BRANSON_N_GROUPS} (FAUX MULTIGROUP)\n")
 endif()
-set(BRANSON_N_GROUPS "1" CACHE STRING "Number of energy groups." FORCE)
+set(BRANSON_N_GROUPS ${BRANSON_N_GROUPS} CACHE STRING "Number of energy groups." FORCE)
 
 #------------------------------------------------------------------------------#
 # Record the site name

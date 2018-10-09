@@ -200,7 +200,6 @@ std::vector<Photon> mesh_pass_transport(
 
   // New data flag is initially false
   bool new_data = false;
-  std::vector<Cell> new_cells; // New cells from completed RMA requests
 
   // Number of particles to run between MPI communication
   const uint32_t batch_size = imc_parameters->get_batch_size();
@@ -254,7 +253,7 @@ std::vector<Photon> mesh_pass_transport(
     tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
 
     // process mesh requests
-    new_cells = req_manager.process_mesh_requests(mctr);
+    std::vector<Cell> &new_cells = req_manager.process_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data)
       mesh->add_non_local_mesh_cells(new_cells);
@@ -293,7 +292,7 @@ std::vector<Photon> mesh_pass_transport(
     tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
 
     // process mesh requests
-    new_cells = req_manager.process_mesh_requests(mctr);
+    std::vector<Cell> &new_cells = req_manager.process_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data)
       mesh->add_non_local_mesh_cells(new_cells);
