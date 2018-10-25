@@ -125,7 +125,7 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
     new_cells = rma_manager.process_rma_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data)
-      mesh->add_non_local_mesh_cells(new_cells);
+      mesh->add_non_local_mesh_cells(new_cells, rma_manager.get_n_new_cells());
     // if data was received, try to transport photons on waiting list
     if (new_data) {
       wait_list_size = wait_list.size();
@@ -167,7 +167,7 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
     new_cells = rma_manager.process_rma_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data)
-      mesh->add_non_local_mesh_cells(new_cells);
+      mesh->add_non_local_mesh_cells(new_cells, rma_manager.get_n_new_cells());
 
 
     // if new data received or there are no active mesh requests, try to

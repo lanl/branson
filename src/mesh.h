@@ -686,6 +686,7 @@ public:
 
       mpi_window_set = true;
       cell_list.clear();
+      cell_list.shrink_to_fit();
     }
   }
 
@@ -731,27 +732,25 @@ public:
 
   //! Add off-rank mesh data to the temporary mesh storage and manage the
   // temporary mesh
-  void add_non_local_mesh_cells(std::vector<Cell> &new_recv_cells) {
+  void add_non_local_mesh_cells(std::vector<Cell> &new_recv_cells, const int n_new_cells) {
     using std::advance;
     using std::unordered_map;
 
-    // if new_recv_cells is bigger than maximum map size truncate it
-    if (new_recv_cells.size() > max_map_size) {
-      new_recv_cells.erase(new_recv_cells.begin() + max_map_size,
-                           new_recv_cells.end());
-    }
+    // if new_recv_cells is bigger than maximum map size something went wrong 
+    if (n_new_cells > max_map_size)
+      std::cout<<"This is bad: new cells vector too big"<<std::endl;
 
     // remove a chunk of working mesh data if the new cells won't fit
     uint32_t stored_cell_size = stored_cells.size();
-    if (stored_cell_size + new_recv_cells.size() > max_map_size) {
+    if (stored_cell_size + n_new_cells > max_map_size) {
       // remove enough cells so all new cells will fit
       unordered_map<uint32_t, Cell>::iterator i_start = stored_cells.begin();
-      advance(i_start, max_map_size - new_recv_cells.size());
+      advance(i_start, max_map_size - n_new_cells);
       stored_cells.erase(i_start, stored_cells.end());
     }
 
     // add received cells to the stored_cells map
-    for (uint32_t i = 0; i < new_recv_cells.size(); i++) {
+    for (int i = 0; i < n_new_cells; i++) {
       uint32_t index = new_recv_cells[i].get_ID();
       stored_cells[index] = new_recv_cells[i];
     }

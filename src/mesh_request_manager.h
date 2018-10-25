@@ -42,7 +42,8 @@ class Mesh_Request_Manager
   //! constructor
   Mesh_Request_Manager(const int& _rank,
     const std::vector<uint32_t>& _rank_bounds, const uint32_t _grip_size, 
-    MPI_Types * mpi_types, const Cell * const _cells)
+    const uint32_t _max_new_cells, MPI_Types * mpi_types, 
+    const Cell * const _cells)
   : rank_bounds(_rank_bounds),
     MPI_Cell(mpi_types->get_cell_type()),
     cells(_cells),
@@ -50,7 +51,9 @@ class Mesh_Request_Manager
     rank_start(rank_bounds[_rank]),
     rank_end(rank_bounds[_rank+1]),
     max_reqs(10),
-    max_ids(10)
+    max_ids(10),
+    max_cells(max_ids*_grip_size),
+    max_new_cells(_max_new_cells)
   {
     using std::vector;
 
@@ -79,8 +82,15 @@ class Mesh_Request_Manager
     r_cell_count = 0;
 
     // resize buffers for receiving IDs to max ID size
-    for (uint32_t i=0;i<max_reqs;++i)
+    for (uint32_t i=0;i<max_reqs;++i) {
       r_id_buffers[i].resize(max_ids);
+      r_cell_buffers[i].resize(max_cells);
+      s_cell_buffers[i].resize(max_cells);
+    }
+
+    // size to maximum and carry a size to avoid constant resizing
+    new_cells.resize(max_new_cells);
+    n_new_cells = 0;
 
     complete_indices = vector<int> (max_reqs);
   }
@@ -95,6 +105,11 @@ class Mesh_Request_Manager
   //! Check to see if mesh has already been requestsed
   bool mesh_is_requested(uint32_t g_index) const {
     return ids_requested.find(g_index) != ids_requested.end();
+  }
+
+  //! Get the nubmer of new cells
+  int get_n_new_cells(void) const {
+    return n_new_cells;
   }
 
   //! Search rank bounds to get remote mesh owner's rank
@@ -213,7 +228,8 @@ class Mesh_Request_Manager
     }
 
     // test receives for remote mesh
-    new_cells.clear();
+    int32_t new_copy_index = 0;
+    n_new_cells = 0;
 
     // test all receives for needed cells
     if (!r_cell_in_use.empty()) {
@@ -235,10 +251,14 @@ class Mesh_Request_Manager
 
         // copy actual number of received cells from the buffer to the
         // new_cells vector
+        if (new_copy_index + n_cell_recv > max_new_cells)
+          n_cell_recv = max_new_cells - new_copy_index;
         std::vector<Cell>& complete_cells =
           r_cell_buffers[comp_index].get_object();
-        new_cells.insert(new_cells.begin(), complete_cells.begin(),
-          complete_cells.begin() + n_cell_recv);
+        std::copy(complete_cells.begin(), complete_cells.begin() + n_cell_recv,
+          new_cells.begin() + new_copy_index);
+        new_copy_index += n_cell_recv;
+        n_new_cells += n_cell_recv;
 
         // erase the receives IDs from the request list
         const std::vector<uint32_t>& receive_ids =
@@ -277,18 +297,16 @@ class Mesh_Request_Manager
           &s_id_reqs[s_id_index]);
         mctr.n_sends_posted++;
 
-        // size the receive buffer to maximum possible size
+        // get next receive index
         uint32_t r_cell_index =
           get_next_receive_cell_request_and_buffer_index();
-        uint32_t recv_size = grip_size*send_ids.size();
-        r_cell_buffers[r_cell_index].resize(recv_size);
 
         // post receive with number of grips in the tag and store request for
         // testing
         int custom_tag = cell_tag + send_ids.size();
         r_cell_buffers[r_cell_index].set_grip_IDs(send_ids);
 
-        MPI_Irecv(r_cell_buffers[r_cell_index].get_buffer(), recv_size, MPI_Cell,
+        MPI_Irecv(r_cell_buffers[r_cell_index].get_buffer(), max_cells, MPI_Cell,
           off_rank, custom_tag, MPI_COMM_WORLD, &r_cell_reqs[r_cell_index]);
         mctr.n_receives_posted++;
 
@@ -330,9 +348,11 @@ class Mesh_Request_Manager
         // pop off elements to get to actual receive size
         while (send_ids.size() > n_ids) send_ids.pop_back();
 
+        // get next available request and buffer, fill buffer
+        uint32_t s_cell_index = get_next_send_cell_request_and_buffer_index();
+
         // fill vector with all cells requested by off rank
-        std::vector<Cell> send_cells;
-        send_cells.resize(n_ids*grip_size);
+        std::vector<Cell> &send_cells = s_cell_buffers[s_cell_index].get_object();
         uint32_t copy_index = 0;
         uint32_t n_cells_to_send = 0;
         uint32_t start_index;
@@ -355,18 +375,14 @@ class Mesh_Request_Manager
 
           if (g_index > rank_bounds.back())
             std::cout<<"this is bad: g index > bounds"<<std::endl;
-          uint32_t n_bytes = sizeof(Cell)*n_cells_to_copy;
+          if (n_cells_to_send + n_cells_to_copy > max_cells)
+            n_cells_to_copy = max_cells - n_cells_to_send; 
+
           n_cells_to_send+=n_cells_to_copy;
-          memcpy(&send_cells[copy_index],&cells[start_index], n_bytes);
+          std::copy(&cells[start_index], &cells[start_index]+n_cells_to_copy, 
+            send_cells.begin() + copy_index);
           copy_index+=n_cells_to_copy;
         } // end grip cell copy
-
-        // truncate send vector to actual size
-        while(send_cells.size() > n_cells_to_send) send_cells.pop_back();
-
-        // get next available request and buffer, fill buffer, post send
-        uint32_t s_cell_index = get_next_send_cell_request_and_buffer_index();
-        s_cell_buffers[s_cell_index].fill(send_cells);
 
         // send with a custom tag with the number of grips in message
         int custom_tag = cell_tag + n_ids;
@@ -463,6 +479,8 @@ class Mesh_Request_Manager
 
   const uint32_t max_reqs; //! Maximum number of concurrent requests
   const uint32_t max_ids; //! Maximum number of IDs in a request
+  const uint32_t max_cells; //! Maximum number of cells in a request
+  const uint32_t max_new_cells; //! Maximum number of new cells (map size)
 
   // send id variables
   std::vector<MPI_Request> s_id_reqs;
@@ -500,6 +518,7 @@ class Mesh_Request_Manager
   int n_req_complete; //! Number of completed requests after MPI_Testsome
 
   std::vector<Cell> new_cells; //! New cells after MPI_Testsome
+  int n_new_cells; //! Number of new cells after MPI_Testsome
 
   //! Stores global IDs of requested cells
   std::unordered_set<uint32_t> ids_requested;

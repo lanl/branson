@@ -254,9 +254,8 @@ std::vector<Photon> mesh_pass_transport(
 
     // process mesh requests
     std::vector<Cell> &new_cells = req_manager.process_mesh_requests(mctr);
-    new_data = !new_cells.empty();
-    if (new_data)
-      mesh->add_non_local_mesh_cells(new_cells);
+    if (req_manager.get_n_new_cells() > 0)
+      mesh->add_non_local_mesh_cells(new_cells, req_manager.get_n_new_cells());
     // if data was received, try to transport photons on waiting list
     if (new_data) {
       wait_list_size = wait_list.size();
@@ -293,9 +292,8 @@ std::vector<Photon> mesh_pass_transport(
 
     // process mesh requests
     std::vector<Cell> &new_cells = req_manager.process_mesh_requests(mctr);
-    new_data = !new_cells.empty();
-    if (new_data)
-      mesh->add_non_local_mesh_cells(new_cells);
+    if (req_manager.get_n_new_cells() > 0)
+      mesh->add_non_local_mesh_cells(new_cells, req_manager.get_n_new_cells());
 
     // if new data received, transport waiting list
     if (new_data || req_manager.no_active_requests()) {

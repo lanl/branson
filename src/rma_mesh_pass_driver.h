@@ -45,8 +45,9 @@ void imc_rma_mesh_pass_driver(Mesh *mesh, IMC_State *imc_state,
 
   // make object that handles RMA mesh requests and start access
   RMA_Manager rma_manager(mesh->get_off_rank_bounds(),
-                          mesh->get_max_grip_size(), mpi_types,
-                          mesh->get_mesh_window_ref());
+                          mesh->get_max_grip_size(),
+                          imc_parameters->get_map_size(),
+                          mpi_types, mesh->get_mesh_window_ref());
   rma_manager.start_access();
 
   // make object that handles tally data
@@ -94,7 +95,7 @@ void imc_rma_mesh_pass_driver(Mesh *mesh, IMC_State *imc_state,
 
     vector<Cell> new_cells = rma_manager.process_rma_mesh_requests(mctr);
     if (!new_cells.empty())
-      mesh->add_non_local_mesh_cells(new_cells);
+      mesh->add_non_local_mesh_cells(new_cells, rma_manager.get_n_new_cells());
 
     t_lb.stop_timer("load balance");
     imc_state->set_load_balance_time(t_lb.get_time("load balance"));
