@@ -42,10 +42,10 @@ class Mesh_Request_Manager
   //! constructor
   Mesh_Request_Manager(const int& _rank,
     const std::vector<uint32_t>& _rank_bounds, const uint32_t _grip_size, 
-    const uint32_t _max_new_cells, MPI_Types * mpi_types, 
+    const uint32_t _max_new_cells, const MPI_Types &mpi_types, 
     const Cell * const _cells)
   : rank_bounds(_rank_bounds),
-    MPI_Cell(mpi_types->get_cell_type()),
+    MPI_Cell(mpi_types.get_cell_type()),
     cells(_cells),
     grip_size(_grip_size),
     rank_start(rank_bounds[_rank]),

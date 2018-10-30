@@ -22,6 +22,7 @@
 
 #include "buffer.h"
 #include "cell.h"
+#include "proto_cell.h"
 #include "constants.h"
 #include "imc_state.h"
 #include "info.h"
@@ -45,12 +46,12 @@ class Mesh {
 
 public:
   //! constructor
-  Mesh(Input *input, MPI_Types *mpi_types, const Info &mpi_info)
-      : ngx(input->get_global_n_x_cells()), ngy(input->get_global_n_y_cells()),
-        ngz(input->get_global_n_z_cells()), rank(mpi_info.get_rank()),
+  Mesh(const Input &input, const MPI_Types &mpi_types, const Info &mpi_info)
+      : ngx(input.get_global_n_x_cells()), ngy(input.get_global_n_y_cells()),
+        ngz(input.get_global_n_z_cells()), rank(mpi_info.get_rank()),
         n_rank(mpi_info.get_n_rank()), n_off_rank(n_rank - 1),
-        silo_x(input->get_silo_x_ptr()), silo_y(input->get_silo_y_ptr()),
-        silo_z(input->get_silo_z_ptr()) {
+        silo_x(input.get_silo_x_ptr()), silo_y(input.get_silo_y_ptr()),
+        silo_z(input.get_silo_z_ptr()) {
     using std::vector;
     using Constants::bc_type;
     using Constants::X_POS;
@@ -61,7 +62,7 @@ public:
     using Constants::Z_NEG;
     using Constants::ELEMENT;
 
-    max_map_size = input->get_map_size();
+    max_map_size = input.get_map_size();
     double dx, dy, dz;
 
     // make off processor map
@@ -70,19 +71,19 @@ public:
       proc_map[i] = r_index;
     }
 
-    regions = input->get_regions();
+    regions = input.get_regions();
     // map region IDs to index in the region
     for (uint32_t i = 0; i < regions.size(); i++) {
       region_ID_to_index[regions[i].get_ID()] = i;
     }
 
     vector<bc_type> bc(6);
-    bc[X_POS] = input->get_bc(X_POS);
-    bc[X_NEG] = input->get_bc(X_NEG);
-    bc[Y_POS] = input->get_bc(Y_POS);
-    bc[Y_NEG] = input->get_bc(Y_NEG);
-    bc[Z_POS] = input->get_bc(Z_POS);
-    bc[Z_NEG] = input->get_bc(Z_NEG);
+    bc[X_POS] = input.get_bc(X_POS);
+    bc[X_NEG] = input.get_bc(X_NEG);
+    bc[Y_POS] = input.get_bc(Y_POS);
+    bc[Y_NEG] = input.get_bc(Y_NEG);
+    bc[Z_POS] = input.get_bc(Z_POS);
+    bc[Z_NEG] = input.get_bc(Z_NEG);
 
     // initialize number of RMA requests as zero
     off_rank_reads = 0;
@@ -97,9 +98,9 @@ public:
 
     uint32_t on_rank_count = 0;
 
-    uint32_t n_x_div = input->get_n_x_divisions();
-    uint32_t n_y_div = input->get_n_y_divisions();
-    uint32_t n_z_div = input->get_n_z_divisions();
+    uint32_t n_x_div = input.get_n_x_divisions();
+    uint32_t n_y_div = input.get_n_y_divisions();
+    uint32_t n_z_div = input.get_n_z_divisions();
 
     Region region;
     uint32_t region_index, nx, ny, nz;
@@ -113,44 +114,44 @@ public:
     uint32_t g_k = 0; //! Global z index
 
     for (uint32_t iz_div = 0; iz_div < n_z_div; iz_div++) {
-      dz = input->get_dz(iz_div);
-      nz = input->get_z_division_cells(iz_div);
-      z_start = input->get_z_start(iz_div);
+      dz = input.get_dz(iz_div);
+      nz = input.get_z_division_cells(iz_div);
+      z_start = input.get_z_start(iz_div);
       for (uint32_t k = 0; k < nz; k++) {
         g_j = 0;
         for (uint32_t iy_div = 0; iy_div < n_y_div; iy_div++) {
-          dy = input->get_dy(iy_div);
-          ny = input->get_y_division_cells(iy_div);
-          y_start = input->get_y_start(iy_div);
+          dy = input.get_dy(iy_div);
+          ny = input.get_y_division_cells(iy_div);
+          y_start = input.get_y_start(iy_div);
           for (uint32_t j = 0; j < ny; j++) {
             g_i = 0;
             for (uint32_t ix_div = 0; ix_div < n_x_div; ix_div++) {
-              dx = input->get_dx(ix_div);
-              nx = input->get_x_division_cells(ix_div);
-              x_start = input->get_x_start(ix_div);
+              dx = input.get_dx(ix_div);
+              nx = input.get_x_division_cells(ix_div);
+              x_start = input.get_x_start(ix_div);
               for (uint32_t i = 0; i < nx; i++) {
                 if (global_count >= cell_id_begin &&
                     global_count < cell_id_end) {
+                  Proto_Cell e;
                   // find the region for this cell
                   region_index =
-                      input->get_region_index(ix_div, iy_div, iz_div);
+                      input.get_region_index(ix_div, iy_div, iz_div);
                   region = regions[region_index];
-                  Cell e;
 
                   // set ending coordinates explicity to match the start of
                   // the next division to avoid weird roundoff errors
                   if (i == nx - 1 && ix_div != n_x_div - 1)
-                    x_cell_end = input->get_x_start(ix_div + 1);
+                    x_cell_end = input.get_x_start(ix_div + 1);
                   else
                     x_cell_end = x_start + (i + 1) * dx;
 
                   if (j == ny - 1 && iy_div != n_y_div - 1)
-                    y_cell_end = input->get_y_start(iy_div + 1);
+                    y_cell_end = input.get_y_start(iy_div + 1);
                   else
                     y_cell_end = y_start + (j + 1) * dy;
 
                   if (k == nz - 1 && iz_div != n_z_div - 1)
-                    z_cell_end = input->get_z_start(iz_div + 1);
+                    z_cell_end = input.get_z_start(iz_div + 1);
                   else
                     z_cell_end = z_start + (k + 1) * dz;
 
@@ -158,13 +159,6 @@ public:
                              y_cell_end, z_start + k * dz, z_cell_end);
                   e.set_ID(global_count);
                   e.set_region_ID(region.get_ID());
-
-                  // set cell physical properties using region
-                  e.set_cV(region.get_cV());
-                  e.set_T_e(region.get_T_e());
-                  e.set_T_r(region.get_T_r());
-                  e.set_T_s(region.get_T_s());
-                  e.set_rho(region.get_rho());
 
                   // set the global index for SILO plotting--this will always
                   // be the current global count (g_i +g_j*ngx + g_k*(ngy_*ngz))
@@ -237,13 +231,13 @@ public:
 
     total_photon_E = 0.0;
 
-    mpi_cell_size = mpi_types->get_cell_size();
+    mpi_cell_size = mpi_types.get_cell_size();
 
     mpi_window_set = false;
 
     // for replicated mode, set the factor that reduces the emission
     // energy and initial census energy
-    if (input->get_dd_mode() == Constants::REPLICATED)
+    if (input.get_dd_mode() == Constants::REPLICATED)
       replicated_factor = 1.0 / n_rank;
     else
       replicated_factor = 1.0;
@@ -318,7 +312,7 @@ public:
       local_nodes.insert(cell_list[i].get_ID());
 
     for (uint32_t i = 0; i < n_cell; ++i) {
-      const Cell &cell = cell_list[i];
+      const Proto_Cell &cell = cell_list[i];
       for (uint32_t d = 0; d < 6; ++d) {
         if (local_nodes.find(cell.get_next_cell(d)) == local_nodes.end())
           boundary_neighbors.insert(cell.get_next_cell(d));
@@ -337,7 +331,7 @@ public:
       local_nodes.insert(cell_list[i].get_ID());
 
     for (uint32_t i = 0; i < n_cell; ++i) {
-      const Cell &cell = cell_list[i];
+      const Proto_Cell &cell = cell_list[i];
       for (uint32_t d = 0; d < 6; ++d) {
         if (local_nodes.find(cell.get_next_cell(d)) == local_nodes.end())
           boundary_nodes[cell.get_ID()] = i + on_rank_start;
@@ -356,7 +350,7 @@ public:
       local_nodes.insert(cell_list[i].get_ID());
 
     for (uint32_t i = 0; i < n_cell; ++i) {
-      const Cell &cell = cell_list[i];
+      const Proto_Cell &cell = cell_list[i];
       for (uint32_t d = 0; d < 6; ++d) {
         if (local_nodes.find(cell.get_next_cell(d)) == local_nodes.end())
           boundary_grips[cell.get_ID()] = cell.get_grip_ID();
@@ -366,7 +360,7 @@ public:
   }
 
   //! Gets cell from vector list of cells before it's deleted
-  Cell get_pre_window_allocation_cell(const uint32_t &local_ID) const {
+  Proto_Cell get_pre_window_allocation_cell(const uint32_t &local_ID) const {
     return cell_list[local_ID];
   }
 
@@ -413,12 +407,12 @@ public:
     return on_rank_start + local_index;
   }
 
-  Cell get_on_rank_cell(const uint32_t &index) {
+  Cell get_on_rank_cell(const uint32_t &index) const {
     // this can only be called with valid on rank indexes
     if (on_processor(index))
       return cells[index - on_rank_start];
     else
-      return stored_cells[index];
+      return stored_cells.at(index);
   }
 
   bool on_processor(const uint32_t &index) const {
@@ -453,9 +447,9 @@ public:
   uint32_t get_global_n_y(void) const { return ngy; }
   uint32_t get_global_n_z(void) const { return ngz; }
 
-  float *get_silo_x(void) const { return silo_x; }
-  float *get_silo_y(void) const { return silo_y; }
-  float *get_silo_z(void) const { return silo_z; }
+  float const * get_silo_x(void) const { return silo_x; }
+  float const * get_silo_y(void) const { return silo_y; }
+  float const * get_silo_z(void) const { return silo_z; }
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
@@ -480,7 +474,7 @@ public:
     // map the starting index of cells with the same grip to the number in
     // that grip
     for (uint32_t i = 0; i < n_cell; ++i) {
-      Cell &cell = cell_list[i];
+      Proto_Cell &cell = cell_list[i];
       if (cell.get_grip_ID() != current_grip_ID) {
         grip_start_index = i;
         current_grip_ID = cell.get_grip_ID();
@@ -526,21 +520,21 @@ public:
   }
 
   //! Gets cell reference from vector list of cells before it's deleted
-  Cell &get_pre_window_allocation_cell_ref(const uint32_t &local_ID) {
+  Proto_Cell &get_pre_window_allocation_cell_ref(const uint32_t &local_ID) {
     return cell_list[local_ID];
   }
 
   //! Calculate new physical properties and emission energy for each cell on
   // the mesh
-  void calculate_photon_energy(IMC_State *imc_s) {
+  void calculate_photon_energy(IMC_State &imc_state) {
     using Constants::c;
     using Constants::a;
     total_photon_E = 0.0;
-    double dt = imc_s->get_dt();
+    double dt = imc_state.get_dt();
     double op_a, op_s, f, cV, rho;
     double vol;
     double T, Tr, Ts;
-    uint32_t step = imc_s->get_step();
+    uint32_t step = imc_state.get_step();
     double tot_census_E = 0.0;
     double tot_emission_E = 0.0;
     double tot_source_E = 0.0;
@@ -583,11 +577,11 @@ public:
     }
 
     // set energy for conservation checks
-    imc_s->set_pre_mat_E(pre_mat_E);
-    imc_s->set_emission_E(tot_emission_E);
-    imc_s->set_source_E(tot_source_E);
-    if (imc_s->get_step() == 1)
-      imc_s->set_pre_census_E(tot_census_E);
+    imc_state.set_pre_mat_E(pre_mat_E);
+    imc_state.set_emission_E(tot_emission_E);
+    imc_state.set_source_E(tot_source_E);
+    if (imc_state.get_step() == 1)
+      imc_state.set_pre_census_E(tot_census_E);
   }
 
   //! Renumber the local cell IDs and connectivity of local cells after
@@ -607,7 +601,7 @@ public:
     // renumber global cell index,  adjacent cells and adjacent
     // grips, also mark processor boundaries
     for (uint32_t i = 0; i < n_cell; ++i) {
-      Cell &cell = cell_list[i];
+      Proto_Cell &cell = cell_list[i];
       cell.set_ID(i + on_rank_start);
       for (uint32_t d = 0; d < 6; ++d) {
         // get the un-remapped next index
@@ -635,7 +629,7 @@ public:
   //! Remove old mesh cells after decomposition and communication of new cells
   void set_post_decomposition_mesh_cells(const std::vector<int> &partition) {
     using std::vector;
-    vector<Cell> new_mesh;
+    vector<Proto_Cell> new_mesh;
 
     // all cells that were assigned to this rank are still part of the mesh
     for (uint32_t i = 0; i < cell_list.size(); ++i) {
@@ -666,7 +660,7 @@ public:
   void sort_cells_by_grip_ID(void) {
     using std::sort;
     // sort based on global cell ID
-    sort(cell_list.begin(), cell_list.end(), Cell::sort_grip_ID);
+    sort(cell_list.begin(), cell_list.end(), Proto_Cell::sort_grip_ID);
   }
 
   //! Use MPI allocation routines, copy in cell data and make the MPI window
@@ -674,16 +668,25 @@ public:
   void make_MPI_window(bool rep_flag = false) {
     // if replicated don't bother with the MPI window
     if (rep_flag) {
-      cells = &cell_list[0];
+      cells = new Cell[cell_list.size()];
+      // use the proto cells to contstruct the real cells
+      int i = 0;
+      for (auto icell : cell_list) {
+        cells[i] = Cell(icell); 
+        i++;
+      }
     } else {
       // make the MPI window with the sorted cell list
       MPI_Aint n_bytes(n_cell * mpi_cell_size);
       // MPI_Alloc_mem(n_bytes, MPI_INFO_NULL, &cells);
       MPI_Win_allocate(n_bytes, mpi_cell_size, MPI_INFO_NULL, MPI_COMM_WORLD,
                        &cells, &mesh_window);
-      // copy the cells list data into the cells array
-      memcpy(cells, &cell_list[0], n_bytes);
-
+      // use the proto cells to construct the real cells
+      int i = 0;
+      for (auto icell : cell_list) {
+        cells[i] = Cell(icell); 
+        i++;
+      }
       mpi_window_set = true;
       cell_list.clear();
       cell_list.shrink_to_fit();
@@ -693,7 +696,7 @@ public:
   //! Use the absorbed energy and update the material temperature of each
   // cell on the mesh. Set diagnostic and conservation values.
   void update_temperature(std::vector<double> &abs_E,
-                          std::vector<double> &track_E, IMC_State *imc_s) {
+                          std::vector<double> &track_E, IMC_State &imc_state) {
     using Constants::a;
     using Constants::c;
     // abs E is a global vector
@@ -713,7 +716,7 @@ public:
       T_new =
           T +
           (abs_E[i] - m_emission_E[i] / replicated_factor) / (cV * vol * rho);
-      T_r[i] = std::pow(track_E[i] / (vol * imc_s->get_dt() * a * c), 0.25);
+      T_r[i] = std::pow(track_E[i] / (vol * imc_state.get_dt() * a * c), 0.25);
       e.set_T_e(T_new);
       total_abs_E += abs_E[i];
       total_post_mat_E += T_new * cV * vol * rho;
@@ -721,9 +724,9 @@ public:
     // zero out absorption tallies for all cells (global)
     abs_E.assign(abs_E.size(), 0.0);
     track_E.assign(track_E.size(), 0.0);
-    imc_s->set_absorbed_E(total_abs_E);
-    imc_s->set_post_mat_E(total_post_mat_E);
-    imc_s->set_step_cells_requested(off_rank_reads);
+    imc_state.set_absorbed_E(total_abs_E);
+    imc_state.set_post_mat_E(total_post_mat_E);
+    imc_state.set_step_cells_requested(off_rank_reads);
     off_rank_reads = 0;
   }
 
@@ -756,6 +759,21 @@ public:
     }
   }
 
+  //! Set the physical data for the cells on your rank
+  void initialize_physical_properties(const Input &input) {
+    for (uint32_t i = 0; i < n_cell; ++i) {
+      int region_ID = cells[i].get_region_ID();
+      // find the region for this cell
+      Region region = input.get_region(region_ID);
+      // set cell physical properties using region
+      cells[i].set_cV(region.get_cV());
+      cells[i].set_T_e(region.get_T_e());
+      cells[i].set_T_r(region.get_T_r());
+      cells[i].set_T_s(region.get_T_s());
+      cells[i].set_rho(region.get_rho());
+    }
+  }
+
   //! Remove the temporary off-rank mesh data after the end of a timestep
   // (the properties will be updated so it can't be reused)
   void purge_working_mesh(void) { stored_cells.clear(); }
@@ -766,7 +784,7 @@ public:
   }
 
   //! Add mesh cell (used during decomposition, not parallel communication)
-  void add_mesh_cell(Cell new_cell) { new_cell_list.push_back(new_cell); }
+  void add_mesh_cell(const Proto_Cell new_cell) { new_cell_list.push_back(new_cell); }
 
   //! Get census energy vector needed to source particles
   std::vector<double> &get_census_E_ref(void) { return m_census_E; }
@@ -792,9 +810,9 @@ private:
   //! Factor to reduce emission and initial census in replicated mode
   double replicated_factor;
 
-  float *silo_x; //!< Global array of x face locations for SILO
-  float *silo_y; //!< Global array of y face locations for SILO
-  float *silo_z; //!< Global array of z face locations for SILO
+  float const * const silo_x; //!< Global array of x face locations for SILO
+  float const * const silo_y; //!< Global array of y face locations for SILO
+  float const * const silo_z; //!< Global array of z face locations for SILO
 
   uint32_t n_cell;   //!< Number of local cells
   uint32_t n_global; //!< Nuber of global cells
@@ -807,9 +825,9 @@ private:
   std::vector<double> m_source_E;   //!< Source energy vector
   std::vector<double> T_r;          //!< Diagnostic quantity
 
-  Cell *cells;                     //!< Cell data allocated with MPI_Alloc
-  std::vector<Cell> cell_list;     //!< On processor cells
-  std::vector<Cell> new_cell_list; //!< New received cells
+  Cell *cells;                           //!< Cell data allocated with MPI_Alloc
+  std::vector<Proto_Cell> cell_list;     //!< On processor proto-cells
+  std::vector<Proto_Cell> new_cell_list; //!< New received proto-cells
   std::vector<uint32_t> remove_cell_list; //!< Cells to be removed
   std::vector<uint32_t>
       off_rank_bounds; //!< Ending value of global ID for each rank

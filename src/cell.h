@@ -18,6 +18,7 @@
 #include "RNG.h"
 #include "config.h"
 #include "constants.h"
+#include "proto_cell.h"
 
 template <typename T> int sgn(T val) { return (T(0) < val); }
 
@@ -37,6 +38,23 @@ class Cell {
 
 public:
   Cell(void) {
+    op_a = 0.0;
+    op_s = 0.0;
+    f = 0.0;
+  }
+
+  explicit Cell(const Proto_Cell& proto_cell) {
+    g_ID = proto_cell.get_ID();
+    grip_ID = proto_cell.get_grip_ID();
+    region_ID = proto_cell.get_region_ID();
+    silo_index = proto_cell.get_silo_index();
+    const double *proto_nodes = proto_cell.get_node_array();
+    for (int idir = 0; idir< 6; ++idir) {
+      e_next[idir] = proto_cell.get_next_cell(idir);
+      grip_next[idir] = proto_cell.get_next_grip(idir);
+      nodes[idir] = proto_nodes[idir];
+      bc[idir] = proto_cell.get_bc(idir);
+    }
     op_a = 0.0;
     op_s = 0.0;
     f = 0.0;
@@ -152,7 +170,7 @@ public:
   inline uint32_t get_region_ID(void) const { return region_ID; }
 
   //! Set input array to center of cell (for mesh decomposition only)
-  inline void get_center(float xyz[3]) {
+  inline void get_center(float xyz[3]) const {
     xyz[0] = 0.5 * (nodes[0] + nodes[1]);
     xyz[1] = 0.5 * (nodes[2] + nodes[3]);
     xyz[2] = 0.5 * (nodes[4] + nodes[5]);
@@ -246,10 +264,10 @@ public:
   void set_T_s(double _T_s) { T_s = _T_s; }
 
   //! Set global ID
-  void set_ID(double _id) { g_ID = _id; }
+  void set_ID(uint32_t _id) { g_ID = _id; }
 
   //! Set global grip ID
-  void set_grip_ID(double _grip_id) { grip_ID = _grip_id; }
+  void set_grip_ID(uint32_t _grip_id) { grip_ID = _grip_id; }
 
   //! Set region ID
   void set_region_ID(uint32_t _region_ID) { region_ID = _region_ID; }

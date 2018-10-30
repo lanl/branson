@@ -30,7 +30,7 @@
 // census particles
 void load_balance(std::vector<Work_Packet> &work,
                   std::vector<Photon> &census_list,
-                  const uint64_t n_particle_on_rank, MPI_Types *mpi_types,
+                  const uint64_t n_particle_on_rank, const MPI_Types &mpi_types,
                   const Info &mpi_info) {
   using std::unordered_map;
   using std::vector;
@@ -43,8 +43,8 @@ void load_balance(std::vector<Work_Packet> &work,
   int n_rank = mpi_info.get_n_rank();
 
   // get MPI datatypes
-  MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
-  MPI_Datatype MPI_WPacket = mpi_types->get_work_packet_type();
+  MPI_Datatype MPI_Particle = mpi_types.get_particle_type();
+  MPI_Datatype MPI_WPacket = mpi_types.get_work_packet_type();
 
   //--------------------------------------------------------------------------//
   // Calculate load imbalance for each rank

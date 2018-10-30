@@ -27,7 +27,7 @@
 
 //! All ranks perform reductions to produce global arrays and rank zero
 // writes the SILO file for visualization
-void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
+void write_silo(const Mesh &mesh, const double& arg_time, const uint32_t& step,
   const double& r_transport_time, const double& r_mpi_time, const int& rank,
   const int& n_rank, std::vector<uint32_t>& rank_requests) 
 {
@@ -53,9 +53,9 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
   ss << "output_"<<step<< ".silo";
   string file = ss.str();
 
-  int nx = mesh->get_global_n_x_faces();
-  int ny = mesh->get_global_n_y_faces();
-  int nz = mesh->get_global_n_z_faces();
+  int nx = mesh.get_global_n_x_faces();
+  int ny = mesh.get_global_n_y_faces();
+  int nz = mesh.get_global_n_z_faces();
 
   // set number of dimensions
   int ndims;
@@ -91,18 +91,18 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
   vector<int> grip_ID(n_xyz_cells,0);
 
   // get rank data, map values from from global ID to SILO ID
-  uint32_t n_local = mesh->get_n_local_cells();
+  uint32_t n_local = mesh.get_n_local_cells();
   Cell cell;
   uint32_t g_index, silo_index;
   for (uint32_t i=0;i<n_local;i++) {
-    cell = mesh->get_cell(i);
+    cell = mesh.get_cell(i);
     g_index = cell.get_ID();
     silo_index = cell.get_silo_index();
     rank_data[silo_index] = rank;
     // set silo plot variables
     n_requests[silo_index] = rank_requests[g_index];
     T_e[silo_index] = cell.get_T_e();
-    T_r[silo_index] = mesh->get_T_r(i);
+    T_r[silo_index] = mesh.get_T_r(i);
     transport_time[silo_index] = r_transport_time;
     mpi_time[silo_index] = r_mpi_time;
     grip_ID[silo_index] = cell.get_grip_ID();
@@ -140,9 +140,9 @@ void write_silo(Mesh *mesh, const double& arg_time, const uint32_t& step,
   if (rank ==0) {
 
     // write the global mesh
-    float *x = mesh->get_silo_x();
-    float *y = mesh->get_silo_y();
-    float *z = mesh->get_silo_z();
+    float *x = mesh.get_silo_x();
+    float *y = mesh.get_silo_y();
+    float *z = mesh.get_silo_z();
 
     int *dims;
     float **coords;

@@ -35,11 +35,11 @@
 //! Transport photons from a source object using the mesh-passing algorithm
 // and one-sided messaging to fulfill requests for mesh data
 std::vector<Photon>
-rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
-                        IMC_Parameters *imc_parameters,
+rma_mesh_pass_transport(Source &source, Mesh &mesh, IMC_State &imc_state,
+                        const IMC_Parameters &imc_parameters,
                         RMA_Manager &rma_manager, Tally_Manager &tally_manager,
                         Message_Counter &mctr, std::vector<double> &rank_abs_E,
-                        std::vector<double> &rank_track_E, MPI_Types *mpi_types,
+                        std::vector<double> &rank_track_E, const MPI_Types &mpi_types,
                         const Info &mpi_info) {
   using std::queue;
   using std::vector;
@@ -57,10 +57,10 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
 
   double census_E = 0.0;
   double exit_E = 0.0;
-  double dt = imc_state->get_next_dt();      //! For making current photons
-  double next_dt = imc_state->get_next_dt(); //! For census photons
+  double dt = imc_state.get_next_dt();      //! For making current photons
+  double next_dt = imc_state.get_next_dt(); //! For census photons
 
-  RNG *rng = imc_state->get_rng();
+  RNG *rng = imc_state.get_rng();
   Photon phtn;
 
   // timing
@@ -72,7 +72,7 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
   std::vector<Cell> new_cells; // New cells from completed RMA requests
 
   // number of particles to run between MPI communication
-  const uint32_t batch_size = imc_parameters->get_batch_size();
+  const uint32_t batch_size = imc_parameters.get_batch_size();
 
   event_type event;
   uint32_t wait_list_size;
@@ -100,7 +100,7 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
 
       // if mesh available, transport and process, otherwise put on the
       // waiting list
-      if (mesh->mesh_available(cell_id)) {
+      if (mesh.mesh_available(cell_id)) {
         event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
                                            census_E, rank_abs_E, rank_track_E,
                                            off_rank_abs_E);
@@ -125,7 +125,7 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
     new_cells = rma_manager.process_rma_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data)
-      mesh->add_non_local_mesh_cells(new_cells, rma_manager.get_n_new_cells());
+      mesh.add_non_local_mesh_cells(new_cells, rma_manager.get_n_new_cells());
     // if data was received, try to transport photons on waiting list
     if (new_data) {
       wait_list_size = wait_list.size();
@@ -133,7 +133,7 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
         phtn = wait_list.front();
         wait_list.pop();
         cell_id = phtn.get_cell();
-        if (mesh->mesh_available(cell_id)) {
+        if (mesh.mesh_available(cell_id)) {
           event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
                                              census_E, rank_abs_E, rank_track_E,
                                              off_rank_abs_E);
@@ -167,7 +167,7 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
     new_cells = rma_manager.process_rma_mesh_requests(mctr);
     new_data = !new_cells.empty();
     if (new_data)
-      mesh->add_non_local_mesh_cells(new_cells, rma_manager.get_n_new_cells());
+      mesh.add_non_local_mesh_cells(new_cells, rma_manager.get_n_new_cells());
 
 
     // if new data received or there are no active mesh requests, try to
@@ -179,7 +179,7 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
         phtn = wait_list.front();
         wait_list.pop();
         cell_id = phtn.get_cell();
-        if (mesh->mesh_available(cell_id)) {
+        if (mesh.mesh_available(cell_id)) {
           event = transport_photon_mesh_pass(phtn, mesh, rng, next_dt, exit_E,
                                              census_E, rank_abs_E, rank_track_E,
                                              off_rank_abs_E);
@@ -211,14 +211,14 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
   tally_manager.add_remote_tally(rank_abs_E);
 
   // set the preffered census size to 10% of the user photon number and comb
-  uint64_t max_census_photons = 0.1 * imc_parameters->get_n_user_photon();
+  uint64_t max_census_photons = 0.1 * imc_parameters.get_n_user_photon();
   comb_photons(census_list, max_census_photons, rng);
 
   // all ranks have now finished transport set diagnostic quantities
-  imc_state->set_exit_E(exit_E);
-  imc_state->set_post_census_E(census_E);
-  imc_state->set_network_message_counts(mctr);
-  imc_state->set_rank_transport_runtime(
+  imc_state.set_exit_E(exit_E);
+  imc_state.set_post_census_E(census_E);
+  imc_state.set_network_message_counts(mctr);
+  imc_state.set_rank_transport_runtime(
       t_transport.get_time("timestep transport"));
 
   // send the off-rank census back to ranks that own the mesh its on and receive
@@ -229,7 +229,7 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
       rebalance_raw_census(census_list, mesh, mpi_types);
   t_rebalance_census.stop_timer("timestep rebalance_census");
 
-  imc_state->set_rank_rebalance_time(
+  imc_state.set_rank_rebalance_time(
       t_rebalance_census.get_time("timestep rebalance_census"));
 
   // only do this if off rank census was separate from on rank census
@@ -240,7 +240,7 @@ rma_mesh_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
   sort(census_list.begin(), census_list.end());
 
   // set post census size after sorting and merging
-  imc_state->set_census_size(census_list.size());
+  imc_state.set_census_size(census_list.size());
 
   return census_list;
 }

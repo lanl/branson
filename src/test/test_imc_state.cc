@@ -36,11 +36,11 @@ int main (int argc, char *argv[]) {
 
     //setup imc_state
     string filename("simple_input.xml");
-    Input *input = new Input(filename);
+    Input input(filename);
     IMC_State imc_state(input, rank);
 
-    if (imc_state.get_dt() != input->get_dt()) get_functions_pass = false;
-    //no time multiplier so next dt should be the same
+    if (imc_state.get_dt() != input.get_dt()) get_functions_pass = false;
+    // no time multiplier so next dt should be the same
     if (imc_state.get_next_dt() != imc_state.get_dt()) get_functions_pass = false;
     if (imc_state.get_step() != 1) get_functions_pass = false;
     if (imc_state.get_census_size() != 0) get_functions_pass = false;
@@ -53,37 +53,48 @@ int main (int argc, char *argv[]) {
       cout<<"TEST FAILED: IMC_State get functions"<<endl; 
       nfail++;
     }
-    delete input;
   }
 
-  //test time increment functions
+  // test time increment functions
   {
     bool time_functions_pass = true;
     double tolerance = 1.0e-8;
 
-    //setup imc_state
+    // setup imc_state
     string large_filename("large_particle_input.xml");
-    Input *input = new Input(large_filename);
+    Input input(large_filename);
     IMC_State imc_state(input, rank);
 
-    if (imc_state.get_dt() != input->get_dt()) time_functions_pass = false;
-    if (imc_state.get_step() != 1) time_functions_pass = false;
-    //time multiplier is 1.5 so next dt should be the 1.5 times larger
-    if (imc_state.get_next_dt() != (1.5*imc_state.get_dt()) ) time_functions_pass = false;
-    if (imc_state.get_next_dt() == input->get_dt()) time_functions_pass = false;
+    double init_dt = imc_state.get_dt();
 
-    //increment step and check values
+    if (imc_state.get_dt() != input.get_dt())
+      time_functions_pass = false;
+    if (imc_state.get_step() != 1)
+      time_functions_pass = false;
+    if (!soft_equiv(imc_state.get_time(), 0.0, tolerance))
+      time_functions_pass = false;
+    // time multiplier is 1.5 so next dt should be the 1.5 times larger
+    if (imc_state.get_next_dt() != (1.5*imc_state.get_dt()))
+      time_functions_pass = false;
+    if (imc_state.get_next_dt() == input.get_dt())
+      time_functions_pass = false;
+
+    // increment step and check values
     imc_state.next_time_step();
-    if (imc_state.get_step() != 2) time_functions_pass = false;
+    if (imc_state.get_step() != 2)
+      time_functions_pass = false;
     if (!soft_equiv(imc_state.get_next_dt(), (1.5*imc_state.get_dt()), tolerance))
       time_functions_pass = false;
-
-    //increment many times to check that dt does not exceed maximum dt
-    for (uint32_t i=0; i<10; i++) imc_state.next_time_step();
-
-    if (!soft_equiv(imc_state.get_next_dt(), input->get_dt_max(), tolerance))
+    if (!soft_equiv(imc_state.get_time(), init_dt, tolerance))
       time_functions_pass = false;
-    if (!soft_equiv(imc_state.get_dt(),input->get_dt_max(), tolerance))
+
+    // increment many times to check that dt does not exceed maximum dt
+    for (uint32_t i=0; i<10; i++)
+      imc_state.next_time_step();
+
+    if (!soft_equiv(imc_state.get_next_dt(), input.get_dt_max(), tolerance))
+      time_functions_pass = false;
+    if (!soft_equiv(imc_state.get_dt(),input.get_dt_max(), tolerance))
       time_functions_pass = false;
  
     if (time_functions_pass) cout<<"TEST PASSED: IMC_State time increment functions"<<endl;
@@ -91,15 +102,14 @@ int main (int argc, char *argv[]) {
       cout<<"TEST FAILED: IMC_State time increment functions"<<endl; 
       nfail++;
     }
-    delete input;
   }
 
-  //test get and set of 64 bit quantities
+  // test get and set of 64 bit quantities
   {
     bool large_quantity_pass = true;
-    //setup imc_state
+    // setup imc_state
     string filename("simple_input.xml");
-    Input *input = new Input(filename);
+    Input input(filename);
     IMC_State imc_state(input, rank);
 
     uint64_t big_64_bit_number_1 = 7000000000;
@@ -127,17 +137,14 @@ int main (int argc, char *argv[]) {
       cout<<"TEST FAILED: IMC_State 64 bit value get and set"<<endl; 
       nfail++;
     }
-    delete input;
   }
 
-  
-
-  //test reduction of 64 bit diagnostic quantities
+  // test reduction of 64 bit diagnostic quantities
   {
     bool large_reduction_pass = true;
-    //setup imc_state
+    // setup imc_state
     string filename("simple_input.xml");
-    Input *input = new Input(filename);
+    Input input(filename);
     IMC_State imc_state(input, rank);
 
     uint32_t big_32_bit_number = 3500000000;
@@ -158,7 +165,6 @@ int main (int argc, char *argv[]) {
       cout<<"TEST FAILED: IMC_State 64 bit value reduction"<<endl; 
       nfail++;
     }
-    delete input;
   }
 
   MPI_Finalize();

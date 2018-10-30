@@ -39,10 +39,10 @@ class RMA_Manager
   //! constructor
   RMA_Manager(const std::vector<uint32_t>& _rank_bounds,
     const uint32_t _grip_size, const uint32_t _n_max_cells,
-    MPI_Types * mpi_types, MPI_Win& _mesh_window)
+    const MPI_Types &mpi_types, MPI_Win& _mesh_window)
   :
     rank_bounds(_rank_bounds),
-    MPI_Cell(mpi_types->get_cell_type()),
+    MPI_Cell(mpi_types.get_cell_type()),
     mesh_window(_mesh_window),
     grip_size(_grip_size),
     n_max_requests(100),

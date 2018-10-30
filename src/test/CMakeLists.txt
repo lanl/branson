@@ -44,6 +44,7 @@ endfunction()
 set(branson_test_sources_1pe
   test_buffer.cc
   test_cell.cc
+  test_proto_cell.cc
   test_counter_rng.cc
   test_input.cc
   test_mesh.cc

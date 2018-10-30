@@ -37,10 +37,10 @@
 class IMC_State {
 public:
   //! constructor
-  IMC_State(Input *input, uint32_t _rank)
-      : rank(_rank), m_dt(input->get_dt()), m_time(input->get_time_start()),
-        m_time_stop(input->get_time_finish()), m_step(1),
-        m_dt_mult(input->get_time_mult()), m_dt_max(input->get_dt_max()) {
+  IMC_State(const Input &input, uint32_t _rank)
+      : rank(_rank), m_dt(input.get_dt()), m_time(input.get_time_start()),
+        m_time_stop(input.get_time_finish()), m_step(1),
+        m_dt_mult(input.get_time_mult()), m_dt_max(input.get_dt_max()) {
     pre_census_E = 0.0;
     post_census_E = 0.0;
     pre_mat_E = 0.0;
@@ -71,7 +71,7 @@ public:
     step_receives_completed = 0;
 
     m_RNG = new RNG();
-    m_RNG->set_seed(input->get_rng_seed() + rank * 4106);
+    m_RNG->set_seed(input.get_rng_seed() + rank * 4106);
 
     rank_transport_runtime = 0.0;
     rank_rebalance_time = 0.0;
