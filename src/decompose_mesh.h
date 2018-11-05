@@ -22,39 +22,20 @@
 #include <vector>
 
 #include "buffer.h"
-#include "mesh.h"
+#include "proto_mesh.h"
 #include "mpi_types.h"
 #include "timer.h"
 
 //----------------------------------------------------------------------------//
 //! Print the mesh information for each rank, one at a time
-void print_MPI_out(const Mesh &mesh, const uint32_t rank, const uint32_t size) {
+void print_MPI_out(const Proto_Mesh &mesh, const uint32_t rank, const uint32_t size) {
   using std::cout;
   cout.flush();
   MPI_Barrier(MPI_COMM_WORLD);
 
   for (uint32_t p_rank = 0; p_rank < size; ++p_rank) {
     if (rank == p_rank) {
-      mesh.post_decomp_print();
-      cout.flush();
-    }
-    usleep(100);
-    MPI_Barrier(MPI_COMM_WORLD);
-    usleep(100);
-  }
-}
-//----------------------------------------------------------------------------//
-
-//----------------------------------------------------------------------------//
-//! Print the remapping information for each rank, one at a time
-void print_MPI_maps(const Mesh &mesh, const uint32_t rank, const uint32_t size) {
-  using std::cout;
-  cout.flush();
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  for (uint32_t p_rank = 0; p_rank < size; ++p_rank) {
-    if (rank == p_rank) {
-      mesh.print_map();
+      mesh.print();
       cout.flush();
     }
     usleep(100);
@@ -66,7 +47,7 @@ void print_MPI_maps(const Mesh &mesh, const uint32_t rank, const uint32_t size) 
 
 //----------------------------------------------------------------------------//
 //! partition a mesh with parmetis
-std::vector<int> parmetis_partition(Mesh &mesh, int &edgecut, const int rank,
+std::vector<int> parmetis_partition(Proto_Mesh &mesh, int &edgecut, const int rank,
                                     const int n_rank) {
 
   using Constants::X_POS;
@@ -186,7 +167,7 @@ std::vector<int> parmetis_partition(Mesh &mesh, int &edgecut, const int rank,
 //----------------------------------------------------------------------------//
 
 //----------------------------------------------------------------------------//
-std::vector<int> cube_partition(Mesh &mesh, const int rank, const int n_rank) {
+std::vector<int> cube_partition(Proto_Mesh &mesh, const int rank, const int n_rank) {
 
   uint32_t nx = mesh.get_global_n_x();
   uint32_t ny = mesh.get_global_n_y();
@@ -237,7 +218,7 @@ std::vector<int> cube_partition(Mesh &mesh, const int rank, const int n_rank) {
 //----------------------------------------------------------------------------//
 //! Send given partitioning scheme
 void exchange_cells_post_partitioning(const int rank, const MPI_Types &mpi_types,
-                                      Mesh &mesh,
+                                      Proto_Mesh &mesh,
                                       const std::vector<int> &part) {
   using std::vector;
   MPI_Datatype MPI_Proto_Cell = mpi_types.get_proto_cell_type();
@@ -342,7 +323,7 @@ void exchange_cells_post_partitioning(const int rank, const MPI_Types &mpi_types
 
 //----------------------------------------------------------------------------//
 //! Use metis to decompose on-rank mesh into chunks for better prefetching
-void overdecompose_mesh(Mesh &mesh, const uint32_t grip_size) {
+void overdecompose_mesh(Proto_Mesh &mesh, const uint32_t grip_size) {
   using std::unordered_map;
   using std::vector;
   using Constants::X_POS;
@@ -485,7 +466,7 @@ void overdecompose_mesh(Mesh &mesh, const uint32_t grip_size) {
 
 //----------------------------------------------------------------------------//
 //! Use one-sided communication to share new cell indices in mesh connectivity
-void remap_cell_and_grip_indices_rma(Mesh &mesh, const int rank,
+void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
                                      const int n_rank) {
   using std::unordered_map;
   using std::unordered_set;
@@ -628,7 +609,7 @@ void remap_cell_and_grip_indices_rma(Mesh &mesh, const int rank,
 
 //----------------------------------------------------------------------------//
 //! Use two-sided communication to share new cell indices in mesh connectivity
-void remap_cell_and_grip_indices(Mesh &mesh, const int rank, const int n_rank) {
+void remap_cell_and_grip_indices(Proto_Mesh &mesh, const int rank, const int n_rank) {
   using std::unordered_map;
   using std::unordered_set;
   using std::vector;
@@ -794,7 +775,7 @@ void remap_cell_and_grip_indices(Mesh &mesh, const int rank, const int n_rank) {
 
 //----------------------------------------------------------------------------//
 //! Use two-sided communication to share new cell indices in mesh connectivity
-void remap_cell_and_grip_indices_staged(Mesh &mesh, const int rank,
+void remap_cell_and_grip_indices_staged(Proto_Mesh &mesh, const int rank,
                                         const int n_rank) {
   using std::vector;
   using std::unordered_map;
@@ -975,7 +956,7 @@ void remap_cell_and_grip_indices_staged(Mesh &mesh, const int rank,
 //----------------------------------------------------------------------------//
 //! Generate new partitioning with ParMetis, send and receive cells, renumber
 // mesh and communicate renumbering
-void decompose_mesh(Mesh &mesh, const MPI_Types &mpi_types, const Info &mpi_info,
+void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types, const Info &mpi_info,
                     const uint32_t grip_size, const int decomposition_type) {
   using std::unordered_map;
   using std::unordered_set;
@@ -1032,9 +1013,6 @@ void decompose_mesh(Mesh &mesh, const MPI_Types &mpi_types, const Info &mpi_info
   remap_cell_and_grip_indices_staged(mesh, rank, n_rank);
   t_remap.stop_timer("remap");
 
-  // reallocate mesh data in new MPI window and delete the old vector object
-  mesh.make_MPI_window();
-
   if (rank == 0) {
     std::cout << "Partition: " << t_partition.get_time("partition")
               << std::endl;
@@ -1047,7 +1025,7 @@ void decompose_mesh(Mesh &mesh, const MPI_Types &mpi_types, const Info &mpi_info
 
 //! Create replicated mesh by giving all cells to all other processors, renumber
 // mesh and communicate renumbering
-void replicate_mesh(Mesh &mesh, const MPI_Types &mpi_types, const Info &mpi_info,
+void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types, const Info &mpi_info,
                     const uint32_t &grip_size) {
   using Constants::X_POS;
   using Constants::Y_POS;
@@ -1167,10 +1145,6 @@ void replicate_mesh(Mesh &mesh, const MPI_Types &mpi_types, const Info &mpi_info
 
   // now update the indices of local IDs
   mesh.renumber_local_cell_indices(local_map, local_grip_map);
-
-  // reallocate mesh data in new MPI window and delete the old vector object
-  bool rep_flag = true;
-  mesh.make_MPI_window(rep_flag);
 
   // clean up dynamically allocated memory
   delete[] reqs;

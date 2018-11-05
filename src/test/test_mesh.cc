@@ -15,7 +15,7 @@
 
 #include "../constants.h"
 #include "../input.h"
-#include "../mesh.h"
+#include "../proto_mesh.h"
 #include "../mpi_types.h"
 #include "testing_functions.h"
 
@@ -42,7 +42,7 @@ int main (int argc, char *argv[]) {
     {
       string filename("simple_input.xml");
       Input input(filename);
-      Mesh mesh(input, mpi_types, mpi_info);
+      Proto_Mesh mesh(input, mpi_types, mpi_info);
 
       bool simple_mesh_pass = true;
 
@@ -71,7 +71,7 @@ int main (int argc, char *argv[]) {
       string three_reg_filename("three_region_mesh_input.xml");
       Input three_reg_input(three_reg_filename);
 
-      Mesh mesh(three_reg_input, mpi_types, mpi_info);
+      Proto_Mesh mesh(three_reg_input, mpi_types, mpi_info);
 
       uint32_t n_cell = mesh.get_n_local_cells();
       if (n_cell != 21*10) three_region_mesh_pass =false;

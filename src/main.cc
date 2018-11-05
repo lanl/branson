@@ -17,7 +17,6 @@
 #include <vector>
 
 #include "constants.h"
-#include "decompose_mesh.h"
 #include "imc_parameters.h"
 #include "imc_state.h"
 #include "info.h"
@@ -38,8 +37,6 @@ using Constants::PARTICLE_PASS;
 using Constants::CELL_PASS;
 using Constants::CELL_PASS_RMA;
 using Constants::REPLICATED;
-using Constants::CUBE;
-using Constants::PARMETIS;
 
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
@@ -49,7 +46,6 @@ int main(int argc, char **argv) {
     cout << "Usage: BRANSON <path_to_input_file>" << endl;
     exit(EXIT_FAILURE);
   }
-
 
   // wrap main loop scope so objcts are destroyed before mpi_finalize is called
   {
@@ -75,24 +71,11 @@ int main(int argc, char **argv) {
 
     // timing
     Timer timers;
-
+    
     // make mesh from input object
     timers.start_timer("Total setup");
-    Mesh mesh(input, mpi_types, mpi_info);
 
-    // if mode is replicated ignore decomposition options, otherwise use 
-    // parmetis or a simple cube
-    if (input.get_dd_mode() == REPLICATED)
-      replicate_mesh(mesh, mpi_types, mpi_info, imc_p.get_grip_size());
-    else if (input.get_decomposition_mode() == PARMETIS)
-      decompose_mesh(mesh, mpi_types, mpi_info, imc_p.get_grip_size(), PARMETIS);
-    else if (input.get_decomposition_mode() == CUBE)
-      decompose_mesh(mesh, mpi_types, mpi_info, imc_p.get_grip_size(), CUBE);
-    else {
-      std::cout << "Method/decomposition not recognized, exiting...";
-      exit(EXIT_FAILURE);
-    }
-
+    Mesh mesh(input, mpi_types, mpi_info, imc_p);
     mesh.initialize_physical_properties(input);
 
     timers.stop_timer("Total setup");

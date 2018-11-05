@@ -37,7 +37,6 @@ int main (int argc, char *argv[]) {
     bool size_functions_pass = true;
 
     // test particle size
-    Photon photon;
     MPI_Datatype MPI_Particle = mpi_types.get_particle_type();
 
     int particle_size;
@@ -53,7 +52,6 @@ int main (int argc, char *argv[]) {
     cout<<"MPI Particle object size :"<<particle_size<<endl;
 
     // test cell size
-    Cell cell;
     MPI_Datatype MPI_Cell = mpi_types.get_cell_type();
 
     int cell_size;
@@ -62,14 +60,28 @@ int main (int argc, char *argv[]) {
     // copy should be the same size as size recorded in class
     if (cell_size != mpi_types.get_cell_size() ) size_functions_pass = false;
 
-    // copy should be the same size as actual Photon class
+    // copy should be the same size as actual Cell class
     if (cell_size != sizeof(Cell) ) size_functions_pass = false;
 
     cout<<"Cell object size :"<<sizeof(Cell)<<endl;
     cout<<"MPI Cell object size :"<<cell_size<<endl;
 
+    // test proto_cell size
+    MPI_Datatype MPI_Proto_Cell = mpi_types.get_proto_cell_type();
+
+    int proto_cell_size;
+    MPI_Type_size(MPI_Proto_Cell, &proto_cell_size);
+
+    // copy should be the same size as size recorded in class
+    if (proto_cell_size != mpi_types.get_proto_cell_size() ) size_functions_pass = false;
+
+    // copy should be the same size as actual Proto_Cell class
+    if (proto_cell_size != sizeof(Proto_Cell) ) size_functions_pass = false;
+
+    cout<<"Proto_Cell object size :"<<sizeof(Proto_Cell)<<endl;
+    cout<<"MPI Proto_Cell object size :"<<proto_cell_size<<endl;
+
     // test work packet size
-    Work_Packet work_packet;
     MPI_Datatype MPI_Work_Packet = mpi_types.get_work_packet_type();
 
     int work_packet_size;
