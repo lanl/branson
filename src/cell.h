@@ -41,6 +41,7 @@ public:
     op_a = 0.0;
     op_s = 0.0;
     f = 0.0;
+    g_ID = -1; // won't show up in finds
   }
 
   explicit Cell(const Proto_Cell& proto_cell) {

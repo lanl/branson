@@ -63,6 +63,8 @@ public:
     using Constants::ELEMENT;
 
     max_map_size = input.get_map_size();
+    stored_cells.resize(max_map_size);
+    stored_cells_size = 0;
     double dx, dy, dz;
 
     // make off processor map
@@ -407,12 +409,13 @@ public:
     return on_rank_start + local_index;
   }
 
-  Cell get_on_rank_cell(const uint32_t &index) const {
-    // this can only be called with valid on rank indexes
+  Cell get_on_rank_cell(const uint32_t index) const {
+    // this can only be called after with valid cell index (on rank or in stored
+    // cells vector
     if (on_processor(index))
       return cells[index - on_rank_start];
     else
-      return stored_cells.at(index);
+      return get_stored_cell(index);
   }
 
   bool on_processor(const uint32_t &index) const {
@@ -420,17 +423,26 @@ public:
   }
 
   void print_map(void) const {
-    for (auto const &map_i : stored_cells)
-      (map_i.second).print();
+    for (auto const &icell : stored_cells)
+      icell.print();
   }
 
   bool mesh_available(const uint32_t &index) const {
     if (on_processor(index))
       return true;
-    else if (stored_cells.find(index) != stored_cells.end())
+    else if (in_stored_cells(index))
       return true;
     else
       return false;
+  }
+
+  inline bool in_stored_cells(const uint32_t index) const {
+    auto it = std::lower_bound(stored_cells.begin(), stored_cells.begin()+stored_cells_size, index, [](const Cell &cell, const uint32_t id) {return cell.get_ID() < id;});
+    return (it->get_ID() == index); 
+  }
+
+  inline Cell get_stored_cell(const uint32_t index) const {
+    return *(std::lower_bound(stored_cells.begin(), stored_cells.begin()+stored_cells_size, index, [](const Cell &cell, const uint32_t id) {return cell.get_ID() < id;}));
   }
 
   std::vector<double> get_census_E(void) const { return m_census_E; }
@@ -744,19 +756,19 @@ public:
       std::cout<<"This is bad: new cells vector too big"<<std::endl;
 
     // remove a chunk of working mesh data if the new cells won't fit
-    uint32_t stored_cell_size = stored_cells.size();
-    if (stored_cell_size + n_new_cells > max_map_size) {
-      // remove enough cells so all new cells will fit
-      unordered_map<uint32_t, Cell>::iterator i_start = stored_cells.begin();
-      advance(i_start, max_map_size - n_new_cells);
-      stored_cells.erase(i_start, stored_cells.end());
+    if (stored_cells_size + n_new_cells > max_map_size) {
+      // copy from further back in the stored_cells vector
+      std::copy(new_recv_cells.begin(), new_recv_cells.begin()+n_new_cells,
+        stored_cells.begin() + (max_map_size - n_new_cells));
+      stored_cells_size = max_map_size;
+    }
+    else {
+      std::copy(new_recv_cells.begin(), new_recv_cells.begin()+n_new_cells,
+        stored_cells.begin() + stored_cells_size);
+      stored_cells_size += n_new_cells;
     }
 
-    // add received cells to the stored_cells map
-    for (int i = 0; i < n_new_cells; i++) {
-      uint32_t index = new_recv_cells[i].get_ID();
-      stored_cells[index] = new_recv_cells[i];
-    }
+    std::sort(stored_cells.begin(), stored_cells.begin()+stored_cells_size);
   }
 
   //! Set the physical data for the cells on your rank
@@ -776,7 +788,7 @@ public:
 
   //! Remove the temporary off-rank mesh data after the end of a timestep
   // (the properties will be updated so it can't be reused)
-  void purge_working_mesh(void) { stored_cells.clear(); }
+  void purge_working_mesh(void) { stored_cells_size =0;}
 
   //! Set maximum grip size
   void set_max_grip_size(const uint32_t &new_max_grip_size) {
@@ -848,7 +860,9 @@ private:
   MPI_Win mesh_window; //!< Handle to shared memory window of cell data
 
   //! Cells that have been accessed off rank
-  std::unordered_map<uint32_t, Cell> stored_cells;
+  std::vector<Cell> stored_cells;
+  uint32_t stored_cells_size;
+  Cell current_cell; //!< Off rank cell found in search
 
   std::unordered_map<int, int>
       proc_map; //!< Maps number of off-rank processor to global rank
