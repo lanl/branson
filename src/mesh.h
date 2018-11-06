@@ -444,6 +444,33 @@ public:
     std::sort(stored_cells.begin(), stored_cells.begin()+stored_cells_size);
   }
 
+
+  //! Add off-rank mesh data to the temporary mesh storage and manage the
+  // temporary mesh
+  void add_non_local_mesh_cells(const std::vector<Buffer<Cell>> &cell_buffers,
+    const uint32_t n_recv_cells) {
+
+    if(n_recv_cells > max_map_size)
+      std::cout<<"this is bad???"<<std::endl;
+
+    // default the copy start location to the current size, if too many cells
+    // were received, move it back to the beginning
+    uint32_t copy_start = stored_cells_size;
+    if (stored_cells_size + n_recv_cells > max_map_size)
+      copy_start = max_map_size - n_recv_cells;
+
+    for (const auto& buffer : cell_buffers) {
+      uint32_t n_cells_in_buffer = buffer.get_receive_size();
+      if (stored_cells_size + n_cells_in_buffer > max_map_size)
+        n_cells_in_buffer = max_map_size - stored_cells_size;
+      const std::vector<Cell>& recv_cells = buffer.get_object();
+      std::copy(recv_cells.begin(), recv_cells.begin()+n_cells_in_buffer,
+          stored_cells.begin() + copy_start);
+      stored_cells_size = copy_start + n_cells_in_buffer;
+      copy_start += n_cells_in_buffer;
+    }
+  }
+
   //--------------------------------------------------------------------------//
   // member variables
   //--------------------------------------------------------------------------//

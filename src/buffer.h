@@ -42,7 +42,7 @@ class Buffer {
   }
 
   //! Return reference to buffer's vector object
-  std::vector<T>& get_object(void) {return object;}
+  const std::vector<T>& get_object(void) const {return object;}
 
   //! Resize internal buffer vector
   void resize(uint32_t new_size) {object.resize(new_size);}

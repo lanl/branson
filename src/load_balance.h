@@ -203,11 +203,11 @@ void load_balance(std::vector<Work_Packet> &work,
 
     for (uint32_t i = 0; i < n_donors; ++i) {
       // add received work to your work
-      vector<Work_Packet> &temp_work = work_buffer[i].get_object();
+      const vector<Work_Packet> &temp_work = work_buffer[i].get_object();
       work.insert(work.begin(), temp_work.begin(), temp_work.end());
 
       // add received census photons
-      vector<Photon> &temp_photons = photon_buffer[i].get_object();
+      const vector<Photon> &temp_photons = photon_buffer[i].get_object();
       census_list.insert(census_list.begin(), temp_photons.begin(),
                          temp_photons.end());
     }
@@ -496,7 +496,7 @@ void bt_load_balance(std::vector<Work_Packet> &work,
           MPI_Waitall(2, &acceptor_recv_reqs[0], MPI_STATUSES_IGNORE);
 
           // add received work to your work
-          vector<Work_Packet> &temp_work = recv_work_buffer.get_object();
+          const vector<Work_Packet> &temp_work = recv_work_buffer.get_object();
           work.insert(work.begin(), temp_work.begin(),
                       temp_work.begin() + n_work_recv);
 
@@ -505,7 +505,7 @@ void bt_load_balance(std::vector<Work_Packet> &work,
             sort(work.begin(), work.end());
 
           // add received census photons
-          vector<Photon> &temp_photons = recv_photon_buffer.get_object();
+          const vector<Photon> &temp_photons = recv_photon_buffer.get_object();
           census_list.insert(census_list.begin(), temp_photons.begin(),
                              temp_photons.begin() + n_census_recv);
 

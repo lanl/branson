@@ -88,10 +88,6 @@ class Mesh_Request_Manager
       s_cell_buffers[i].resize(max_cells);
     }
 
-    // size to maximum and carry a size to avoid constant resizing
-    new_cells.resize(max_new_cells);
-    n_new_cells = 0;
-
     complete_indices = vector<int> (max_reqs);
   }
 
@@ -126,6 +122,10 @@ class Mesh_Request_Manager
       else max_i = s_i;
     }
     return s_i;
+  }
+
+  const std::vector<Buffer<Cell>> & get_receive_buffrs(void) {
+    return r_cell_buffers;
   }
 
   //--------------------------------------------------------------------------//
@@ -227,6 +227,10 @@ class Mesh_Request_Manager
       mctr.n_receives_posted++;
     }
 
+    // set the size to zero of all receive buffers
+    for (auto rbuffer : r_id_buffers[comp_index])
+      r_id_buffers[comp_index].set_receive_size(0);
+
     // test receives for remote mesh
     int32_t new_copy_index = 0;
     n_new_cells = 0;
@@ -245,20 +249,12 @@ class Mesh_Request_Manager
         comp_index = complete_indices[i];
 
         MPI_Get_count(&r_cell_status[i], MPI_Cell, &n_cell_recv);
+        n_new_cells+=n_cell_recv;
 
+        // set the received size of this buffer
+        r_cell_buffers[comp_index].set_received_size(n_cell_recv);
         // remove request index from index_in_use set
         r_cell_in_use.erase(comp_index);
-
-        // copy actual number of received cells from the buffer to the
-        // new_cells vector
-        if (new_copy_index + n_cell_recv > max_new_cells)
-          n_cell_recv = max_new_cells - new_copy_index;
-        std::vector<Cell>& complete_cells =
-          r_cell_buffers[comp_index].get_object();
-        std::copy(complete_cells.begin(), complete_cells.begin() + n_cell_recv,
-          new_cells.begin() + new_copy_index);
-        new_copy_index += n_cell_recv;
-        n_new_cells += n_cell_recv;
 
         // erase the receives IDs from the request list
         const std::vector<uint32_t>& receive_ids =
@@ -515,10 +511,8 @@ class Mesh_Request_Manager
   //! Returned from MPI_Testsome, indicates completed requests at index
   std::vector<int> complete_indices;
 
-  int n_req_complete; //! Number of completed requests after MPI_Testsome
-
-  std::vector<Cell> new_cells; //! New cells after MPI_Testsome
-  int n_new_cells; //! Number of new cells after MPI_Testsome
+  int n_req_complete; //!< Number of completed requests after MPI_Testsome
+  uint32_t n_new_cells; //!< Number of new cells in across all receive buffers
 
   //! Stores global IDs of requested cells
   std::unordered_set<uint32_t> ids_requested;

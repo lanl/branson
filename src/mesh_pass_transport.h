@@ -258,9 +258,9 @@ std::vector<Photon> mesh_pass_transport(
     tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
 
     // process mesh requests
-    std::vector<Cell> &new_cells = req_manager.process_mesh_requests(mctr);
+    req_manager.process_mesh_requests(mctr);
     if (req_manager.get_n_new_cells() > 0)
-      mesh.add_non_local_mesh_cells(new_cells, req_manager.get_n_new_cells());
+      mesh.add_non_local_mesh_cells(req_manager.get_receive_buffers(), req_manager.get_n_new_cells());
     // if data was received, try to transport photons on waiting list
     if (req_manager.get_n_new_cells()) {
       wait_list_size = wait_list.size();
@@ -296,9 +296,9 @@ std::vector<Photon> mesh_pass_transport(
     tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
 
     // process mesh requests
-    std::vector<Cell> &new_cells = req_manager.process_mesh_requests(mctr);
+    req_manager.process_mesh_requests(mctr);
     if (req_manager.get_n_new_cells() > 0)
-      mesh.add_non_local_mesh_cells(new_cells, req_manager.get_n_new_cells());
+      mesh.add_non_local_mesh_cells(req_manager.get_receive_buffers(), req_manager.get_n_new_cells());
 
     // if new data received, transport waiting list
     if (req_manager.get_n_new_cells() || req_manager.no_active_requests()) {
