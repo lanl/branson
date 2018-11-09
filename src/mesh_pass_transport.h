@@ -35,25 +35,25 @@
 //! Transport a single photon until it has a terminating event (kill, exit,
 // wait for data, census)
 Constants::event_type
-transport_photon_mesh_pass(Photon &phtn, const Mesh &mesh, RNG *rng, double &next_dt,
-                           double &exit_E, double &census_E,
+transport_photon_mesh_pass(Photon &phtn, const Mesh &mesh, RNG *rng,
+                           double &next_dt, double &exit_E, double &census_E,
                            std::vector<double> &rank_abs_E,
                            std::vector<double> &rank_track_E,
                            std::unordered_map<uint32_t, double> &off_rank_abs_E)
 
 {
-  using Constants::VACUUM;
-  using Constants::REFLECT;
   using Constants::ELEMENT;
   using Constants::PROCESSOR;
+  using Constants::REFLECT;
+  using Constants::VACUUM;
   // events
-  using Constants::WAIT;
-  using Constants::CENSUS;
-  using Constants::KILL;
-  using Constants::EXIT;
   using Constants::bc_type;
-  using Constants::event_type;
   using Constants::c;
+  using Constants::CENSUS;
+  using Constants::event_type;
+  using Constants::EXIT;
+  using Constants::KILL;
+  using Constants::WAIT;
   using std::min;
 
   uint32_t cell_id, next_cell, next_grip;
@@ -79,11 +79,6 @@ transport_photon_mesh_pass(Photon &phtn, const Mesh &mesh, RNG *rng, double &nex
     sigma_a = cell.get_op_a(group);
     sigma_s = cell.get_op_s(group);
     f = cell.get_f();
-    if (cell.get_ID() != phtn.get_cell()) {
-      std::cout<<"this is bad"<<std::endl;
-      bool found = mesh.mesh_available(phtn.get_cell());
-      std::cout<<"mesh found? "<<found<<std::endl;
-    }
 
     // get distance to event
     dist_to_scatter =
@@ -176,14 +171,14 @@ std::vector<Photon> mesh_pass_transport(
     Tally_Manager &tally_manager, Message_Counter &mctr,
     std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E,
     const MPI_Types &mpi_types, const Info &mpi_info) {
+  using Constants::event_type;
   using std::queue;
   using std::vector;
-  using Constants::event_type;
   // events
-  using Constants::WAIT;
   using Constants::CENSUS;
-  using Constants::KILL;
   using Constants::EXIT;
+  using Constants::KILL;
+  using Constants::WAIT;
 
   uint32_t n_local = source.get_n_photon();
   uint32_t n_local_sourced = 0;
@@ -217,8 +212,7 @@ std::vector<Photon> mesh_pass_transport(
   //--------------------------------------------------------------------------//
   // size the census list to the maximum size
   vector<Photon> census_list;
-  census_list.resize(source.get_n_photon());
-  uint64_t census_photons_end = 0;
+  census_list.reserve(int64_t(0.1 * source.get_n_photon()));
   // vector<Photon> off_rank_census_list; //! Off rank end of timestep census
   // list
   queue<Photon> wait_list; //! Photons waiting for mesh data
@@ -245,7 +239,7 @@ std::vector<Photon> mesh_pass_transport(
         event = WAIT;
 
       if (event == CENSUS) {
-        census_list[census_photons_end++] = phtn;
+        census_list.push_back(phtn);
       } else if (event == WAIT) {
         req_manager.request_cell(phtn.get_grip(), mctr);
         wait_list.push(phtn);
@@ -260,7 +254,8 @@ std::vector<Photon> mesh_pass_transport(
     // process mesh requests
     req_manager.process_mesh_requests(mctr);
     if (req_manager.get_n_new_cells() > 0)
-      mesh.add_non_local_mesh_cells(req_manager.get_receive_buffers(), req_manager.get_n_new_cells());
+      mesh.add_non_local_mesh_cells(req_manager.get_receive_buffers(),
+                                    req_manager.get_n_new_cells());
     // if data was received, try to transport photons on waiting list
     if (req_manager.get_n_new_cells()) {
       wait_list_size = wait_list.size();
@@ -277,7 +272,7 @@ std::vector<Photon> mesh_pass_transport(
           event = WAIT;
 
         if (event == CENSUS) {
-          census_list[census_photons_end++] = phtn;
+          census_list.push_back(phtn);
         } else if (event == WAIT) {
           req_manager.request_cell(phtn.get_grip(), mctr);
           wait_list.push(phtn);
@@ -298,7 +293,8 @@ std::vector<Photon> mesh_pass_transport(
     // process mesh requests
     req_manager.process_mesh_requests(mctr);
     if (req_manager.get_n_new_cells() > 0)
-      mesh.add_non_local_mesh_cells(req_manager.get_receive_buffers(), req_manager.get_n_new_cells());
+      mesh.add_non_local_mesh_cells(req_manager.get_receive_buffers(),
+                                    req_manager.get_n_new_cells());
 
     // if new data received, transport waiting list
     if (req_manager.get_n_new_cells() || req_manager.no_active_requests()) {
@@ -316,7 +312,7 @@ std::vector<Photon> mesh_pass_transport(
           event = WAIT;
 
         if (event == CENSUS) {
-          census_list[census_photons_end++] = phtn;
+          census_list.push_back(phtn);
         } else if (event == WAIT) {
           req_manager.request_cell(phtn.get_grip(), mctr);
           wait_list.push(phtn);
@@ -358,9 +354,6 @@ std::vector<Photon> mesh_pass_transport(
 
   // append remote tally to the current tally
   tally_manager.add_remote_tally(rank_abs_E);
-
-  // trim census back to actual size
-  census_list.erase(census_list.begin() + census_photons_end, census_list.end());
 
   // set the preffered census size to 10% of the user photon number and comb
   uint64_t max_census_photons = 0.1 * imc_parameters.get_n_user_photon();

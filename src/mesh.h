@@ -22,15 +22,15 @@
 
 #include "buffer.h"
 #include "cell.h"
-#include "decompose_mesh.h"
-#include "proto_cell.h"
-#include "proto_mesh.h"
 #include "constants.h"
-#include "imc_state.h"
+#include "decompose_mesh.h"
 #include "imc_parameters.h"
+#include "imc_state.h"
 #include "info.h"
 #include "input.h"
 #include "mpi_types.h"
+#include "proto_cell.h"
+#include "proto_mesh.h"
 
 //==============================================================================
 /*!
@@ -50,51 +50,45 @@ class Mesh {
 public:
   //! constructor
   Mesh(const Input &input, const MPI_Types &mpi_types, const Info &mpi_info,
-      const IMC_Parameters &imc_p)
+       const IMC_Parameters &imc_p)
       : ngx(input.get_global_n_x_cells()), ngy(input.get_global_n_y_cells()),
-        ngz(input.get_global_n_z_cells()), n_global(ngz*ngy*ngz), 
+        ngz(input.get_global_n_z_cells()), n_global(ngz * ngy * ngz),
         rank(mpi_info.get_rank()), n_rank(mpi_info.get_n_rank()),
-        max_map_size(input.get_map_size()), 
+        max_map_size(input.get_map_size()),
         mpi_cell_size(mpi_types.get_cell_size()), mpi_window_set(false),
-        total_photon_E(0.0), off_rank_reads(0),
-        silo_x(input.get_silo_x_ptr()), silo_y(input.get_silo_y_ptr()),
-        silo_z(input.get_silo_z_ptr()), regions(input.get_regions()) {
-    using std::vector;
+        total_photon_E(0.0), off_rank_reads(0), silo_x(input.get_silo_x_ptr()),
+        silo_y(input.get_silo_y_ptr()), silo_z(input.get_silo_z_ptr()),
+        regions(input.get_regions()) {
     using Constants::bc_type;
-    using Constants::X_POS;
-    using Constants::Y_POS;
-    using Constants::Z_POS;
-    using Constants::X_NEG;
-    using Constants::Y_NEG;
-    using Constants::Z_NEG;
-    using Constants::ELEMENT;
-    using Constants::REPLICATED;
     using Constants::CUBE;
+    using Constants::ELEMENT;
     using Constants::PARMETIS;
+    using Constants::REPLICATED;
+    using Constants::X_NEG;
+    using Constants::X_POS;
+    using Constants::Y_NEG;
+    using Constants::Y_POS;
+    using Constants::Z_NEG;
+    using Constants::Z_POS;
+    using std::vector;
 
     Proto_Mesh proto_mesh(input, mpi_types, mpi_info);
 
-    // if mode is replicated ignore decomposition options, otherwise use 
+    // if mode is replicated ignore decomposition options, otherwise use
     // parmetis or a simple cube
     if (input.get_dd_mode() == REPLICATED)
       replicate_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size());
     else if (input.get_decomposition_mode() == PARMETIS)
-      decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(), PARMETIS);
+      decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(),
+                     PARMETIS);
     else if (input.get_decomposition_mode() == CUBE)
-      decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(), CUBE);
+      decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(),
+                     CUBE);
     else {
       std::cout << "Method/decomposition not recognized, exiting...";
       exit(EXIT_FAILURE);
     }
     const std::vector<Proto_Cell> &proto_cell_list(proto_mesh.get_cell_list());
-
-    vector<bc_type> bc(6);
-    bc[X_POS] = input.get_bc(X_POS);
-    bc[X_NEG] = input.get_bc(X_NEG);
-    bc[Y_POS] = input.get_bc(Y_POS);
-    bc[Y_NEG] = input.get_bc(Y_NEG);
-    bc[Z_POS] = input.get_bc(Z_POS);
-    bc[Z_NEG] = input.get_bc(Z_NEG);
 
     // this rank's cells
     n_cell = proto_cell_list.size();
@@ -117,7 +111,7 @@ public:
       // use the proto cells to contstruct the real cells
       int i = 0;
       for (auto icell : proto_cell_list) {
-        cells[i] = Cell(icell); 
+        cells[i] = Cell(icell);
         i++;
       }
     } else {
@@ -129,20 +123,16 @@ public:
       // use the proto cells to construct the real cells
       int i = 0;
       for (auto icell : proto_cell_list) {
-        cells[i] = Cell(icell); 
+        cells[i] = Cell(icell);
         i++;
       }
       mpi_window_set = true;
     }
 
-    // statically size the stored cells to maximum size and manage size manually
-    stored_cells.resize(max_map_size);
-    stored_cells_size = 0;
-
     // get decomposition information from proto mesh
     off_rank_bounds = proto_mesh.get_off_rank_bounds();
     on_rank_start = off_rank_bounds[rank];
-    on_rank_end = off_rank_bounds[rank+1]-1;
+    on_rank_end = off_rank_bounds[rank + 1] - 1;
     // get adjacent bounds from proto mesh
     adjacent_procs = proto_mesh.get_proc_adjacency_list();
 
@@ -234,7 +224,7 @@ public:
     if (on_processor(index))
       return cells[index - on_rank_start];
     else
-      return get_stored_cell(index);
+      return stored_cells.at(index);
   }
 
   bool on_processor(const uint32_t &index) const {
@@ -242,35 +232,22 @@ public:
   }
 
   void print_map(void) const {
-    for (auto const &icell : stored_cells)
-      icell.print();
+    for (auto const &icellmap : stored_cells)
+      icellmap.second.print();
   }
 
   bool mesh_available(const uint32_t &index) const {
     if (on_processor(index))
       return true;
-    else if (in_stored_cells(index))
+    else if (stored_cells.find(index) != stored_cells.end())
       return true;
     else
       return false;
   }
 
-  inline bool in_stored_cells(const uint32_t index) const {
-    auto it = std::lower_bound(stored_cells.begin(),
-      stored_cells.begin()+stored_cells_size, index, [](
-        const Cell &cell, const uint32_t id) {return cell.get_ID() < id;});
-    return (it->get_ID() == index); 
-  }
-
-  inline Cell get_stored_cell(const uint32_t index) const {
-    return *(std::lower_bound(stored_cells.begin(),
-      stored_cells.begin()+stored_cells_size, index, [](
-        const Cell &cell, const uint32_t id) {return cell.get_ID() < id;}));
-  }
-
-  std::vector<double> get_census_E(void) const {return m_census_E;}
-  std::vector<double> get_emission_E(void) const {return m_emission_E;}
-  std::vector<double> get_source_E(void) const {return m_source_E;}
+  std::vector<double> get_census_E(void) const { return m_census_E; }
+  std::vector<double> get_emission_E(void) const { return m_emission_E; }
+  std::vector<double> get_source_E(void) const { return m_source_E; }
 
   //! Get the radiation temperature in a cell (for plotting/diagnostics)
   double get_T_r(const uint32_t cell_index) const { return T_r[cell_index]; }
@@ -279,9 +256,9 @@ public:
   uint32_t get_global_n_y_faces(void) const { return ngy + 1; }
   uint32_t get_global_n_z_faces(void) const { return ngz + 1; }
 
-  float const * get_silo_x(void) const { return silo_x; }
-  float const * get_silo_y(void) const { return silo_y; }
-  float const * get_silo_z(void) const { return silo_z; }
+  float const *get_silo_x(void) const { return silo_x; }
+  float const *get_silo_y(void) const { return silo_y; }
+  float const *get_silo_z(void) const { return silo_z; }
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
@@ -290,8 +267,8 @@ public:
   //! Calculate new physical properties and emission energy for each cell on
   // the mesh
   void calculate_photon_energy(IMC_State &imc_state) {
-    using Constants::c;
     using Constants::a;
+    using Constants::c;
     total_photon_E = 0.0;
     double dt = imc_state.get_dt();
     double op_a, op_s, f, cV, rho;
@@ -367,9 +344,8 @@ public:
       Cell &e = cells[i];
       vol = e.get_volume();
       T = e.get_T_e();
-      T_new =
-          T +
-          (abs_E[i] - m_emission_E[i] / replicated_factor) / (cV * vol * rho);
+      T_new = T + (abs_E[i] - m_emission_E[i] / replicated_factor) /
+                      (cV * vol * rho);
       T_r[i] = std::pow(track_E[i] / (vol * imc_state.get_dt() * a * c), 0.25);
       e.set_T_e(T_new);
       total_abs_E += abs_E[i];
@@ -404,7 +380,7 @@ public:
 
   //! Remove the temporary off-rank mesh data after the end of a timestep
   // (the properties will be updated so it can't be reused)
-  void purge_working_mesh(void) { stored_cells_size =0;}
+  void purge_working_mesh(void) { stored_cells.clear(); }
 
   //! Set maximum grip size
   void set_max_grip_size(const uint32_t &new_max_grip_size) {
@@ -422,52 +398,58 @@ public:
 
   //! Add off-rank mesh data to the temporary mesh storage and manage the
   // temporary mesh
-  void add_non_local_mesh_cells(const std::vector<Cell> &new_recv_cells,
-    const int n_new_cells) {
+  void add_non_local_mesh_cells(std::vector<Cell> new_recv_cells,
+                                const int n_new_cells) {
+    using std::advance;
+    using std::unordered_map;
 
-    // if new_recv_cells is bigger than maximum map size something went wrong 
-    if (n_new_cells > max_map_size)
-      std::cout<<"This is bad: new cells vector too big"<<std::endl;
+    // if new_recv_cells is bigger than maximum map size truncate it
+    if (new_recv_cells.size() > max_map_size) {
+      new_recv_cells.erase(new_recv_cells.begin() + max_map_size,
+                           new_recv_cells.end());
+    }
 
     // remove a chunk of working mesh data if the new cells won't fit
-    if (stored_cells_size + n_new_cells > max_map_size) {
-      // copy from further back in the stored_cells vector
-      std::copy(new_recv_cells.begin(), new_recv_cells.begin()+n_new_cells,
-        stored_cells.begin() + (max_map_size - n_new_cells));
-      stored_cells_size = max_map_size;
+    uint32_t stored_cell_size = stored_cells.size();
+    if (stored_cell_size + new_recv_cells.size() > max_map_size) {
+      // remove enough cells so all new cells will fit
+      unordered_map<uint32_t, Cell>::iterator i_start = stored_cells.begin();
+      advance(i_start, max_map_size - new_recv_cells.size());
+      stored_cells.erase(i_start, stored_cells.end());
     }
-    else {
-      std::copy(new_recv_cells.begin(), new_recv_cells.begin()+n_new_cells,
-        stored_cells.begin() + stored_cells_size);
-      stored_cells_size += n_new_cells;
-    }
-    std::sort(stored_cells.begin(), stored_cells.begin()+stored_cells_size);
-  }
 
+    // add received cells to the stored_cells map
+    for (uint32_t i = 0; i < new_recv_cells.size(); i++) {
+      uint32_t index = new_recv_cells[i].get_ID();
+      stored_cells[index] = new_recv_cells[i];
+    }
+  }
 
   //! Add off-rank mesh data to the temporary mesh storage and manage the
   // temporary mesh
   void add_non_local_mesh_cells(const std::vector<Buffer<Cell>> &cell_buffers,
-    const uint32_t n_recv_cells) {
+                                const uint32_t n_recv_cells) {
+    using std::advance;
+    using std::unordered_map;
 
-    if(n_recv_cells > max_map_size)
-      std::cout<<"this is bad???"<<std::endl;
+    // remove a chunk of working mesh data if the new cells won't fit
+    uint32_t stored_cells_size = stored_cells.size();
+    if (stored_cells_size + n_recv_cells > max_map_size) {
+      // remove enough cells so all new cells will fit
+      unordered_map<uint32_t, Cell>::iterator i_start = stored_cells.begin();
+      advance(i_start, max_map_size - n_recv_cells);
+      stored_cells.erase(i_start, stored_cells.end());
+    }
 
-    // default the copy start location to the current size, if too many cells
-    // were received, move it back to the beginning
-    uint32_t copy_start = stored_cells_size;
-    if (stored_cells_size + n_recv_cells > max_map_size)
-      copy_start = max_map_size - n_recv_cells;
-
-    for (const auto& buffer : cell_buffers) {
+    for (const auto &buffer : cell_buffers) {
       uint32_t n_cells_in_buffer = buffer.get_receive_size();
-      if (stored_cells_size + n_cells_in_buffer > max_map_size)
+      if (stored_cells.size() + n_cells_in_buffer > max_map_size)
         n_cells_in_buffer = max_map_size - stored_cells_size;
-      const std::vector<Cell>& recv_cells = buffer.get_object();
-      std::copy(recv_cells.begin(), recv_cells.begin()+n_cells_in_buffer,
-          stored_cells.begin() + copy_start);
-      stored_cells_size = copy_start + n_cells_in_buffer;
-      copy_start += n_cells_in_buffer;
+      const std::vector<Cell> &recv_cells = buffer.get_object();
+      for (uint32_t i = 0; i < n_cells_in_buffer; ++i) {
+        uint32_t index = recv_cells[i].get_ID();
+        stored_cells[index] = recv_cells[i];
+      }
     }
   }
 
@@ -475,45 +457,44 @@ public:
   // member variables
   //--------------------------------------------------------------------------//
 private:
-  uint32_t ngx; //!< Number of global x sizes
-  uint32_t ngy; //!< Number of global y sizes
-  uint32_t ngz; //!< Number of global z sizes
+  uint32_t ngx;      //!< Number of global x sizes
+  uint32_t ngy;      //!< Number of global y sizes
+  uint32_t ngz;      //!< Number of global z sizes
   uint32_t n_global; //!< Nuber of global cells
 
-  int32_t rank;       //!< MPI rank of this mesh
-  int32_t n_rank;     //!< Number of global ranks
+  int32_t rank;   //!< MPI rank of this mesh
+  int32_t n_rank; //!< Number of global ranks
 
   uint32_t max_map_size;   //!< Maximum size of map object
   int32_t mpi_cell_size;   //!< Size of custom MPI_Cell type
-  bool mpi_window_set; //!< Flag indicating if MPI_Window was created
-  double total_photon_E; //!< Total photon energy on the mesh
+  bool mpi_window_set;     //!< Flag indicating if MPI_Window was created
+  double total_photon_E;   //!< Total photon energy on the mesh
   uint32_t off_rank_reads; //!< Number of off rank reads
 
-  float const * const silo_x; //!< Global array of x face locations for SILO
-  float const * const silo_y; //!< Global array of y face locations for SILO
-  float const * const silo_z; //!< Global array of z face locations for SILO
+  float const *const silo_x; //!< Global array of x face locations for SILO
+  float const *const silo_y; //!< Global array of y face locations for SILO
+  float const *const silo_z; //!< Global array of z face locations for SILO
 
   std::vector<Region> regions; //!< Vector of regions in the problem
 
   //! Factor to reduce emission and initial census in replicated mode
   double replicated_factor;
 
-  uint32_t n_cell;   //!< Number of local cells
+  uint32_t n_cell; //!< Number of local cells
 
   std::vector<double> m_census_E;   //!< Census energy vector
   std::vector<double> m_emission_E; //!< Emission energy vector
   std::vector<double> m_source_E;   //!< Source energy vector
   std::vector<double> T_r;          //!< Diagnostic quantity
 
-  Cell *cells;                      //!< Cell data allocated with MPI_Alloc
+  Cell *cells;         //!< Cell data allocated with MPI_Alloc
   MPI_Win mesh_window; //!< Handle to shared memory window of cell data
 
   //! Cells that have been accessed off rank
-  std::vector<Cell> stored_cells;
-  uint32_t stored_cells_size;
+  std::unordered_map<uint32_t, Cell> stored_cells;
 
   std::vector<uint32_t>
-      off_rank_bounds; //!< Ending value of global ID for each rank
+      off_rank_bounds;    //!< Ending value of global ID for each rank
   uint32_t on_rank_start; //!< Start of global index on rank
   uint32_t on_rank_end;   //!< End of global index on rank
 

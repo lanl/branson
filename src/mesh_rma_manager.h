@@ -185,7 +185,7 @@ class RMA_Manager
       mctr.n_receives_completed +=n_req_complete;
       for (int i = 0;i<n_req_complete;i++) {
         comp_index = complete_indices[i];
-        std::vector<Cell>& complete_cells =
+        const std::vector<Cell>& complete_cells =
           recv_cell_buffer[comp_index].get_object();
         int n_to_copy;
         if (new_copy_index + complete_cells.size() > n_max_cells)

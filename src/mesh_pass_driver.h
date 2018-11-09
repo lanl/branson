@@ -45,7 +45,7 @@ void imc_mesh_pass_driver(Mesh &mesh, IMC_State &imc_state,
 
   // make object that handles requests for local and remote data
   Mesh_Request_Manager req_manager(rank, mesh.get_off_rank_bounds(),
-                                   mesh.get_max_grip_size(), 
+                                   mesh.get_max_grip_size(),
                                    imc_parameters.get_map_size(),
                                    mpi_types, mesh.get_const_cells_ptr());
   req_manager.start_simulation(mctr);
@@ -98,9 +98,9 @@ void imc_mesh_pass_driver(Mesh &mesh, IMC_State &imc_state,
     t_lb.stop_timer("load balance");
     imc_state.set_load_balance_time(t_lb.get_time("load balance"));
 
-    vector<Cell> &new_cells = req_manager.process_mesh_requests(mctr);
-    if (!new_cells.empty())
-      mesh.add_non_local_mesh_cells(new_cells, req_manager.get_n_new_cells());
+    req_manager.process_mesh_requests(mctr);
+    if (req_manager.get_n_new_cells())
+      mesh.add_non_local_mesh_cells(req_manager.get_receive_buffers(), req_manager.get_n_new_cells());
 
     // transport photons
     census_photons = mesh_pass_transport(

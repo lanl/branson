@@ -377,7 +377,7 @@ particle_pass_transport(Source &source, const Mesh &mesh, IMC_State &imc_state,
         if (phtn_recv_buffer[i_b].awaiting()) {
           MPI_Test(&phtn_recv_request[i_b], &recv_req_flag, &recv_status);
           if (recv_req_flag) {
-            vector<Photon> &receive_list = phtn_recv_buffer[i_b].get_object();
+            const vector<Photon> &receive_list = phtn_recv_buffer[i_b].get_object();
             // only push the number of received photons onto the recv_stack
             MPI_Get_count(&recv_status, MPI_Particle, &recv_count);
             for (uint32_t i = 0; i < uint32_t(recv_count); ++i)

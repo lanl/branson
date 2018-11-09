@@ -50,8 +50,8 @@ class Mesh_Request_Manager
     grip_size(_grip_size),
     rank_start(rank_bounds[_rank]),
     rank_end(rank_bounds[_rank+1]),
-    max_reqs(10),
-    max_ids(10),
+    max_reqs(12),
+    max_ids(6),
     max_cells(max_ids*_grip_size),
     max_new_cells(_max_new_cells)
   {
@@ -124,7 +124,7 @@ class Mesh_Request_Manager
     return s_i;
   }
 
-  const std::vector<Buffer<Cell>> & get_receive_buffrs(void) {
+  const std::vector<Buffer<Cell>> & get_receive_buffers(void) {
     return r_cell_buffers;
   }
 
@@ -228,8 +228,8 @@ class Mesh_Request_Manager
     }
 
     // set the size to zero of all receive buffers
-    for (auto rbuffer : r_id_buffers[comp_index])
-      r_id_buffers[comp_index].set_receive_size(0);
+    for (auto& rbuffer : r_cell_buffers)
+      rbuffer.set_receive_size(0);
 
     // test receives for remote mesh
     int32_t new_copy_index = 0;
@@ -252,7 +252,7 @@ class Mesh_Request_Manager
         n_new_cells+=n_cell_recv;
 
         // set the received size of this buffer
-        r_cell_buffers[comp_index].set_received_size(n_cell_recv);
+        r_cell_buffers[comp_index].set_receive_size(n_cell_recv);
         // remove request index from index_in_use set
         r_cell_in_use.erase(comp_index);
 
@@ -348,7 +348,7 @@ class Mesh_Request_Manager
         uint32_t s_cell_index = get_next_send_cell_request_and_buffer_index();
 
         // fill vector with all cells requested by off rank
-        std::vector<Cell> &send_cells = s_cell_buffers[s_cell_index].get_object();
+        std::vector<Cell> &send_cells = s_cell_buffers[s_cell_index].get_object_ref();
         uint32_t copy_index = 0;
         uint32_t n_cells_to_send = 0;
         uint32_t start_index;
@@ -395,7 +395,7 @@ class Mesh_Request_Manager
   }
 
   public:
-  std::vector<Cell>& process_mesh_requests(Message_Counter& mctr) {
+  void process_mesh_requests(Message_Counter& mctr) {
     // first, test sends
     test_sends_and_receives(mctr);
 
@@ -404,8 +404,6 @@ class Mesh_Request_Manager
 
     // send needed IDs to other ranks and post receive for data
     process_requests_for_remote_mesh(mctr);
-
-    return new_cells;
   }
 
   //! Add requested cell to maps and sets for later request
