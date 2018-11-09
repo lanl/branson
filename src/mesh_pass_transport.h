@@ -212,7 +212,8 @@ std::vector<Photon> mesh_pass_transport(
   //--------------------------------------------------------------------------//
   // size the census list to the maximum size
   vector<Photon> census_list;
-  census_list.reserve(int64_t(0.1 * source.get_n_photon()));
+  census_list.resize(source.get_n_photon());
+  uint64_t census_list_size = 0;
   // vector<Photon> off_rank_census_list; //! Off rank end of timestep census
   // list
   queue<Photon> wait_list; //! Photons waiting for mesh data
@@ -239,7 +240,7 @@ std::vector<Photon> mesh_pass_transport(
         event = WAIT;
 
       if (event == CENSUS) {
-        census_list.push_back(phtn);
+        census_list[census_list_size++] = phtn;
       } else if (event == WAIT) {
         req_manager.request_cell(phtn.get_grip(), mctr);
         wait_list.push(phtn);
@@ -272,7 +273,7 @@ std::vector<Photon> mesh_pass_transport(
           event = WAIT;
 
         if (event == CENSUS) {
-          census_list.push_back(phtn);
+          census_list[census_list_size++] = phtn;
         } else if (event == WAIT) {
           req_manager.request_cell(phtn.get_grip(), mctr);
           wait_list.push(phtn);
@@ -312,7 +313,7 @@ std::vector<Photon> mesh_pass_transport(
           event = WAIT;
 
         if (event == CENSUS) {
-          census_list.push_back(phtn);
+          census_list[census_list_size++] = phtn;
         } else if (event == WAIT) {
           req_manager.request_cell(phtn.get_grip(), mctr);
           wait_list.push(phtn);
@@ -354,6 +355,9 @@ std::vector<Photon> mesh_pass_transport(
 
   // append remote tally to the current tally
   tally_manager.add_remote_tally(rank_abs_E);
+
+  // trim census back to actual size
+  census_list.erase(census_list.begin() + census_list_size, census_list.end());
 
   // set the preffered census size to 10% of the user photon number and comb
   uint64_t max_census_photons = 0.1 * imc_parameters.get_n_user_photon();
