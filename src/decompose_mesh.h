@@ -471,6 +471,8 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
   using std::unordered_map;
   using std::unordered_set;
   using std::vector;
+  if (rank == 0)
+    std::cout << "remapping with rma..." << std::endl;
 
   // gather the number of cells on each processor
   uint32_t n_cell_post_decomp = mesh.get_n_local_cells();
@@ -530,13 +532,16 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
   MPI_Win index_win, grip_win;
   uint32_t *new_index;
   uint32_t *new_grip;
+  MPI_Info decomp_info;
+  MPI_Info_create(&decomp_info);
+  MPI_Info_set(decomp_info, "same_disp_unit", "true");
   MPI_Win_allocate(n_cell_post_decomp * sizeof(uint32_t), sizeof(uint32_t),
-                   MPI_INFO_NULL, MPI_COMM_WORLD, &new_index, &index_win);
+                   decomp_info, MPI_COMM_WORLD, &new_index, &index_win);
   MPI_Win_allocate(n_cell_post_decomp * sizeof(uint32_t), sizeof(uint32_t),
-                   MPI_INFO_NULL, MPI_COMM_WORLD, &new_grip, &grip_win);
+                   decomp_info, MPI_COMM_WORLD, &new_grip, &grip_win);
   MPI_Barrier(MPI_COMM_WORLD);
-  // assert = MPI_MODE_NOCHECK; // no conflicting locks on this window
-  int assert = 0;
+  int assert = MPI_MODE_NOCHECK; // no conflicting locks on this window
+  //int assert = 0;
   MPI_Win_lock_all(assert, index_win);
   MPI_Win_lock_all(assert, grip_win);
 
@@ -613,6 +618,9 @@ void remap_cell_and_grip_indices(Proto_Mesh &mesh, const int rank, const int n_r
   using std::unordered_map;
   using std::unordered_set;
   using std::vector;
+
+  if (rank == 0)
+    std::cout << "remapping with all to all..." << std::endl;
 
   // make off processor map
   uint32_t n_off_rank = n_rank - 1; // implicit conversion from int to uint32_t
@@ -779,6 +787,9 @@ void remap_cell_and_grip_indices_staged(Proto_Mesh &mesh, const int rank,
                                         const int n_rank) {
   using std::vector;
   using std::unordered_map;
+
+  if (rank == 0)
+    std::cout << "remapping with staged all to all..." << std::endl;
 
   // gather the number of cells on each processor
   uint32_t n_cell_post_decomp = mesh.get_n_local_cells();
@@ -1007,10 +1018,8 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types, const Info &mp
   overdecompose_mesh(mesh, grip_size);
   t_overdecomp.stop_timer("overdecomp");
 
-  if (rank == 0)
-    std::cout << "remapping..." << std::endl;
   t_remap.start_timer("remap");
-  remap_cell_and_grip_indices_staged(mesh, rank, n_rank);
+  remap_cell_and_grip_indices_rma(mesh, rank, n_rank);
   t_remap.stop_timer("remap");
 
   if (rank == 0) {
