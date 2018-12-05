@@ -1,9 +1,12 @@
 # Unit tests
 cmake_minimum_required (VERSION 3.11)
 
-# if (${SITENAME} STREQUAL "Trinitite")
-#   set(MPI_EXEC srun)
-# endif ()
+# force mpiexec to be srun in cray environments
+message( STATUS "Looking to see if we are building in a Cray Environment...")
+if( DEFINED ENV{CRAYPE_VERSION} )
+  set(MPIEXEC_EXECUTABLE srun)
+  message("In Cray Environment, MPI executable is: ${MPIEXEC_EXECUTABLE}")
+endif()
 
 #------------------------------------------------------------------------------#
 # Helper for building and registering tests.
@@ -44,6 +47,7 @@ endfunction()
 set(branson_test_sources_1pe
   test_buffer.cc
   test_cell.cc
+  test_proto_cell.cc
   test_counter_rng.cc
   test_input.cc
   test_mesh.cc

@@ -32,7 +32,7 @@
 #include "sampling_functions.h"
 
 Constants::event_type transport_photon_particle_pass(
-    Photon &phtn, Mesh *mesh, RNG *rng, double &next_dt, double &exit_E,
+    Photon &phtn, const Mesh &mesh, RNG *rng, double &next_dt, double &exit_E,
     double &census_E, std::vector<double> &rank_abs_E,
     std::vector<double> &rank_track_E) {
   using Constants::ELEMENT;
@@ -62,7 +62,7 @@ Constants::event_type transport_photon_particle_pass(
   double cutoff_fraction = 0.01; // note: get this from IMC_state
 
   cell_id = phtn.get_cell();
-  cell = mesh->get_on_rank_cell(cell_id);
+  cell = mesh.get_on_rank_cell(cell_id);
   bool active = true;
 
   // transport this photon
@@ -119,7 +119,7 @@ Constants::event_type transport_photon_particle_pass(
           next_cell = cell.get_next_cell(surface_cross);
           phtn.set_cell(next_cell);
           cell_id = next_cell;
-          cell = mesh->get_on_rank_cell(cell_id);
+          cell = mesh.get_on_rank_cell(cell_id);
         } else if (boundary_event == PROCESSOR) {
           active = false;
           // set correct cell index with global cell ID
@@ -146,8 +146,8 @@ Constants::event_type transport_photon_particle_pass(
 }
 
 std::vector<Photon>
-particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
-                        IMC_Parameters *imc_parameters, MPI_Types *mpi_types,
+particle_pass_transport(Source &source, const Mesh &mesh, IMC_State &imc_state,
+                        const IMC_Parameters &imc_parameters, const MPI_Types &mpi_types,
                         Message_Counter &mctr, std::vector<double> &rank_abs_E,
                         std::vector<double> &rank_track_E,
                         const Info &mpi_info) {
@@ -166,23 +166,22 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
 
   double census_E = 0.0;
   double exit_E = 0.0;
-  double next_dt = imc_state->get_next_dt(); //! Set for census photons
-  double dt = imc_state->get_next_dt();      //! For making current photons
+  double next_dt = imc_state.get_next_dt(); //! Set for census photons
+  double dt = imc_state.get_next_dt();      //! For making current photons
 
-  RNG *rng = imc_state->get_rng();
+  RNG *rng = imc_state.get_rng();
 
   // timing
   Timer t_transport;
-  Timer t_mpi;
   t_transport.start_timer("timestep transport");
 
   // Number of particles to run between MPI communication
-  const uint32_t batch_size = imc_parameters->get_batch_size();
+  const uint32_t batch_size = imc_parameters.get_batch_size();
 
   // Preferred size of MPI message
-  const uint32_t max_buffer_size = imc_parameters->get_particle_message_size();
+  const uint32_t max_buffer_size = imc_parameters.get_particle_message_size();
 
-  MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
+  MPI_Datatype MPI_Particle = mpi_types.get_particle_type();
 
   // get global photon count
   uint64_t n_local = source.get_n_photon();
@@ -200,7 +199,7 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
   int recv_allreduce_flag;
 
   // get adjacent processor map (off_rank_id -> adjacent_proc_number)
-  auto adjacent_procs = mesh->get_proc_adjacency_list();
+  auto adjacent_procs = mesh.get_proc_adjacency_list();
   uint32_t n_adjacent = adjacent_procs.size();
   // messsage requests for photon sends and receives
   MPI_Request *phtn_recv_request = new MPI_Request[n_adjacent];
@@ -284,8 +283,7 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
         n_complete++;
         break;
       case PASS:
-        t_mpi.start_timer("timestep mpi");
-        send_rank = mesh->get_rank(phtn.get_cell());
+        send_rank = mesh.get_rank(phtn.get_cell());
         int i_b = adjacent_procs[send_rank];
         send_list[i_b].push_back(phtn);
 
@@ -317,7 +315,6 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
           mctr.n_sends_posted++;
           mctr.n_particle_messages++;
         }
-        t_mpi.stop_timer("timestep mpi");
         break;
       }
       n--;
@@ -328,7 +325,6 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
     //------------------------------------------------------------------------//
     // process photon send and receives
     //------------------------------------------------------------------------//
-    t_mpi.start_timer("timestep mpi");
     {
       int send_req_flag;
       int recv_req_flag;
@@ -381,7 +377,7 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
         if (phtn_recv_buffer[i_b].awaiting()) {
           MPI_Test(&phtn_recv_request[i_b], &recv_req_flag, &recv_status);
           if (recv_req_flag) {
-            vector<Photon> &receive_list = phtn_recv_buffer[i_b].get_object();
+            const vector<Photon> &receive_list = phtn_recv_buffer[i_b].get_object();
             // only push the number of received photons onto the recv_stack
             MPI_Get_count(&recv_status, MPI_Particle, &recv_count);
             for (uint32_t i = 0; i < uint32_t(recv_count); ++i)
@@ -421,8 +417,6 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
         }
       }
     }
-
-    t_mpi.stop_timer("timestep mpi");
 
   } // end while
 
@@ -471,13 +465,12 @@ particle_pass_transport(Source &source, Mesh *mesh, IMC_State *imc_state,
   delete[] phtn_send_request;
 
   // set diagnostic quantities
-  imc_state->set_exit_E(exit_E);
-  imc_state->set_post_census_E(census_E);
-  imc_state->set_census_size(census_list.size());
-  imc_state->set_network_message_counts(mctr);
-  imc_state->set_rank_transport_runtime(
+  imc_state.set_exit_E(exit_E);
+  imc_state.set_post_census_E(census_E);
+  imc_state.set_census_size(census_list.size());
+  imc_state.set_network_message_counts(mctr);
+  imc_state.set_rank_transport_runtime(
       t_transport.get_time("timestep transport"));
-  imc_state->set_rank_mpi_time(t_mpi.get_time("timestep mpi"));
 
   return census_list;
 }

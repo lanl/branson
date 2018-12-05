@@ -45,8 +45,9 @@ void print_MPI_photons(const std::vector<Photon> &phtn_vec,
   usleep(100);
 }
 
+//! Rebalance a census that only include off-rank census photons
 std::vector<Photon> rebalance_census(std::vector<Photon> &off_rank_census,
-                                     Mesh *mesh, MPI_Types *mpi_types) {
+                                     const Mesh &mesh, const MPI_Types &mpi_types) {
   using std::sort;
   using std::unordered_map;
   using std::vector;
@@ -56,7 +57,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon> &off_rank_census,
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
   uint32_t n_off_rank = n_rank - 1;
 
-  MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
+  MPI_Datatype MPI_Particle = mpi_types.get_particle_type();
 
   // make off processor map
   unordered_map<int, int> proc_map;
@@ -78,7 +79,7 @@ std::vector<Photon> rebalance_census(std::vector<Photon> &off_rank_census,
   vector<bool> rank_found(n_rank, false);
   uint32_t r;
   for (uint32_t i = 0; i < n_census; ++i) {
-    r = mesh->get_rank(off_rank_census[i].get_cell());
+    r = mesh.get_rank(off_rank_census[i].get_cell());
     rank_count[r]++;
     if (rank_found[r] == false) {
       rank_found[r] = true;
@@ -142,8 +143,10 @@ std::vector<Photon> rebalance_census(std::vector<Photon> &off_rank_census,
   return new_on_rank_census;
 }
 
+
+//! Rebalance a census that contains photons living on mesh owned by any rank
 std::vector<Photon> rebalance_raw_census(std::vector<Photon> &census,
-                                         Mesh *mesh, MPI_Types *mpi_types) {
+                                         const Mesh &mesh, const MPI_Types &mpi_types) {
   using std::sort;
   using std::unordered_map;
   using std::vector;
@@ -152,7 +155,7 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon> &census,
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_rank);
 
-  MPI_Datatype MPI_Particle = mpi_types->get_particle_type();
+  MPI_Datatype MPI_Particle = mpi_types.get_particle_type();
 
   // sort ceneus by cell ID
   sort(census.begin(), census.end());
@@ -164,7 +167,7 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon> &census,
   int census_p_rank;
   uint64_t ip = 0;
   for (auto &p : census) {
-    census_p_rank = mesh->get_rank(p.get_cell());
+    census_p_rank = mesh.get_rank(p.get_cell());
     if (rank_start.find(census_p_rank) == rank_start.end()) {
       rank_start[census_p_rank] = ip;
     }

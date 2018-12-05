@@ -27,7 +27,7 @@ This is ${CMAKE_PROJECT_NAME} v. ${PROJECT_VERSION}.
 # User configurable options
 
 set (BRANSON_N_GROUPS ${N_GROUPS})
-if ("${BRANSON_N_GROUPS}x" STREQUAL "x")
+if (NOT BRANSON_N_GROUPS)
   message(STATUS
     "HARDCODED NUMBER OF GROUPS NOT SET, DEFAULTING TO ONE GROUP (GRAY)
      use '-DN_GROUPS=<int>' when running cmake to select multigroup.\n")
@@ -36,7 +36,7 @@ else ()
   message(STATUS
     "HARDCODED NUMBER OF GROUPS SET TO ${BRANSON_N_GROUPS} (FAUX MULTIGROUP)\n")
 endif()
-set(BRANSON_N_GROUPS "1" CACHE STRING "Number of energy groups." FORCE)
+set(BRANSON_N_GROUPS ${BRANSON_N_GROUPS} CACHE STRING "Number of energy groups." FORCE)
 
 #------------------------------------------------------------------------------#
 # Record the site name
@@ -53,7 +53,7 @@ set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
 set( CMAKE_C_STANDARD 11 )
 
 # C++14 support:
-set( CMAKE_CXX_STANDARD 14 )
+set( CMAKE_CXX_STANDARD 11 )
 set( CXX_STANDARD_REQUIRED ON )
 
 # Do not enable extensions (e.g.: --std=gnu++11)
@@ -71,9 +71,12 @@ endif ()
 
 # add compiler flags
 if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
-  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
+  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
-  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
+  set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0")
+elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
+  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -DR123_USE_GNU_UINT128=0")
+  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DR123_USE_GNU_UINT128=0")
 endif()
 
 #------------------------------------------------------------------------------#

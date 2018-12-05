@@ -57,6 +57,32 @@ class MPI_Types
       MPI_Type_dup(og_MPI_Cell, &MPI_Cell);
     }
 
+    // make and commit the MPI proto cell type
+    {
+      MPI_Datatype og_MPI_Proto_Cell;
+
+      // remake the MPI cell datatype from mesh
+      const int cell_entry_count = 3;
+      // 16 uint32_t, 6 int, 6 doubles
+      int cell_array_of_block_length[3] = {16, 6, 6};
+      // Displacements of each type in the cell
+      MPI_Aint cell_array_of_block_displace[3] =
+        {0, 16*sizeof(uint32_t), 16*sizeof(uint32_t)+6*sizeof(int)};
+      //Type of each memory block
+      MPI_Datatype cell_array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE};
+
+      MPI_Type_create_struct(cell_entry_count, cell_array_of_block_length,
+        cell_array_of_block_displace, cell_array_of_types, &og_MPI_Proto_Cell);
+
+      // Commit the type to MPI so it recognizes it in communication calls
+      MPI_Type_commit(&og_MPI_Proto_Cell);
+
+      MPI_Type_size(og_MPI_Proto_Cell, &mpi_proto_cell_size);
+      // Duplicate the type so it's recognized when returned out of this
+      // context (I don't know why this is necessary)
+      MPI_Type_dup(og_MPI_Proto_Cell, &MPI_Proto_Cell);
+    }
+
 
     // make and commit the MPI particle type
     {
@@ -160,6 +186,9 @@ class MPI_Types
   //! Return reference to MPI_Cell for use in communication calls
   MPI_Datatype get_cell_type(void) const {return MPI_Cell;}
 
+  //! Return reference to MPI_Proto_Cell for use in communication calls
+  MPI_Datatype get_proto_cell_type(void) const {return MPI_Proto_Cell;}
+
   //! Return reference to MPI_Work_Packet for use in communication calls
   MPI_Datatype get_work_packet_type(void) const {return MPI_Work_Packet;}
 
@@ -171,6 +200,9 @@ class MPI_Types
 
   //! Return size of MPI cell in bytes
   int get_cell_size(void) const {return mpi_cell_size;}
+
+  //! Return size of MPI cell in bytes
+  int get_proto_cell_size(void) const {return mpi_proto_cell_size;}
 
   //! Return size of MPI work packet in bytes
   int get_work_packet_size(void) const {return mpi_work_packet_size;}
@@ -184,9 +216,11 @@ class MPI_Types
   private:
   MPI_Datatype MPI_Particle; //!< Custom MPI datatype for particles
   MPI_Datatype MPI_Cell; //!< Custom MPI datatype for mesh cell
+  MPI_Datatype MPI_Proto_Cell; //!< Custom MPI datatype for proto mesh cell
   MPI_Datatype MPI_Tally; //!< Custom MPI datatype for tally
   MPI_Datatype MPI_Work_Packet; //!< Custom MPI datatype for work packet
   int mpi_cell_size; //!< Size of MPI_Cell datatype
+  int mpi_proto_cell_size; //!< Size of MPI_Cell datatype
   int mpi_particle_size; //!< Size of MPI_Particle datatype
   int mpi_tally_size; //!< Size of MPI_Tally datatype
   int mpi_work_packet_size; //!< Size of MPI_Work_Packet datatype

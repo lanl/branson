@@ -599,11 +599,11 @@ public:
   }
 
   //! Return a pointer to the x coordinates of the mesh in SILO format
-  float *get_silo_x_ptr(void) { return silo_x; }
+  float const * const get_silo_x_ptr(void) const { return silo_x; }
   //! Return a pointer to the y coordinates of the mesh in SILO format
-  float *get_silo_y_ptr(void) { return silo_y; }
+  float const * const get_silo_y_ptr(void) const { return silo_y; }
   //! Return a pointer to the z coordinates of the mesh in SILO format
-  float *get_silo_z_ptr(void) { return silo_z; }
+  float const * const get_silo_z_ptr(void) const { return silo_z; }
 
   //! Return the total number of x divisions in the problem
   uint32_t get_n_x_divisions(void) const { return n_x_cells.size(); }
@@ -685,6 +685,11 @@ public:
 
   //! Return vector of regions
   const std::vector<Region> &get_regions(void) const { return regions; }
+
+  //! Return region given user set ID
+  const Region &get_region(const uint32_t region_ID) const {
+    return regions[region_ID_to_index.at(region_ID)];
+  }
 
   //! Return unique index given division indices
 

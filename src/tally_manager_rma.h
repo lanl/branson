@@ -68,7 +68,10 @@ class Tally_Manager
     // accumulate_ops set to "same_op"
     MPI_Info tally_info;
     MPI_Info_create(&tally_info);
+    //! only accumulates will be performed on this window
     MPI_Info_set(tally_info, "accumulate_ops", "same_op");
+     //! all windows have the same objects in them
+    MPI_Info_set(tally_info, "same_disp_unit", "true");
     int mpi_double_size;
     MPI_Type_size(MPI_DOUBLE, &mpi_double_size);
     MPI_Aint n_bytes(n_cell*mpi_double_size);
@@ -91,7 +94,8 @@ class Tally_Manager
 
     complete_indices = std::vector<int> (max_reqs);
 
-    int assert =0;
+    //int assert =0;
+    int assert = MPI_MODE_NOCHECK; // no conflicting locks on this window
     MPI_Win_lock_all(assert,tally_window);
   }
 

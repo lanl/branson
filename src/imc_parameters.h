@@ -27,12 +27,12 @@
 class IMC_Parameters {
 public:
   //! constructor
-  IMC_Parameters(Input *input)
-      : n_user_photon(input->get_number_photons()),
-        grip_size(input->get_grip_size()), map_size(input->get_map_size()),
-        dd_mode(input->get_dd_mode()), batch_size(input->get_batch_size()),
-        particle_message_size(input->get_particle_message_size()),
-        write_silo_flag(input->get_write_silo_bool()) {}
+  IMC_Parameters(const Input &input)
+      : n_user_photon(input.get_number_photons()),
+        grip_size(input.get_grip_size()), map_size(input.get_map_size()),
+        dd_mode(input.get_dd_mode()), batch_size(input.get_batch_size()),
+        particle_message_size(input.get_particle_message_size()),
+        write_silo_flag(input.get_write_silo_bool()) {}
 
   //! destructor
   ~IMC_Parameters() {}

@@ -66,7 +66,7 @@ class Source {
   public:
 
   //! constructor
-  Source( Mesh *_mesh, IMC_State *imc_s, const uint64_t user_photons, const double total_E,
+  Source( Mesh &_mesh, IMC_State &imc_s, const uint64_t user_photons, const double total_E,
     std::vector<Photon>& _census_photons)
     : mesh(_mesh),
       census_photons(_census_photons),
@@ -74,11 +74,11 @@ class Source {
   {
     using std::vector;
 
-    uint32_t n_cell =mesh->get_n_local_cells();
-    E_cell_emission = mesh->get_emission_E();
-    E_cell_census = mesh->get_census_E();
+    uint32_t n_cell =mesh.get_n_local_cells();
+    E_cell_emission = mesh.get_emission_E();
+    E_cell_census = mesh.get_census_E();
 
-    uint32_t step = imc_s->get_step();
+    uint32_t step = imc_s.get_step();
 
     //reset the total number of photons before counting
     n_photon = 0;
@@ -91,7 +91,7 @@ class Source {
     const Cell* cell_ptr;
     for (uint32_t i = 0; i<n_cell; ++i) {
       Work_Packet temp_cell_work;
-      cell_ptr = mesh->get_cell_ptr(i);
+      cell_ptr = mesh.get_cell_ptr(i);
       //emission
       if (E_cell_emission[i] > 0.0) {
         uint32_t t_num_emission =
@@ -111,7 +111,7 @@ class Source {
       if (step ==1) {
         if (E_cell_census[i] > 0.0) {
           Work_Packet temp_cell_work;
-          cell_ptr = mesh->get_cell_ptr(i);
+          cell_ptr = mesh.get_cell_ptr(i);
           if (E_cell_census[i] > 0.0) {
             uint32_t t_num_census = int(user_photons*E_cell_census[i]/total_E);
             // make at least one photon to represent census energy
@@ -128,7 +128,7 @@ class Source {
             total_census_E += E_cell_census[i];
           }
         }
-        imc_s->set_pre_census_E(total_census_E);
+        imc_s.set_pre_census_E(total_census_E);
       }
     }
 
@@ -224,7 +224,7 @@ class Source {
     uint32_t work_cell_ID;
     for (auto const &iw : work) {
       work_cell_ID = iw.get_global_cell_ID();
-      on_proc_map[work_cell_ID] = mesh->on_processor(work_cell_ID);
+      on_proc_map[work_cell_ID] = mesh.on_processor(work_cell_ID);
     }
 
     Work_Local_Map work_local_map(on_proc_map);
@@ -332,7 +332,7 @@ class Source {
   std::vector<Work_Packet>& get_work_vector(void) {return work;}
 
   private:
-  const Mesh * const mesh; //!< Pointer to mesh (source cannot change Mesh)
+  const Mesh &mesh; //!< Pointer to mesh (source cannot change Mesh)
   std::vector<Photon>& census_photons; //!< Reference to census photons on rank
   uint32_t n_create; //!< Number of emission particles created in this packet
   double phtn_E; //!< Photon emission energy in this packet
