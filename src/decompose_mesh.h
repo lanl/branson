@@ -539,6 +539,13 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
                    decomp_info, MPI_COMM_WORLD, &new_index, &index_win);
   MPI_Win_allocate(n_cell_post_decomp * sizeof(uint32_t), sizeof(uint32_t),
                    decomp_info, MPI_COMM_WORLD, &new_grip, &grip_win);
+
+  // initialize to max uint32_t to check for any errors
+  for (uint32_t i=0; i<n_cell_post_decomp;++i) {
+    new_index[i] = UINT32_MAX;
+    new_grip[i] = UINT32_MAX;
+  }
+
   MPI_Barrier(MPI_COMM_WORLD);
   int assert = MPI_MODE_NOCHECK; // no conflicting locks on this window
   //int assert = 0;
@@ -590,6 +597,22 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
 
   MPI_Waitall(i_reqs.size(), &i_reqs[0], MPI_STATUS_IGNORE);
   MPI_Waitall(g_reqs.size(), &g_reqs[0], MPI_STATUS_IGNORE);
+
+  // make sure that all new boundary indices and new grip indices were set
+  // correctly (not equal to the dummy initial value of UINT32_MAX)
+  for (auto &iset : new_boundary_indices) {
+    if (iset == UINT32_MAX) {
+      std::cout<<"This is bad, RMA remapping failed"<<std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  for (auto &iset : new_boundary_grips) {
+    if (iset == UINT32_MAX) {
+      std::cout<<"This is bad, RMA remapping failed"<<std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
 
   ib = 0;
   for (auto &iset : boundary_indices) {

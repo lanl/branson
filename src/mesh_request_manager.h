@@ -232,7 +232,6 @@ class Mesh_Request_Manager
       rbuffer.set_receive_size(0);
 
     // test receives for remote mesh
-    int32_t new_copy_index = 0;
     n_new_cells = 0;
 
     // test all receives for needed cells

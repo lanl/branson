@@ -75,7 +75,6 @@ endif ()
 #set(GCC_SANITIZE_COMPILE_FLAGS "-fsanitize=undefined")
 #set(GCC_SANITIZE_LINK_FLAGS "-fsanitize=undefined")
 
-
 # add compiler flags
 if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0")
