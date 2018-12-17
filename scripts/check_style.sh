@@ -106,9 +106,9 @@ done
 if test "${pct_mode}" = "1"; then
 
   # don't actually modify the files (compare to branch 'develop')
-  cmd='${gcf} --binary ${cf} -f --diff --extensions hh,cc develop'
+  cmd='${gcf} --binary ${cf} -f --diff --extensions h,cc develop'
   echo "Running..."
-  echo "   ${gcf} --binary ${cf} -f --diff --extensions hh,cc develop"
+  echo "   ${gcf} --binary ${cf} -f --diff --extensions h,cc develop"
   echo " "
   result=`eval $cmd`
   allok=`echo $result | grep -c "did not modify"`
@@ -136,7 +136,7 @@ if test "${pct_mode}" = "1"; then
 else
 
   if test ${diff_mode} = 1; then
-    cmd='${gcf} --binary ${cf} -f --diff --extensions hh,cc develop'
+    cmd='${gcf} --binary ${cf} -f --diff --extensions h,cc develop'
     result=`eval $cmd`
     echo "The following non-conformances were discovered. Rerun without -d|-n to"
     echo "automatically apply these changes:"

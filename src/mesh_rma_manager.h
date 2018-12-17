@@ -22,7 +22,6 @@
 #include "constants.h"
 #include "mpi_types.h"
 
-
 //==============================================================================
 /*!
  * \class RMA_Manager
@@ -32,28 +31,22 @@
  */
 //==============================================================================
 
-class RMA_Manager
-{
+class RMA_Manager {
 
-  public:
+public:
   //! constructor
-  RMA_Manager(const std::vector<uint32_t>& _rank_bounds,
-    const uint32_t _grip_size, const uint32_t _n_max_cells,
-    const MPI_Types &mpi_types, MPI_Win& _mesh_window)
-  :
-    rank_bounds(_rank_bounds),
-    MPI_Cell(mpi_types.get_cell_type()),
-    mesh_window(_mesh_window),
-    grip_size(_grip_size),
-    n_max_requests(100),
-    n_max_cells(_n_max_cells)
-  {
+  RMA_Manager(const std::vector<uint32_t> &_rank_bounds,
+              const uint32_t _grip_size, const uint32_t _n_max_cells,
+              const MPI_Types &mpi_types, MPI_Win &_mesh_window)
+      : rank_bounds(_rank_bounds), MPI_Cell(mpi_types.get_cell_type()),
+        mesh_window(_mesh_window), grip_size(_grip_size), n_max_requests(100),
+        n_max_cells(_n_max_cells) {
     using std::vector;
     max_active_index = 0;
-    count=0;
-    requests = std::vector<MPI_Request> (n_max_requests);
-    recv_cell_buffer = vector<Buffer<Cell> > (n_max_requests);
-    complete_indices = vector<int> (n_max_requests);
+    count = 0;
+    requests = std::vector<MPI_Request>(n_max_requests);
+    recv_cell_buffer = vector<Buffer<Cell>>(n_max_requests);
+    complete_indices = vector<int>(n_max_requests);
 
     new_cells.resize(n_max_cells);
     n_new_cells = 0;
@@ -70,43 +63,42 @@ class RMA_Manager
   //--------------------------------------------------------------------------//
 
   //! Get the type of memory model used by the MPI implementation on this system
-  int get_mpi_window_memory_type(void) const {return *memory_model;}
+  int get_mpi_window_memory_type(void) const { return *memory_model; }
 
   //! Get the nubmer of new cells
-  int get_n_new_cells(void) const {
-    return n_new_cells;
-  }
+  int get_n_new_cells(void) const { return n_new_cells; }
   //! Check to see if mesh has already been requestsed
   bool mesh_is_requested(uint32_t g_index) const {
     return mesh_requested.find(g_index) != mesh_requested.end();
   }
 
   //! Search rank bounds to get remote mesh owner's rank
-  uint32_t get_off_rank_id(const uint32_t& g_index) const {
+  uint32_t get_off_rank_id(const uint32_t &g_index) const {
     //find rank of index
     bool found = false;
     uint32_t min_i = 0;
-    uint32_t max_i = rank_bounds.size()-1;
+    uint32_t max_i = rank_bounds.size() - 1;
     uint32_t s_i; //search index
-    while(!found) {
-      s_i =(max_i + min_i)/2;
-      if (s_i == max_i || s_i == min_i) found = true;
-      else if (g_index >= rank_bounds[s_i]) min_i = s_i;
-      else max_i = s_i;
+    while (!found) {
+      s_i = (max_i + min_i) / 2;
+      if (s_i == max_i || s_i == min_i)
+        found = true;
+      else if (g_index >= rank_bounds[s_i])
+        min_i = s_i;
+      else
+        max_i = s_i;
     }
     return s_i;
   }
-
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
   //--------------------------------------------------------------------------//
 
   //! Make one-sided request for a remote mesh cell
-  void request_cell_rma(const uint32_t& g_index, Message_Counter& mctr) {
-    if ( index_in_use.size() != n_max_requests &&
-      mesh_requested.find(g_index) == mesh_requested.end())
-    {
+  void request_cell_rma(const uint32_t &g_index, Message_Counter &mctr) {
+    if (index_in_use.size() != n_max_requests &&
+        mesh_requested.find(g_index) == mesh_requested.end()) {
       // get the rank of the global index
       uint32_t off_rank_id = get_off_rank_id(g_index);
 
@@ -117,32 +109,30 @@ class RMA_Manager
       // correct starting index if grip size puts it off rank, otherwise
       // start at approximately the beginning of the grip
       // could be less than zero, do math with signed integers
-      if ( int32_t(start_index) - int32_t(grip_size)/2 <
-        int32_t(rank_bounds[off_rank_id]) )
-      {
+      if (int32_t(start_index) - int32_t(grip_size) / 2 <
+          int32_t(rank_bounds[off_rank_id])) {
         start_index = rank_bounds[off_rank_id];
-      }
-      else
-      {
-        start_index -= grip_size/2;
+      } else {
+        start_index -= grip_size / 2;
       }
 
       // get the number of cells to request (if it overruns rank bounds,
       // truncate it)
       uint32_t n_cells_to_request;
-      if (start_index + grip_size > rank_bounds[off_rank_id+1])
-        n_cells_to_request = rank_bounds[off_rank_id+1] - start_index;
+      if (start_index + grip_size > rank_bounds[off_rank_id + 1])
+        n_cells_to_request = rank_bounds[off_rank_id + 1] - start_index;
       else
         n_cells_to_request = grip_size;
 
       uint32_t off_rank_local = start_index - rank_bounds[off_rank_id];
 
       // check to see if request at count is in use
-      while(index_in_use.find(count) != index_in_use.end() ) {
+      while (index_in_use.find(count) != index_in_use.end()) {
         count++;
-        if (count==n_max_requests) count=0;
+        if (count == n_max_requests)
+          count = 0;
       }
-      max_active_index = std::max(count,max_active_index);
+      max_active_index = std::max(count, max_active_index);
       // record this index as in use
       index_in_use.insert(count);
       // size buffer correctly and set grip ID
@@ -150,8 +140,8 @@ class RMA_Manager
       recv_cell_buffer[count].set_grip_ID(g_index);
       // make request at index of count in both arrays
       MPI_Rget(recv_cell_buffer[count].get_buffer(), n_cells_to_request,
-        MPI_Cell, off_rank_id, off_rank_local, n_cells_to_request, MPI_Cell,
-        mesh_window, &requests[count]);
+               MPI_Cell, off_rank_id, off_rank_local, n_cells_to_request,
+               MPI_Cell, mesh_window, &requests[count]);
       mctr.n_receives_posted++;
       mctr.n_cell_messages++;
       mesh_requested.insert(g_index);
@@ -162,38 +152,37 @@ class RMA_Manager
   void start_access(void) {
     int assert = MPI_MODE_NOCHECK; // no conflicting locks on this window
     //int assert =0; // no assertions, always valid
-    MPI_Win_lock_all(assert,mesh_window);
+    MPI_Win_lock_all(assert, mesh_window);
   }
 
   //! Close access to the MPI window associated with the cell array
-  void end_access(void) { MPI_Win_unlock_all(mesh_window);}
+  void end_access(void) { MPI_Win_unlock_all(mesh_window); }
 
   //! Check for completion of all active RMA requests and return new cells
-  std::vector<Cell> process_rma_mesh_requests(Message_Counter& mctr)
-  {
-    int32_t new_copy_index =0;
+  std::vector<Cell> process_rma_mesh_requests(Message_Counter &mctr) {
+    int32_t new_copy_index = 0;
     n_new_cells = 0;
     if (!index_in_use.empty()) {
-      MPI_Testsome(max_active_index+1, &requests[0], &n_req_complete,
-        &complete_indices[0], MPI_STATUSES_IGNORE);
+      MPI_Testsome(max_active_index + 1, &requests[0], &n_req_complete,
+                   &complete_indices[0], MPI_STATUSES_IGNORE);
 
       int comp_index;
       uint32_t g_index;
 
       // pull completed requests out and return them (they are then passed to
       // the mesh)
-      mctr.n_receives_completed +=n_req_complete;
-      for (int i = 0;i<n_req_complete;i++) {
+      mctr.n_receives_completed += n_req_complete;
+      for (int i = 0; i < n_req_complete; i++) {
         comp_index = complete_indices[i];
-        const std::vector<Cell>& complete_cells =
-          recv_cell_buffer[comp_index].get_object();
+        const std::vector<Cell> &complete_cells =
+            recv_cell_buffer[comp_index].get_object();
         int n_to_copy;
         if (new_copy_index + complete_cells.size() > n_max_cells)
           n_to_copy = n_max_cells - new_copy_index;
         else
           n_to_copy = complete_cells.size();
         std::copy(complete_cells.begin(), complete_cells.begin() + n_to_copy,
-          new_cells.begin() + new_copy_index);
+                  new_cells.begin() + new_copy_index);
         new_copy_index += n_to_copy;
         n_new_cells += n_to_copy;
 
@@ -204,22 +193,20 @@ class RMA_Manager
         mesh_requested.erase(g_index);
       }
     }
-    mctr.n_cells_sent+=new_cells.size();
+    mctr.n_cells_sent += new_cells.size();
     return new_cells;
   }
 
   //! End timestep and set the active requests to zero
-  void end_timestep(void) {
-    max_active_index=0;
-  }
+  void end_timestep(void) { max_active_index = 0; }
 
   //! Check to see if any MPI requests are active
-  bool no_active_requests(void) {return index_in_use.empty();}
+  bool no_active_requests(void) { return index_in_use.empty(); }
 
-  private:
+private:
   std::vector<uint32_t> rank_bounds; //!< Global cell ID bounds on each rank
-  MPI_Datatype MPI_Cell; //!< Custom MPI datatype for cells
-  MPI_Win mesh_window; //!< Shared memory window of cell objects
+  MPI_Datatype MPI_Cell;             //!< Custom MPI datatype for cells
+  MPI_Win mesh_window;               //!< Shared memory window of cell objects
 
   //! Global maximum grip size (number of cells in a request)
   uint32_t grip_size;
@@ -228,12 +215,13 @@ class RMA_Manager
   uint32_t n_max_cells; //!< Maximum number of new cells (parameter, map size)
 
   uint32_t max_active_index; //!< Last index that contains an active MPI request
-  uint32_t count; //!< Last used index in the MPI request array
+  uint32_t count;            //!< Last used index in the MPI request array
   int n_req_complete; //!< Number of completed requests after MPI_Testsome
-  std::vector<Cell> new_cells; //!< New cells after MPI_Testsome
-  int n_new_cells; //!< Number of new cells
+  std::vector<Cell> new_cells;       //!< New cells after MPI_Testsome
+  int n_new_cells;                   //!< Number of new cells
   std::vector<MPI_Request> requests; //!< Array of MPI requests
-  std::vector<Buffer<Cell> > recv_cell_buffer; //!< Buffer for receiving cell data
+  std::vector<Buffer<Cell>>
+      recv_cell_buffer; //!< Buffer for receiving cell data
 
   //! Returned from MPI_Testsome, indicates completed requests at index
   std::vector<int> complete_indices;

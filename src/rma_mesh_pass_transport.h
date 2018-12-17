@@ -39,16 +39,16 @@ rma_mesh_pass_transport(Source &source, Mesh &mesh, IMC_State &imc_state,
                         const IMC_Parameters &imc_parameters,
                         RMA_Manager &rma_manager, Tally_Manager &tally_manager,
                         Message_Counter &mctr, std::vector<double> &rank_abs_E,
-                        std::vector<double> &rank_track_E, const MPI_Types &mpi_types,
-                        const Info &mpi_info) {
+                        std::vector<double> &rank_track_E,
+                        const MPI_Types &mpi_types, const Info &mpi_info) {
+  using Constants::event_type;
   using std::queue;
   using std::vector;
-  using Constants::event_type;
   // events
-  using Constants::WAIT;
   using Constants::CENSUS;
-  using Constants::KILL;
   using Constants::EXIT;
+  using Constants::KILL;
+  using Constants::WAIT;
 
   uint32_t n_local = source.get_n_photon();
   uint32_t n_local_sourced = 0;
@@ -158,7 +158,6 @@ rma_mesh_pass_transport(Source &source, Mesh &mesh, IMC_State &imc_state,
   wait_list_size = wait_list.size();
   while (!wait_list.empty()) {
 
-
     // process off rank tally data don't force send
     bool force_send = false;
     tally_manager.process_off_rank_tallies(mctr, off_rank_abs_E, force_send);
@@ -168,7 +167,6 @@ rma_mesh_pass_transport(Source &source, Mesh &mesh, IMC_State &imc_state,
     new_data = !new_cells.empty();
     if (new_data)
       mesh.add_non_local_mesh_cells(new_cells, rma_manager.get_n_new_cells());
-
 
     // if new data received or there are no active mesh requests, try to
     // transport waiting list (it could be that there are no active memory

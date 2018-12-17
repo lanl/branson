@@ -145,12 +145,11 @@ Constants::event_type transport_photon_particle_pass(
   return event;
 }
 
-std::vector<Photon>
-particle_pass_transport(Source &source, const Mesh &mesh, IMC_State &imc_state,
-                        const IMC_Parameters &imc_parameters, const MPI_Types &mpi_types,
-                        Message_Counter &mctr, std::vector<double> &rank_abs_E,
-                        std::vector<double> &rank_track_E,
-                        const Info &mpi_info) {
+std::vector<Photon> particle_pass_transport(
+    Source &source, const Mesh &mesh, IMC_State &imc_state,
+    const IMC_Parameters &imc_parameters, const MPI_Types &mpi_types,
+    Message_Counter &mctr, std::vector<double> &rank_abs_E,
+    std::vector<double> &rank_track_E, const Info &mpi_info) {
   using Constants::CENSUS;
   using Constants::event_type;
   using Constants::EXIT;
@@ -377,7 +376,8 @@ particle_pass_transport(Source &source, const Mesh &mesh, IMC_State &imc_state,
         if (phtn_recv_buffer[i_b].awaiting()) {
           MPI_Test(&phtn_recv_request[i_b], &recv_req_flag, &recv_status);
           if (recv_req_flag) {
-            const vector<Photon> &receive_list = phtn_recv_buffer[i_b].get_object();
+            const vector<Photon> &receive_list =
+                phtn_recv_buffer[i_b].get_object();
             // only push the number of received photons onto the recv_stack
             MPI_Get_count(&recv_status, MPI_Particle, &recv_count);
             for (uint32_t i = 0; i < uint32_t(recv_count); ++i)

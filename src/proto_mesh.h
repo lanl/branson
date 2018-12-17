@@ -21,12 +21,12 @@
 #include <vector>
 
 #include "buffer.h"
-#include "proto_cell.h"
 #include "constants.h"
 #include "imc_state.h"
 #include "info.h"
 #include "input.h"
 #include "mpi_types.h"
+#include "proto_cell.h"
 
 //==============================================================================
 /*!
@@ -45,21 +45,22 @@ class Proto_Mesh {
 
 public:
   //! constructor
-  Proto_Mesh(const Input &input, const MPI_Types &mpi_types, const Info &mpi_info)
+  Proto_Mesh(const Input &input, const MPI_Types &mpi_types,
+             const Info &mpi_info)
       : ngx(input.get_global_n_x_cells()), ngy(input.get_global_n_y_cells()),
         ngz(input.get_global_n_z_cells()), rank(mpi_info.get_rank()),
         n_rank(mpi_info.get_n_rank()), n_off_rank(n_rank - 1),
         silo_x(input.get_silo_x_ptr()), silo_y(input.get_silo_y_ptr()),
         silo_z(input.get_silo_z_ptr()) {
-    using std::vector;
     using Constants::bc_type;
-    using Constants::X_POS;
-    using Constants::Y_POS;
-    using Constants::Z_POS;
-    using Constants::X_NEG;
-    using Constants::Y_NEG;
-    using Constants::Z_NEG;
     using Constants::ELEMENT;
+    using Constants::X_NEG;
+    using Constants::X_POS;
+    using Constants::Y_NEG;
+    using Constants::Y_POS;
+    using Constants::Z_NEG;
+    using Constants::Z_POS;
+    using std::vector;
 
     double dx, dy, dz;
 
@@ -123,8 +124,7 @@ public:
                     global_count < cell_id_end) {
                   Proto_Cell e;
                   // find the region for this cell
-                  region_index =
-                      input.get_region_index(ix_div, iy_div, iz_div);
+                  region_index = input.get_region_index(ix_div, iy_div, iz_div);
                   region = regions[region_index];
 
                   // set ending coordinates explicity to match the start of
@@ -220,7 +220,8 @@ public:
   }
 
   // destructor
-  ~Proto_Mesh() { /* empty */ }
+  ~Proto_Mesh() { /* empty */
+  }
 
   //--------------------------------------------------------------------------//
   // const functions                                                          //
@@ -371,9 +372,9 @@ public:
   uint32_t get_global_n_y(void) const { return ngy; }
   uint32_t get_global_n_z(void) const { return ngz; }
 
-  float const * get_silo_x(void) const { return silo_x; }
-  float const * get_silo_y(void) const { return silo_y; }
-  float const * get_silo_z(void) const { return silo_z; }
+  float const *get_silo_x(void) const { return silo_x; }
+  float const *get_silo_y(void) const { return silo_y; }
+  float const *get_silo_z(void) const { return silo_z; }
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
@@ -454,8 +455,8 @@ public:
       std::unordered_map<uint32_t, uint32_t> local_map,
       std::unordered_map<uint32_t, uint32_t> local_grip_map) {
 
-    using Constants::PROCESSOR;
     using Constants::dir_type;
+    using Constants::PROCESSOR;
     using std::unordered_map;
 
     std::unordered_set<uint32_t> boundary_ids(get_boundary_neighbors());
@@ -527,9 +528,11 @@ public:
   }
 
   //! Add mesh cell (used during decomposition, not parallel communication)
-  void add_mesh_cell(const Proto_Cell new_cell) { new_cell_list.push_back(new_cell); }
+  void add_mesh_cell(const Proto_Cell new_cell) {
+    new_cell_list.push_back(new_cell);
+  }
 
-  const std::vector<Proto_Cell> & get_cell_list(void) const {return cell_list;}
+  const std::vector<Proto_Cell> &get_cell_list(void) const { return cell_list; }
 
   //--------------------------------------------------------------------------//
   // member variables
@@ -543,9 +546,9 @@ private:
   int32_t n_rank;     //!< Number of global ranks
   int32_t n_off_rank; //!< Number of other ranks
 
-  float const * const silo_x; //!< Global array of x face locations for SILO
-  float const * const silo_y; //!< Global array of y face locations for SILO
-  float const * const silo_z; //!< Global array of z face locations for SILO
+  float const *const silo_x; //!< Global array of x face locations for SILO
+  float const *const silo_y; //!< Global array of y face locations for SILO
+  float const *const silo_z; //!< Global array of z face locations for SILO
 
   uint32_t n_cell;   //!< Number of local cells
   uint32_t n_global; //!< Nuber of global cells
@@ -553,8 +556,8 @@ private:
   uint32_t on_rank_start; //!< Start of global index on rank
   uint32_t on_rank_end;   //!< End of global index on rank
 
-  std::vector<Proto_Cell> cell_list;     //!< On processor proto-cells
-  std::vector<Proto_Cell> new_cell_list; //!< New received proto-cells
+  std::vector<Proto_Cell> cell_list;      //!< On processor proto-cells
+  std::vector<Proto_Cell> new_cell_list;  //!< New received proto-cells
   std::vector<uint32_t> remove_cell_list; //!< Cells to be removed
   std::vector<uint32_t>
       off_rank_bounds; //!< Ending value of global ID for each rank

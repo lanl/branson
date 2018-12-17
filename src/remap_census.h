@@ -135,8 +135,8 @@ std::vector<Photon> rebalance_census(std::vector<Photon> &off_rank_census,
                                      const std::vector<uint32_t> &rank_bounds,
                                      MPI_Types *mpi_types,
                                      const Info &mpi_info) {
-  using std::vector;
   using std::unordered_map;
+  using std::vector;
 
   const int n_tag(100);
   const int phtn_tag(200);

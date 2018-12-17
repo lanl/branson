@@ -44,13 +44,13 @@ public:
     g_ID = -1; // won't show up in finds
   }
 
-  explicit Cell(const Proto_Cell& proto_cell) {
+  explicit Cell(const Proto_Cell &proto_cell) {
     g_ID = proto_cell.get_ID();
     grip_ID = proto_cell.get_grip_ID();
     region_ID = proto_cell.get_region_ID();
     silo_index = proto_cell.get_silo_index();
     const double *proto_nodes = proto_cell.get_node_array();
-    for (int idir = 0; idir< 6; ++idir) {
+    for (int idir = 0; idir < 6; ++idir) {
       e_next[idir] = proto_cell.get_next_cell(idir);
       grip_next[idir] = proto_cell.get_next_grip(idir);
       nodes[idir] = proto_nodes[idir];

@@ -32,12 +32,12 @@ void load_balance(std::vector<Work_Packet> &work,
                   std::vector<Photon> &census_list,
                   const uint64_t n_particle_on_rank, const MPI_Types &mpi_types,
                   const Info &mpi_info) {
-  using std::unordered_map;
-  using std::vector;
-  using Constants::work_tag;
+  using Constants::n_photon_tag;
   using Constants::n_work_tag;
   using Constants::photon_tag;
-  using Constants::n_photon_tag;
+  using Constants::work_tag;
+  using std::unordered_map;
+  using std::vector;
 
   int rank = mpi_info.get_rank();
   int n_rank = mpi_info.get_n_rank();
@@ -317,12 +317,12 @@ void bt_load_balance(std::vector<Work_Packet> &work,
                      std::vector<Photon> &census_list,
                      const uint64_t n_particle_on_rank, MPI_Types *mpi_types,
                      const Info &mpi_info) {
-  using std::vector;
-  using std::unordered_map;
-  using Constants::photon_tag;
   using Constants::n_photon_tag;
-  using Constants::work_tag;
   using Constants::n_work_tag;
+  using Constants::photon_tag;
+  using Constants::work_tag;
+  using std::unordered_map;
+  using std::vector;
 
   const int n_tag(100);
 

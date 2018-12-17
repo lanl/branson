@@ -12,13 +12,13 @@
 #include <iostream>
 #include <vector>
 
-#include "../photon.h"
-#include "../remap_census.h"
 #include "../RNG.h"
 #include "../info.h"
+#include "../photon.h"
+#include "../remap_census.h"
 #include "testing_functions.h"
 
-int main (int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 
   using std::cout;
   using std::endl;
@@ -41,60 +41,62 @@ int main (int argc, char *argv[]) {
     // test get communication partner function against expected outputs
     int32_t t_rank = 2;
     int32_t t_n_rank = 32;
-    int32_t k =0;
+    int32_t k = 0;
     int32_t r_partner = get_pairing(t_rank, t_n_rank, k);
 
-    if (r_partner != 3) test_helper_functions= false;
+    if (r_partner != 3)
+      test_helper_functions = false;
     if (get_pairing(r_partner, t_n_rank, k) != t_rank)
-      test_helper_functions= false;
+      test_helper_functions = false;
 
-    k=1;
+    k = 1;
     r_partner = get_pairing(t_rank, t_n_rank, k);
 
-    if (r_partner != 0) test_helper_functions= false;
+    if (r_partner != 0)
+      test_helper_functions = false;
     if (get_pairing(r_partner, t_n_rank, k) != t_rank)
-      test_helper_functions= false;
+      test_helper_functions = false;
 
-    k=2;
+    k = 2;
     r_partner = get_pairing(t_rank, t_n_rank, k);
 
-    if (r_partner != 6) test_helper_functions= false;
+    if (r_partner != 6)
+      test_helper_functions = false;
     if (get_pairing(r_partner, t_n_rank, k) != t_rank)
-      test_helper_functions= false;
+      test_helper_functions = false;
 
-    k=3;
+    k = 3;
     r_partner = get_pairing(t_rank, t_n_rank, k);
 
-    if (r_partner != 10) test_helper_functions= false;
+    if (r_partner != 10)
+      test_helper_functions = false;
     if (get_pairing(r_partner, t_n_rank, k) != t_rank)
-      test_helper_functions= false;
+      test_helper_functions = false;
 
     if (test_helper_functions)
-      cout<<"TEST PASSED: remap_census helper functions"<<endl;
+      cout << "TEST PASSED: remap_census helper functions" << endl;
     else {
-      cout<<"TEST FAILED: remap_census helper functions"<<endl;
+      cout << "TEST FAILED: remap_census helper functions" << endl;
       nfail++;
     }
   }
-
 
   // setup the rank boundaries
   uint32_t n_cell = 100000;
 
   // make up cell bounds for this rank
-  vector<uint32_t> rank_bounds(n_rank+1);
+  vector<uint32_t> rank_bounds(n_rank + 1);
   uint32_t r_bound = 0;
-  for (int32_t i=0; i<n_rank+1;++i) {
-    if (i!=n_rank) {
+  for (int32_t i = 0; i < n_rank + 1; ++i) {
+    if (i != n_rank) {
       rank_bounds[i] = r_bound;
-      r_bound+=n_cell/n_rank;
-    }
-    else {
+      r_bound += n_cell / n_rank;
+    } else {
       rank_bounds[i] = n_cell;
     }
   }
   uint32_t rank_start = rank_bounds[rank];
-  uint32_t rank_end = rank_bounds[rank+1];
+  uint32_t rank_end = rank_bounds[rank + 1];
 
   //test remap_census function with standard off-rank photons
   {
@@ -103,7 +105,7 @@ int main (int argc, char *argv[]) {
 
     // need RNG to randomize particle ranks
     RNG *rng = new RNG();
-    rng->set_seed(rank*4106);
+    rng->set_seed(rank * 4106);
 
     // make up off-rank census data that ended up on this rank
     // test to make sure all post rebalance census particles are on this rank
@@ -114,36 +116,36 @@ int main (int argc, char *argv[]) {
     uint32_t new_cell;
     double c_dt = 10.0;
     uint32_t n_off_rank_photons = 1000;
-    for (uint32_t i=0;i<n_off_rank_photons;++i) {
+    for (uint32_t i = 0; i < n_off_rank_photons; ++i) {
       Photon temp_photon;
-      double pos[3] =   {0.0, 0.0, 0.0};
+      double pos[3] = {0.0, 0.0, 0.0};
       double angle[3] = {1.0, 0.0, 0.0};
       temp_photon.set_position(pos);
       temp_photon.set_angle(angle);
       temp_photon.set_distance_to_census(c_dt);
-      new_cell = uint32_t(rng->generate_random_number()*n_cell);
+      new_cell = uint32_t(rng->generate_random_number() * n_cell);
       while (new_cell > rank_start && new_cell < rank_end)
-        new_cell = uint32_t(rng->generate_random_number()*n_cell);
+        new_cell = uint32_t(rng->generate_random_number() * n_cell);
       temp_photon.set_cell(new_cell);
       off_rank_census.push_back(temp_photon);
     }
 
-    vector<Photon> post_rebalance_census = rebalance_census(off_rank_census,
-      rank_photons, rank_bounds, mpi_types, mpi_info);
+    vector<Photon> post_rebalance_census = rebalance_census(
+        off_rank_census, rank_photons, rank_bounds, mpi_types, mpi_info);
 
     uint32_t phtn_cell;
-    for (auto const & iphtn : post_rebalance_census)
-    {
-      phtn_cell =  iphtn.get_cell();
-      if(phtn_cell < rank_start || phtn_cell >= rank_end)
-        test_remap_to_rank=false;
-      if(iphtn.get_distance_remaining() != c_dt)
-        test_remap_to_rank=false;
+    for (auto const &iphtn : post_rebalance_census) {
+      phtn_cell = iphtn.get_cell();
+      if (phtn_cell < rank_start || phtn_cell >= rank_end)
+        test_remap_to_rank = false;
+      if (iphtn.get_distance_remaining() != c_dt)
+        test_remap_to_rank = false;
     }
 
-    if (test_remap_to_rank) cout<<"TEST PASSED: remap_census to rank"<<endl;
+    if (test_remap_to_rank)
+      cout << "TEST PASSED: remap_census to rank" << endl;
     else {
-      cout<<"TEST FAILED: remap_census to rank"<<endl;
+      cout << "TEST FAILED: remap_census to rank" << endl;
       nfail++;
     }
     delete rng;
@@ -156,18 +158,20 @@ int main (int argc, char *argv[]) {
 
     // need RNG to randomize particle ranks
     RNG *rng = new RNG();
-    rng->set_seed(rank*4106);
+    rng->set_seed(rank * 4106);
 
     vector<Photon> empty_census;
     uint64_t rank_photons = 0;
-    vector<Photon> post_rebalance_empty = rebalance_census(empty_census,
-      rank_photons, rank_bounds, mpi_types, mpi_info);
+    vector<Photon> post_rebalance_empty = rebalance_census(
+        empty_census, rank_photons, rank_bounds, mpi_types, mpi_info);
 
-    if(post_rebalance_empty.size() != 0) test_empty_census=false;
+    if (post_rebalance_empty.size() != 0)
+      test_empty_census = false;
 
-    if (test_empty_census) cout<<"TEST PASSED: remap_census with empty census"<<endl;
+    if (test_empty_census)
+      cout << "TEST PASSED: remap_census with empty census" << endl;
     else {
-      cout<<"TEST FAILED: remap_census with empty census"<<endl;
+      cout << "TEST FAILED: remap_census with empty census" << endl;
       nfail++;
     }
     delete rng;
@@ -181,42 +185,42 @@ int main (int argc, char *argv[]) {
     // need RNG to randomize particle ranks
     RNG *rng = new RNG();
 
-    rng->set_seed(rank*4106);
+    rng->set_seed(rank * 4106);
     vector<Photon> off_rank_census;
     uint32_t new_cell;
     double c_dt = 10.0;
     uint64_t rank_photons = mpi_info.get_node_mem();
     uint32_t n_off_rank_photons = 1000;
-    for (uint32_t i=0;i<n_off_rank_photons;++i) {
+    for (uint32_t i = 0; i < n_off_rank_photons; ++i) {
       Photon temp_photon;
-      double pos[3] =   {0.0, 0.0, 0.0};
+      double pos[3] = {0.0, 0.0, 0.0};
       double angle[3] = {1.0, 0.0, 0.0};
       temp_photon.set_position(pos);
       temp_photon.set_angle(angle);
       temp_photon.set_distance_to_census(c_dt);
-      new_cell = uint32_t(rng->generate_random_number()*n_cell);
+      new_cell = uint32_t(rng->generate_random_number() * n_cell);
       while (new_cell > rank_start && new_cell < rank_end)
-        new_cell = uint32_t(rng->generate_random_number()*n_cell);
+        new_cell = uint32_t(rng->generate_random_number() * n_cell);
       temp_photon.set_cell(new_cell);
       off_rank_census.push_back(temp_photon);
     }
 
-    vector<Photon> post_rebalance_full = rebalance_census(off_rank_census,
-      rank_photons, rank_bounds, mpi_types, mpi_info);
+    vector<Photon> post_rebalance_full = rebalance_census(
+        off_rank_census, rank_photons, rank_bounds, mpi_types, mpi_info);
 
     uint32_t phtn_cell;
-    for (auto const &iphtn : post_rebalance_full)
-    {
-      phtn_cell =  iphtn.get_cell();
-      if(phtn_cell >= rank_start && phtn_cell < rank_end)
-        test_full_node=false;
-      if(iphtn.get_distance_remaining() != c_dt)
-        test_full_node=false;
+    for (auto const &iphtn : post_rebalance_full) {
+      phtn_cell = iphtn.get_cell();
+      if (phtn_cell >= rank_start && phtn_cell < rank_end)
+        test_full_node = false;
+      if (iphtn.get_distance_remaining() != c_dt)
+        test_full_node = false;
     }
 
-    if (test_full_node) cout<<"TEST PASSED: remap_census with full node"<<endl;
+    if (test_full_node)
+      cout << "TEST PASSED: remap_census with full node" << endl;
     else {
-      cout<<"TEST FAILED: remap_census with full node"<<endl;
+      cout << "TEST FAILED: remap_census with full node" << endl;
       nfail++;
     }
     delete rng;
@@ -230,16 +234,16 @@ int main (int argc, char *argv[]) {
     // need RNG to randomize particle ranks
     RNG *rng = new RNG();
 
-    rng->set_seed(rank*4106);
+    rng->set_seed(rank * 4106);
     vector<Photon> off_rank_census;
     double c_dt = 10.0;
     uint64_t rank_photons = 0;
-    uint64_t n_off_rank_photons = uint64_t(
-      0.1*(mpi_info.get_node_mem()/sizeof(Photon))/16.0) ;
+    uint64_t n_off_rank_photons =
+        uint64_t(0.1 * (mpi_info.get_node_mem() / sizeof(Photon)) / 16.0);
     if (rank != 0) {
-      for (uint64_t i=0;i<n_off_rank_photons;++i) {
+      for (uint64_t i = 0; i < n_off_rank_photons; ++i) {
         Photon temp_photon;
-        double pos[3] =   {0.0, 0.0, 0.0};
+        double pos[3] = {0.0, 0.0, 0.0};
         double angle[3] = {1.0, 0.0, 0.0};
         temp_photon.set_position(pos);
         temp_photon.set_angle(angle);
@@ -250,27 +254,26 @@ int main (int argc, char *argv[]) {
       }
     }
 
-    vector<Photon> post_rebalance_full = rebalance_census(off_rank_census,
-      rank_photons, rank_bounds, mpi_types, mpi_info);
+    vector<Photon> post_rebalance_full = rebalance_census(
+        off_rank_census, rank_photons, rank_bounds, mpi_types, mpi_info);
 
     uint32_t phtn_cell;
-    for (auto const &iphtn : post_rebalance_full)
-    {
-      phtn_cell =  iphtn.get_cell();
-      if(phtn_cell < rank_start || phtn_cell >= rank_end)
-        test_large_imbalance=false;
-      if(iphtn.get_distance_remaining() != c_dt)
-        test_large_imbalance=false;
+    for (auto const &iphtn : post_rebalance_full) {
+      phtn_cell = iphtn.get_cell();
+      if (phtn_cell < rank_start || phtn_cell >= rank_end)
+        test_large_imbalance = false;
+      if (iphtn.get_distance_remaining() != c_dt)
+        test_large_imbalance = false;
     }
 
-    if (test_large_imbalance) cout<<"TEST PASSED: remap_census with full large imbalance"<<endl;
+    if (test_large_imbalance)
+      cout << "TEST PASSED: remap_census with full large imbalance" << endl;
     else {
-      cout<<"TEST FAILED: remap_census with large imbalance"<<endl;
+      cout << "TEST FAILED: remap_census with large imbalance" << endl;
       nfail++;
     }
     delete rng;
   }
-
 
   delete mpi_types;
 

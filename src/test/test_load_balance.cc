@@ -18,7 +18,7 @@
 #include "../load_balance.h"
 #include "testing_functions.h"
 
-int main (int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 
   using std::cout;
   using std::endl;
@@ -42,10 +42,10 @@ int main (int argc, char *argv[]) {
     // make photons and work on rank 0
     vector<Photon> census;
     uint64_t n_total_census_photons = 10000;
-    if (rank ==0) {
-      for (uint32_t i=0;i<n_total_census_photons;++i) {
+    if (rank == 0) {
+      for (uint32_t i = 0; i < n_total_census_photons; ++i) {
         Photon temp_photon;
-        double pos[3] =   {0.0, 0.0, 0.0};
+        double pos[3] = {0.0, 0.0, 0.0};
         double angle[3] = {1.0, 0.0, 0.0};
         temp_photon.set_position(pos);
         temp_photon.set_angle(angle);
@@ -63,8 +63,8 @@ int main (int argc, char *argv[]) {
     uint32_t g_cell_ID = 655;
     uint32_t g_grip_ID = 540;
     double packet_E = 10.0;
-    if (rank ==0) {
-      for (uint32_t i=0;i<n_work_packets;++i) {
+    if (rank == 0) {
+      for (uint32_t i = 0; i < n_work_packets; ++i) {
 
         Work_Packet temp_work;
         temp_work.set_global_cell_ID(g_cell_ID);
@@ -72,7 +72,7 @@ int main (int argc, char *argv[]) {
         temp_work.attach_creation_work(packet_E, n_particles);
         temp_work.set_source_type(Constants::INITIAL_CENSUS);
         work.push_back(temp_work);
-        n_particles_on_rank+=n_particles;
+        n_particles_on_rank += n_particles;
       }
     }
 
@@ -87,21 +87,22 @@ int main (int argc, char *argv[]) {
     // test work packets, if present
     if (work.size() != 0) {
       if (work.front().get_source_type() != Constants::INITIAL_CENSUS)
-        test_load_balance=false;
+        test_load_balance = false;
     }
 
     // make sure there is either work packets or census particles
-    if (census.size() == 0 && work.size()==0) test_load_balance = false;
+    if (census.size() == 0 && work.size() == 0)
+      test_load_balance = false;
 
     // balanced particles should be n_particles_on_rank for 0 divided
     // by n_rank
-    if (n_post_balanced_particles != 5000) test_load_balance=false;
+    if (n_post_balanced_particles != 5000)
+      test_load_balance = false;
 
     if (test_load_balance) {
-      cout<<"TEST PASSED: load_balance all work on rank 0"<<endl;
-    }
-    else {
-      cout<<"TEST FAILED: load_balance all work on rank 0"<<endl;
+      cout << "TEST PASSED: load_balance all work on rank 0" << endl;
+    } else {
+      cout << "TEST FAILED: load_balance all work on rank 0" << endl;
       nfail++;
     }
   }

@@ -29,14 +29,14 @@
 #include "rma_mesh_pass_driver.h"
 #include "timer.h"
 
-using std::vector;
-using std::endl;
-using std::cout;
-using std::string;
-using Constants::PARTICLE_PASS;
 using Constants::CELL_PASS;
 using Constants::CELL_PASS_RMA;
+using Constants::PARTICLE_PASS;
 using Constants::REPLICATED;
+using std::cout;
+using std::endl;
+using std::string;
+using std::vector;
 
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
 
     // timing
     Timer timers;
-    
+
     // make mesh from input object
     timers.start_timer("Total setup");
 

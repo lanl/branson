@@ -19,7 +19,6 @@
 #include "config.h"
 #include "constants.h"
 
-
 //==============================================================================
 /*!
  * \class Proto_Cell
@@ -33,7 +32,7 @@
 
 class Proto_Cell {
 
-template <typename T> int sgn(T val) { return (T(0) < val); }
+  template <typename T> int sgn(T val) { return (T(0) < val); }
 
 public:
   Proto_Cell(void) {}
@@ -44,7 +43,7 @@ public:
   // const functions                                                          //
   //--------------------------------------------------------------------------//
   //! Set input array to center of cell (for mesh decomposition only)
-  inline void get_center(float xyz[3]) const  {
+  inline void get_center(float xyz[3]) const {
     xyz[0] = 0.5 * (nodes[0] + nodes[1]);
     xyz[1] = 0.5 * (nodes[2] + nodes[3]);
     xyz[2] = 0.5 * (nodes[4] + nodes[5]);
@@ -87,7 +86,9 @@ public:
   inline uint32_t get_region_ID(void) const { return region_ID; }
 
   //! Override great than operator to sort
-  bool operator<(const Proto_Cell &compare) const { return g_ID < compare.get_ID(); }
+  bool operator<(const Proto_Cell &compare) const {
+    return g_ID < compare.get_ID();
+  }
 
   //! Print cell data (diagnostic only)
   void print(void) const {
@@ -117,7 +118,8 @@ public:
   //--------------------------------------------------------------------------//
 
   //! Provide static function for sorting based on grip ID
-  static bool sort_grip_ID(const Proto_Cell &compare_1, const Proto_Cell &compare_2) {
+  static bool sort_grip_ID(const Proto_Cell &compare_1,
+                           const Proto_Cell &compare_2) {
     return compare_1.get_grip_ID() < compare_2.get_grip_ID();
   }
 
@@ -141,7 +143,7 @@ public:
   void set_ID(uint32_t _id) { g_ID = _id; }
 
   //! Set global grip ID
-  void set_grip_ID(uint32_t _grip_id) {grip_ID = _grip_id;}
+  void set_grip_ID(uint32_t _grip_id) { grip_ID = _grip_id; }
 
   //! Set region ID
   void set_region_ID(uint32_t _region_ID) { region_ID = _region_ID; }

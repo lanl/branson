@@ -149,10 +149,10 @@ public:
 
   //! Print end of timestep information
   void print_simulation_footer(uint32_t dd_type) const {
+    using Constants::CELL_PASS;
+    using Constants::PARTICLE_PASS;
     using std::cout;
     using std::endl;
-    using Constants::PARTICLE_PASS;
-    using Constants::CELL_PASS;
     if (dd_type == PARTICLE_PASS) {
       cout << "Total particles sent: " << total_particles_sent << endl;
       cout << "Total particle messages: " << total_particle_messages << endl;
@@ -174,12 +174,12 @@ public:
 
   //! Perform reduction on diagnostic and conservation quantities and print
   void print_conservation(uint32_t dd_type) {
+    using Constants::CELL_PASS;
+    using Constants::PARTICLE_PASS;
+    using Constants::REPLICATED;
     using std::cout;
     using std::endl;
     using std::plus;
-    using Constants::PARTICLE_PASS;
-    using Constants::REPLICATED;
-    using Constants::CELL_PASS;
 
     // define global value
     double g_absorbed_E = 0.0;
@@ -433,7 +433,7 @@ private:
   uint64_t step_receives_completed; //!< Number of received messages completed
 
   double rank_transport_runtime; //!< Transport step runtime for this rank
-  double rank_rebalance_time; //!< Time to rebalance census after transport
+  double rank_rebalance_time;    //!< Time to rebalance census after transport
 
   //! Time to load balance particles this timestep
   double rank_load_balance_time;
