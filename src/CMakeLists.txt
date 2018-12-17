@@ -69,9 +69,19 @@ if ( "${CMAKE_BUILD_TYPE}notset" STREQUAL "notset" AND
     FORCE)
 endif ()
 
+# GCC options for address or undefined sanitizing
+#set(GCC_SANITIZE_COMPILE_FLAGS "-fsanitize=address")
+#set(GCC_SANITIZE_LINK_FLAGS "-fsanitize=address")
+#set(GCC_SANITIZE_COMPILE_FLAGS "-fsanitize=undefined")
+#set(GCC_SANITIZE_LINK_FLAGS "-fsanitize=undefined")
+
+
 # add compiler flags
 if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0")
+  # optionally add sanitize flags
+  #set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${GCC_SANITIZE_COMPILE_FLAGS}")
+  #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
