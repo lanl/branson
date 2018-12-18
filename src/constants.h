@@ -46,7 +46,7 @@ const int n_tally_tag(9);          //!< MPI tag for number of tally messages
 //! MPI tag for cell messages NOTE: the number of grips in the message will
 // added to the end of this number
 const int cell_tag(10);
-};
+}; // namespace Constants
 
 #endif // constants_h_
 //---------------------------------------------------------------------------//

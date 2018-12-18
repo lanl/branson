@@ -22,13 +22,14 @@
 #include <vector>
 
 #include "buffer.h"
-#include "proto_mesh.h"
 #include "mpi_types.h"
+#include "proto_mesh.h"
 #include "timer.h"
 
 //----------------------------------------------------------------------------//
 //! Print the mesh information for each rank, one at a time
-void print_MPI_out(const Proto_Mesh &mesh, const uint32_t rank, const uint32_t size) {
+void print_MPI_out(const Proto_Mesh &mesh, const uint32_t rank,
+                   const uint32_t size) {
   using std::cout;
   cout.flush();
   MPI_Barrier(MPI_COMM_WORLD);
@@ -47,15 +48,15 @@ void print_MPI_out(const Proto_Mesh &mesh, const uint32_t rank, const uint32_t s
 
 //----------------------------------------------------------------------------//
 //! partition a mesh with parmetis
-std::vector<int> parmetis_partition(Proto_Mesh &mesh, int &edgecut, const int rank,
-                                    const int n_rank) {
+std::vector<int> parmetis_partition(Proto_Mesh &mesh, int &edgecut,
+                                    const int rank, const int n_rank) {
 
-  using Constants::X_POS;
-  using Constants::Y_POS;
-  using Constants::Z_POS;
   using Constants::X_NEG;
+  using Constants::X_POS;
   using Constants::Y_NEG;
+  using Constants::Y_POS;
   using Constants::Z_NEG;
+  using Constants::Z_POS;
   using std::vector;
 
   MPI_Comm comm;
@@ -167,7 +168,8 @@ std::vector<int> parmetis_partition(Proto_Mesh &mesh, int &edgecut, const int ra
 //----------------------------------------------------------------------------//
 
 //----------------------------------------------------------------------------//
-std::vector<int> cube_partition(Proto_Mesh &mesh, const int rank, const int n_rank) {
+std::vector<int> cube_partition(Proto_Mesh &mesh, const int rank,
+                                const int n_rank) {
 
   uint32_t nx = mesh.get_global_n_x();
   uint32_t ny = mesh.get_global_n_y();
@@ -217,7 +219,8 @@ std::vector<int> cube_partition(Proto_Mesh &mesh, const int rank, const int n_ra
 
 //----------------------------------------------------------------------------//
 //! Send given partitioning scheme
-void exchange_cells_post_partitioning(const int rank, const MPI_Types &mpi_types,
+void exchange_cells_post_partitioning(const int rank,
+                                      const MPI_Types &mpi_types,
                                       Proto_Mesh &mesh,
                                       const std::vector<int> &part) {
   using std::vector;
@@ -297,15 +300,15 @@ void exchange_cells_post_partitioning(const int rank, const MPI_Types &mpi_types
   // now send the buffers and post receives
   isend = 0;
   for (auto &ir : acceptor_ranks) {
-    MPI_Isend(send_cell[isend].get_buffer(), send_to_rank[isend], MPI_Proto_Cell, ir,
-              0, MPI_COMM_WORLD, &reqs[isend]);
+    MPI_Isend(send_cell[isend].get_buffer(), send_to_rank[isend],
+              MPI_Proto_Cell, ir, 0, MPI_COMM_WORLD, &reqs[isend]);
     isend++;
   }
   int ireceive = 0;
   for (auto &ir : donor_rank_size) {
     recv_cell[ireceive].resize(ir.second);
-    MPI_Irecv(recv_cell[ireceive].get_buffer(), ir.second, MPI_Proto_Cell, ir.first,
-              0, MPI_COMM_WORLD, &reqs[n_acceptors + ireceive]);
+    MPI_Irecv(recv_cell[ireceive].get_buffer(), ir.second, MPI_Proto_Cell,
+              ir.first, 0, MPI_COMM_WORLD, &reqs[n_acceptors + ireceive]);
     ireceive++;
   }
 
@@ -324,14 +327,14 @@ void exchange_cells_post_partitioning(const int rank, const MPI_Types &mpi_types
 //----------------------------------------------------------------------------//
 //! Use metis to decompose on-rank mesh into chunks for better prefetching
 void overdecompose_mesh(Proto_Mesh &mesh, const uint32_t grip_size) {
+  using Constants::X_NEG;
+  using Constants::X_POS;
+  using Constants::Y_NEG;
+  using Constants::Y_POS;
+  using Constants::Z_NEG;
+  using Constants::Z_POS;
   using std::unordered_map;
   using std::vector;
-  using Constants::X_POS;
-  using Constants::Y_POS;
-  using Constants::Z_POS;
-  using Constants::X_NEG;
-  using Constants::Y_NEG;
-  using Constants::Z_NEG;
   // get post-decomposition number of cells on this rank
   uint32_t n_cell_on_rank = mesh.get_n_local_cells();
 
@@ -520,8 +523,7 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
       mesh.get_boundary_nodes();
   unordered_map<uint32_t, uint32_t> local_boundary_grip_map =
       mesh.get_boundary_grips();
-  unordered_map<uint32_t, uint32_t> local_map =
-      mesh.get_new_global_index_map();
+  unordered_map<uint32_t, uint32_t> local_map = mesh.get_new_global_index_map();
   unordered_map<uint32_t, uint32_t> local_grip_map = mesh.get_grip_map();
   unordered_set<uint32_t> boundary_indices = mesh.get_boundary_neighbors();
   unordered_map<uint32_t, uint32_t> boundary_map;
@@ -539,6 +541,13 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
                    decomp_info, MPI_COMM_WORLD, &new_index, &index_win);
   MPI_Win_allocate(n_cell_post_decomp * sizeof(uint32_t), sizeof(uint32_t),
                    decomp_info, MPI_COMM_WORLD, &new_grip, &grip_win);
+
+  // initialize to max uint32_t to check for any errors
+  for (uint32_t i = 0; i < n_cell_post_decomp; ++i) {
+    new_index[i] = UINT32_MAX;
+    new_grip[i] = UINT32_MAX;
+  }
+
   MPI_Barrier(MPI_COMM_WORLD);
   int assert = MPI_MODE_NOCHECK; // no conflicting locks on this window
   //int assert = 0;
@@ -591,6 +600,22 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
   MPI_Waitall(i_reqs.size(), &i_reqs[0], MPI_STATUS_IGNORE);
   MPI_Waitall(g_reqs.size(), &g_reqs[0], MPI_STATUS_IGNORE);
 
+  // make sure that all new boundary indices and new grip indices were set
+  // correctly (not equal to the dummy initial value of UINT32_MAX)
+  for (auto &iset : new_boundary_indices) {
+    if (iset == UINT32_MAX) {
+      std::cout << "This is bad, RMA remapping failed" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  for (auto &iset : new_boundary_grips) {
+    if (iset == UINT32_MAX) {
+      std::cout << "This is bad, RMA remapping failed" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
+
   ib = 0;
   for (auto &iset : boundary_indices) {
     boundary_map[iset] = new_boundary_indices[ib];
@@ -614,7 +639,8 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
 
 //----------------------------------------------------------------------------//
 //! Use two-sided communication to share new cell indices in mesh connectivity
-void remap_cell_and_grip_indices(Proto_Mesh &mesh, const int rank, const int n_rank) {
+void remap_cell_and_grip_indices(Proto_Mesh &mesh, const int rank,
+                                 const int n_rank) {
   using std::unordered_map;
   using std::unordered_set;
   using std::vector;
@@ -739,8 +765,7 @@ void remap_cell_and_grip_indices(Proto_Mesh &mesh, const int rank, const int n_r
 
   // we just need to build a map for the non-local indices, everything else can
   // be remapped locally
-  std::unordered_set<uint32_t> boundary_indices =
-      mesh.get_boundary_neighbors();
+  std::unordered_set<uint32_t> boundary_indices = mesh.get_boundary_neighbors();
   std::unordered_map<uint32_t, uint32_t> boundary_map;
   std::unordered_map<uint32_t, uint32_t> boundary_grip_map;
 
@@ -766,8 +791,7 @@ void remap_cell_and_grip_indices(Proto_Mesh &mesh, const int rank, const int n_r
   }
 
   // combine local index map with boundary map from communication
-  unordered_map<uint32_t, uint32_t> local_map =
-      mesh.get_new_global_index_map();
+  unordered_map<uint32_t, uint32_t> local_map = mesh.get_new_global_index_map();
   unordered_map<uint32_t, uint32_t> local_grip_map = mesh.get_grip_map();
   local_map.insert(boundary_map.begin(), boundary_map.end());
   local_grip_map.insert(boundary_grip_map.begin(), boundary_grip_map.end());
@@ -785,8 +809,8 @@ void remap_cell_and_grip_indices(Proto_Mesh &mesh, const int rank, const int n_r
 //! Use two-sided communication to share new cell indices in mesh connectivity
 void remap_cell_and_grip_indices_staged(Proto_Mesh &mesh, const int rank,
                                         const int n_rank) {
-  using std::vector;
   using std::unordered_map;
+  using std::vector;
 
   if (rank == 0)
     std::cout << "remapping with staged all to all..." << std::endl;
@@ -870,8 +894,7 @@ void remap_cell_and_grip_indices_staged(Proto_Mesh &mesh, const int rank,
 
   // we just need to build a map for the non-local indices, everything else can
   // be remapped locally
-  std::unordered_set<uint32_t> boundary_indices =
-      mesh.get_boundary_neighbors();
+  std::unordered_set<uint32_t> boundary_indices = mesh.get_boundary_neighbors();
 
   // these store the needed boundary indices new map
   std::unordered_map<uint32_t, uint32_t> boundary_map;
@@ -953,8 +976,7 @@ void remap_cell_and_grip_indices_staged(Proto_Mesh &mesh, const int rank,
   } // end loop over send/receive steps (8)
 
   // combine local index map with boundary map from communication
-  unordered_map<uint32_t, uint32_t> local_map =
-      mesh.get_new_global_index_map();
+  unordered_map<uint32_t, uint32_t> local_map = mesh.get_new_global_index_map();
   unordered_map<uint32_t, uint32_t> local_grip_map = mesh.get_grip_map();
   local_map.insert(boundary_map.begin(), boundary_map.end());
   local_grip_map.insert(boundary_grip_map.begin(), boundary_grip_map.end());
@@ -967,12 +989,13 @@ void remap_cell_and_grip_indices_staged(Proto_Mesh &mesh, const int rank,
 //----------------------------------------------------------------------------//
 //! Generate new partitioning with ParMetis, send and receive cells, renumber
 // mesh and communicate renumbering
-void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types, const Info &mpi_info,
-                    const uint32_t grip_size, const int decomposition_type) {
-  using std::unordered_map;
-  using std::unordered_set;
+void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
+                    const Info &mpi_info, const uint32_t grip_size,
+                    const int decomposition_type) {
   using Constants::CUBE;
   using Constants::PARMETIS;
+  using std::unordered_map;
+  using std::unordered_set;
   Timer t_partition;
   Timer t_overdecomp;
   Timer t_remap;
@@ -1034,18 +1057,18 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types, const Info &mp
 
 //! Create replicated mesh by giving all cells to all other processors, renumber
 // mesh and communicate renumbering
-void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types, const Info &mpi_info,
-                    const uint32_t &grip_size) {
-  using Constants::X_POS;
-  using Constants::Y_POS;
-  using Constants::Z_POS;
+void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
+                    const Info &mpi_info, const uint32_t &grip_size) {
   using Constants::X_NEG;
+  using Constants::X_POS;
   using Constants::Y_NEG;
+  using Constants::Y_POS;
   using Constants::Z_NEG;
-  using std::vector;
+  using Constants::Z_POS;
+  using std::partial_sum;
   using std::unordered_map;
   using std::unordered_set;
-  using std::partial_sum;
+  using std::vector;
 
   int rank = mpi_info.get_rank();
   int n_rank = mpi_info.get_n_rank();
@@ -1098,8 +1121,8 @@ void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types, const Info &mp
   // now send the buffers and post receives
   for (uint32_t ir = 0; ir < n_off_rank; ++ir) {
     int off_rank = proc_map[ir];
-    MPI_Isend(send_cell[ir].get_buffer(), send_to_rank[ir], MPI_Proto_Cell, off_rank,
-              0, MPI_COMM_WORLD, &reqs[ir]);
+    MPI_Isend(send_cell[ir].get_buffer(), send_to_rank[ir], MPI_Proto_Cell,
+              off_rank, 0, MPI_COMM_WORLD, &reqs[ir]);
 
     recv_cell[ir].resize(recv_from_rank[ir]);
 
@@ -1149,8 +1172,7 @@ void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types, const Info &mp
 
   // change global indices to match a simple number system for easy sorting
   unordered_map<uint32_t, uint32_t> local_grip_map = mesh.get_grip_map();
-  unordered_map<uint32_t, uint32_t> local_map =
-      mesh.get_new_global_index_map();
+  unordered_map<uint32_t, uint32_t> local_map = mesh.get_new_global_index_map();
 
   // now update the indices of local IDs
   mesh.renumber_local_cell_indices(local_map, local_grip_map);

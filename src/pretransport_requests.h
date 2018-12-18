@@ -20,10 +20,9 @@
 #include "work_packet.h"
 
 //! One-sided request for ajdacent rank data and cells where your work is
-void pretransport_requests(std::vector<Work_Packet>& work,
-  std::vector<Photon>& census_list, const Mesh &mesh, RMA_Manager &rma_manager,
-  Message_Counter& mctr)
-{
+void pretransport_requests(std::vector<Work_Packet> &work,
+                           std::vector<Photon> &census_list, const Mesh &mesh,
+                           RMA_Manager &rma_manager, Message_Counter &mctr) {
 
   for (auto const &i_w : work) {
     uint32_t grip_ID = i_w.get_global_grip_ID();
@@ -37,22 +36,21 @@ void pretransport_requests(std::vector<Work_Packet>& work,
       rma_manager.request_cell_rma(grip_ID, mctr);
   }
 
-  const Cell * const cell_ptr = mesh.get_const_cells_ptr();
-  for (uint32_t i = 0; i<mesh.get_n_local_cells(); ++i) {
-    const Cell& cell = cell_ptr[i];
-    for (uint32_t dir = 0; dir<6;++dir) {
+  const Cell *const cell_ptr = mesh.get_const_cells_ptr();
+  for (uint32_t i = 0; i < mesh.get_n_local_cells(); ++i) {
+    const Cell &cell = cell_ptr[i];
+    for (uint32_t dir = 0; dir < 6; ++dir) {
       if (!mesh.on_processor(cell.get_next_grip(dir)))
         rma_manager.request_cell_rma(cell.get_next_grip(dir), mctr);
     }
   }
-
 }
 
 //! Two-sided request for ajdacent rank data and cells where your work is
-void pretransport_requests(std::vector<Work_Packet>& work,
-  std::vector<Photon>& census_list, const Mesh &mesh,
-  Mesh_Request_Manager &req_manager, Message_Counter& mctr)
-{
+void pretransport_requests(std::vector<Work_Packet> &work,
+                           std::vector<Photon> &census_list, const Mesh &mesh,
+                           Mesh_Request_Manager &req_manager,
+                           Message_Counter &mctr) {
 
   for (auto const &i_w : work) {
     uint32_t grip_ID = i_w.get_global_grip_ID();
@@ -66,10 +64,10 @@ void pretransport_requests(std::vector<Work_Packet>& work,
       req_manager.request_cell(grip_ID, mctr);
   }
 
-  const Cell * const cell_ptr = mesh.get_const_cells_ptr();
-  for (uint32_t i = 0; i<mesh.get_n_local_cells(); ++i) {
-    const Cell& cell = cell_ptr[i];
-    for (uint32_t dir = 0; dir<6;++dir) {
+  const Cell *const cell_ptr = mesh.get_const_cells_ptr();
+  for (uint32_t i = 0; i < mesh.get_n_local_cells(); ++i) {
+    const Cell &cell = cell_ptr[i];
+    for (uint32_t dir = 0; dir < 6; ++dir) {
       if (!mesh.on_processor(cell.get_next_grip(dir)))
         req_manager.request_cell(cell.get_next_grip(dir), mctr);
     }

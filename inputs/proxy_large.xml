@@ -9,7 +9,6 @@
     <photons>331776000000</photons>
     <seed>14706</seed>
     <tilt>FALSE</tilt>
-    <stratified_sampling>FALSE</stratified_sampling>
     <dd_transport_type>CELL_PASS</dd_transport_type>
     <mesh_decomposition>CUBE</mesh_decomposition>
     <grip_size>500</grip_size>
@@ -45,7 +44,7 @@
  
     <y_division>
       <y_start>0.0</y_start>
-      <y_end>1.0</y_end>
+      <y_end>1.2</y_end>
       <n_y_cells>120</n_y_cells>
     </y_division>
  

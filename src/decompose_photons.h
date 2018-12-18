@@ -47,7 +47,8 @@ void print_MPI_photons(const std::vector<Photon> &phtn_vec,
 
 //! Rebalance a census that only include off-rank census photons
 std::vector<Photon> rebalance_census(std::vector<Photon> &off_rank_census,
-                                     const Mesh &mesh, const MPI_Types &mpi_types) {
+                                     const Mesh &mesh,
+                                     const MPI_Types &mpi_types) {
   using std::sort;
   using std::unordered_map;
   using std::vector;
@@ -143,10 +144,10 @@ std::vector<Photon> rebalance_census(std::vector<Photon> &off_rank_census,
   return new_on_rank_census;
 }
 
-
 //! Rebalance a census that contains photons living on mesh owned by any rank
 std::vector<Photon> rebalance_raw_census(std::vector<Photon> &census,
-                                         const Mesh &mesh, const MPI_Types &mpi_types) {
+                                         const Mesh &mesh,
+                                         const MPI_Types &mpi_types) {
   using std::sort;
   using std::unordered_map;
   using std::vector;

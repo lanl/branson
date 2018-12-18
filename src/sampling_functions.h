@@ -18,68 +18,66 @@
 #include "constants.h"
 
 //! Set angle given input array and RNG
-inline void get_uniform_angle(double* angle, RNG* rng) {
-  using std::sqrt;
-  using std::sin;
-  using std::cos;
+inline void get_uniform_angle(double *angle, RNG *rng) {
   using Constants::pi;
-  double mu =rng->generate_random_number()*2.0-1.0; 
-  double phi = rng->generate_random_number()*2.0*pi;
-  double sin_theta = sqrt(1.0 - mu*mu);
-  angle[0] = sin_theta*cos(phi);
-  angle[1] = sin_theta*sin(phi);
+  using std::cos;
+  using std::sin;
+  using std::sqrt;
+  double mu = rng->generate_random_number() * 2.0 - 1.0;
+  double phi = rng->generate_random_number() * 2.0 * pi;
+  double sin_theta = sqrt(1.0 - mu * mu);
+  angle[0] = sin_theta * cos(phi);
+  angle[1] = sin_theta * sin(phi);
   angle[2] = mu;
 }
 
 //! Set angle given input array, RNG and strata
-inline void get_stratified_angle(double* angle, RNG* rng, uint32_t isample, uint32_t nsample) {
-  using std::sqrt;
-  using std::sin;
-  using std::cos;
+inline void get_stratified_angle(double *angle, RNG *rng, uint32_t isample,
+                                 uint32_t nsample) {
   using Constants::pi;
+  using std::cos;
+  using std::sin;
+  using std::sqrt;
   //stratify by octant--two polar, four azimuthal
-  double frac =double(isample)/nsample;
-  int imu = int(frac > 0.5) ; // 0 or 1
-  int iphi = int(frac*4.0); // 0 through 3
-  double mu = 0.5*(imu + rng->generate_random_number())*2.0-1.0;
-  double phi = 0.25*(iphi + rng->generate_random_number())*2.0*pi;
-  double sin_theta = sqrt(1.0 - mu*mu);
-  angle[0] = sin_theta*cos(phi);
-  angle[1] = sin_theta*sin(phi);
+  double frac = double(isample) / nsample;
+  int imu = int(frac > 0.5);  // 0 or 1
+  int iphi = int(frac * 4.0); // 0 through 3
+  double mu = 0.5 * (imu + rng->generate_random_number()) * 2.0 - 1.0;
+  double phi = 0.25 * (iphi + rng->generate_random_number()) * 2.0 * pi;
+  double sin_theta = sqrt(1.0 - mu * mu);
+  angle[0] = sin_theta * cos(phi);
+  angle[1] = sin_theta * sin(phi);
   angle[2] = mu;
 }
 
 //! Set angle from face source given input array, RNG and strata
-inline void get_source_angle(double* angle, RNG* rng) {
-  using std::sqrt;
-  using std::sin;
-  using std::cos;
+inline void get_source_angle(double *angle, RNG *rng) {
   using Constants::pi;
-  double mu =sqrt(rng->generate_random_number());
-  double phi = rng->generate_random_number()*2.0*pi;
-  double sin_theta = sqrt(1.0 - mu*mu);
-  angle[0] = sin_theta*cos(phi);
-  angle[1] = sin_theta*sin(phi);
+  using std::cos;
+  using std::sin;
+  using std::sqrt;
+  double mu = sqrt(rng->generate_random_number());
+  double phi = rng->generate_random_number() * 2.0 * pi;
+  double sin_theta = sqrt(1.0 - mu * mu);
+  angle[0] = sin_theta * cos(phi);
+  angle[1] = sin_theta * sin(phi);
   angle[2] = mu;
 }
 
-
-//! Sample the group after an effective scattering event 
-inline int sample_emission_group(RNG* rng, const Cell& cell_data) {
+//! Sample the group after an effective scattering event
+inline int sample_emission_group(RNG *rng, const Cell &cell_data) {
   // Sample a new group from a uniform CDF (but mimc non-uniform CDF algorithm)
   double cdf_value = rng->generate_random_number();
   int new_group = -1;
   // normalizes the PDF (opacity is uniform, not weighting with spectrum so
   // this is very simple)
-  double norm_factor = 1.0/(cell_data.get_op_a(0)*BRANSON_N_GROUPS);
-  while(cdf_value > 0) {
+  double norm_factor = 1.0 / (cell_data.get_op_a(0) * BRANSON_N_GROUPS);
+  while (cdf_value > 0) {
     new_group++;
     cdf_value -= cell_data.get_op_a(new_group) * norm_factor;
   }
   return new_group;
 }
-
-
 
 #endif
 //---------------------------------------------------------------------------//

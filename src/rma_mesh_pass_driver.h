@@ -33,7 +33,8 @@
 
 void imc_rma_mesh_pass_driver(Mesh &mesh, IMC_State &imc_state,
                               const IMC_Parameters &imc_parameters,
-                              const MPI_Types &mpi_types, const Info &mpi_info) {
+                              const MPI_Types &mpi_types,
+                              const Info &mpi_info) {
   using std::vector;
   vector<double> abs_E(mesh.get_n_local_cells(), 0.0);
   vector<double> track_E(mesh.get_n_local_cells(), 0.0);
@@ -44,10 +45,9 @@ void imc_rma_mesh_pass_driver(Mesh &mesh, IMC_State &imc_state,
   int n_rank = mpi_info.get_n_rank();
 
   // make object that handles RMA mesh requests and start access
-  RMA_Manager rma_manager(mesh.get_off_rank_bounds(),
-                          mesh.get_max_grip_size(),
-                          imc_parameters.get_map_size(),
-                          mpi_types, mesh.get_mesh_window_ref());
+  RMA_Manager rma_manager(mesh.get_off_rank_bounds(), mesh.get_max_grip_size(),
+                          imc_parameters.get_map_size(), mpi_types,
+                          mesh.get_mesh_window_ref());
   rma_manager.start_access();
 
   // make object that handles tally data
@@ -122,8 +122,8 @@ void imc_rma_mesh_pass_driver(Mesh &mesh, IMC_State &imc_state,
       double fake_mpi_runtime = 0.0;
       vector<uint32_t> n_requests(mesh.get_n_local_cells(), 0);
       write_silo(mesh, imc_state.get_time(), imc_state.get_step(),
-                 imc_state.get_rank_transport_runtime(),
-                 fake_mpi_runtime, rank, n_rank, n_requests);
+                 imc_state.get_rank_transport_runtime(), fake_mpi_runtime, rank,
+                 n_rank, n_requests);
     }
     // reset rma_manager object for next timestep
     rma_manager.end_timestep();

@@ -13,12 +13,13 @@
 #define transport_replicated_h_
 
 #include <algorithm>
-#include <mpi.h>
 #include <functional>
 #include <iostream>
+#include <mpi.h>
 #include <numeric>
 #include <vector>
 
+#include "RNG.h"
 #include "constants.h"
 #include "info.h"
 #include "mesh.h"
@@ -26,26 +27,25 @@
 #include "particle_pass_transport.h"
 #include "photon.h"
 #include "sampling_functions.h"
-#include "RNG.h"
 
-std::vector<Photon> replicated_transport( Source& source,
-                                          const Mesh& mesh,
-                                          IMC_State &imc_state,
-                                          std::vector<double>& rank_abs_E,
-                                          std::vector<double>& rank_track_E)
-{
+std::vector<Photon> replicated_transport(Source &source, const Mesh &mesh,
+                                         IMC_State &imc_state,
+                                         std::vector<double> &rank_abs_E,
+                                         std::vector<double> &rank_track_E) {
+  using Constants::CENSUS;
   using Constants::event_type;
-  using Constants::PASS; using Constants::CENSUS;
-  using Constants::KILL; using Constants::EXIT;
+  using Constants::EXIT;
+  using Constants::KILL;
+  using Constants::PASS;
   using Constants::WAIT;
-  using std::vector;
   using std::cout;
   using std::endl;
+  using std::vector;
 
-  double census_E= 0.0;
+  double census_E = 0.0;
   double exit_E = 0.0;
   double next_dt = imc_state.get_next_dt(); //! Set for census photons
-  double dt = imc_state.get_next_dt(); //! For making current photons
+  double dt = imc_state.get_next_dt();      //! For making current photons
 
   RNG *rng = imc_state.get_rng();
 
@@ -60,7 +60,7 @@ std::vector<Photon> replicated_transport( Source& source,
   // main transport loop
   //------------------------------------------------------------------------//
 
-  vector<Photon> census_list; //! End of timestep census list
+  vector<Photon> census_list;   //! End of timestep census list
   uint64_t n_local_sourced = 0; //! Photons pulled from source object
   Photon phtn;
   event_type event;
@@ -70,25 +70,25 @@ std::vector<Photon> replicated_transport( Source& source,
   //------------------------------------------------------------------------//
   while (n_local_sourced < n_local) {
 
-    phtn =source.get_photon(rng, dt);
+    phtn = source.get_photon(rng, dt);
     n_local_sourced++;
 
     event = transport_photon_particle_pass(phtn, mesh, rng, next_dt, exit_E,
-                                          census_E, rank_abs_E, rank_track_E);
-    switch(event) {
-      // this case should never be reached
-      case WAIT:
-        break;
-      // this case should never be reached
-      case PASS:
-        break;
-      case KILL:
-        break;
-      case EXIT:
-        break;
-      case CENSUS:
-        census_list.push_back(phtn);
-        break;
+                                           census_E, rank_abs_E, rank_track_E);
+    switch (event) {
+    // this case should never be reached
+    case WAIT:
+      break;
+    // this case should never be reached
+    case PASS:
+      break;
+    case KILL:
+      break;
+    case EXIT:
+      break;
+    case CENSUS:
+      census_list.push_back(phtn);
+      break;
     }
   } // end while
 
@@ -105,7 +105,7 @@ std::vector<Photon> replicated_transport( Source& source,
   imc_state.set_post_census_E(census_E);
   imc_state.set_census_size(census_list.size());
   imc_state.set_rank_transport_runtime(
-    t_transport.get_time("timestep transport"));
+      t_transport.get_time("timestep transport"));
 
   return census_list;
 }

@@ -53,9 +53,8 @@ void comb_photons(std::vector<Photon> &census_photons,
   uint32_t cell;
   for (auto &p : post_comb_photons) {
     cell = p.get_cell();
-    new_E = p.get_E() +
-            (cell_census_E[cell] - cell_corrected_E[cell]) /
-                double(cell_census_count[cell]);
+    new_E = p.get_E() + (cell_census_E[cell] - cell_corrected_E[cell]) /
+                            double(cell_census_count[cell]);
     p.set_E(new_E);
   }
 

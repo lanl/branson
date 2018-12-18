@@ -75,7 +75,6 @@ endif ()
 #set(GCC_SANITIZE_COMPILE_FLAGS "-fsanitize=undefined")
 #set(GCC_SANITIZE_LINK_FLAGS "-fsanitize=undefined")
 
-
 # add compiler flags
 if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0")
@@ -91,10 +90,10 @@ endif()
 
 #------------------------------------------------------------------------------#
 # Look for Third Party Libraries (metis, parmetis, etc.)
+add_subdirectory(pugixml)
 
 include(find_tpls)
 setupTPLs()
-
 #------------------------------------------------------------------------------#
 # Report build configuration
 
@@ -142,12 +141,13 @@ configure_file(config.h.in ${PROJECT_BINARY_DIR}/config.h)
 
 add_executable(BRANSON main.cc)
 target_include_directories( BRANSON PRIVATE
-  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> )
+  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>) #  ${PROJECT_SOURCE_DIR}/pugixml/src/)
 set( branson_deps
   ParMETIS::parmetis
   MPI::MPI_CXX
   MPI::MPI_C
-  METIS::metis )
+  METIS::metis 
+  )  #pugixml
 if( VIZ_LIBRARIES_FOUND )
   set( branson_deps "Silo::silo;${HDF5_LIBRARIES};${branson_deps}" )
 endif()

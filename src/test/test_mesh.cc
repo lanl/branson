@@ -15,18 +15,18 @@
 
 #include "../constants.h"
 #include "../input.h"
-#include "../proto_mesh.h"
 #include "../mpi_types.h"
+#include "../proto_mesh.h"
 #include "testing_functions.h"
 
-int main (int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 
   MPI_Init(&argc, &argv);
 
   int nfail = 0;
 
   // scope for MPI type commit and frees (needs to be done before MPI_Finalize)
-  {  
+  {
     const Info mpi_info;
 
     MPI_Types mpi_types;
@@ -35,9 +35,8 @@ int main (int argc, char *argv[]) {
     using std::endl;
     using std::string;
 
-
     // Test that a simple mesh (one division in each dimension) is constructed
-    // correctly from the input file (simple_input.xml) and that each cell 
+    // correctly from the input file (simple_input.xml) and that each cell
     // is assigned the correct region
     {
       string filename("simple_input.xml");
@@ -47,23 +46,26 @@ int main (int argc, char *argv[]) {
       bool simple_mesh_pass = true;
 
       uint32_t n_cell = mesh.get_n_local_cells();
-      if (n_cell != 10*20*30) simple_mesh_pass =false;
+      if (n_cell != 10 * 20 * 30)
+        simple_mesh_pass = false;
 
       Proto_Cell cell;
-      for (uint32_t i = 0; i<n_cell; i++) {
+      for (uint32_t i = 0; i < n_cell; i++) {
         cell = mesh.get_pre_window_allocation_cell(i);
-        if ( cell.get_region_ID() != 6) simple_mesh_pass =false;
+        if (cell.get_region_ID() != 6)
+          simple_mesh_pass = false;
       }
 
-      if (simple_mesh_pass) cout<<"TEST PASSED: simple mesh construction"<<endl;
-      else { 
-        cout<<"TEST FAILED: simple mesh construction"<<endl; 
+      if (simple_mesh_pass)
+        cout << "TEST PASSED: simple mesh construction" << endl;
+      else {
+        cout << "TEST FAILED: simple mesh construction" << endl;
         nfail++;
       }
     }
-    
+
     // Test that a multi-region mesh is constructed correctly from the input file
-    // (three_region_input_mesh.xml) and that each cell is assigned the correct 
+    // (three_region_input_mesh.xml) and that each cell is assigned the correct
     // region
     {
       bool three_region_mesh_pass = true;
@@ -74,36 +76,38 @@ int main (int argc, char *argv[]) {
       Proto_Mesh mesh(three_reg_input, mpi_types, mpi_info);
 
       uint32_t n_cell = mesh.get_n_local_cells();
-      if (n_cell != 21*10) three_region_mesh_pass =false;
+      if (n_cell != 21 * 10)
+        three_region_mesh_pass = false;
 
       Proto_Cell cell;
       const double *coor;
       double x_low;
       // check the lower x position of the cell to see if the region matches
       // the divisions set in the input file
-      for (uint32_t i = 0; i<n_cell; i++) {
+      for (uint32_t i = 0; i < n_cell; i++) {
         cell = mesh.get_pre_window_allocation_cell(i);
         coor = cell.get_node_array();
         x_low = coor[0];
         //cells in the first region
         if (x_low < 4.0) {
-          if ( cell.get_region_ID() != 230) three_region_mesh_pass =false;
-        }
-        else if (x_low >= 4.0 && x_low < 8.0) {
-          if ( cell.get_region_ID() != 177) three_region_mesh_pass =false;
-        }
-        else if (x_low >= 8.0) {
-          if ( cell.get_region_ID() != 11) three_region_mesh_pass =false;
-        }
-        else {
+          if (cell.get_region_ID() != 230)
+            three_region_mesh_pass = false;
+        } else if (x_low >= 4.0 && x_low < 8.0) {
+          if (cell.get_region_ID() != 177)
+            three_region_mesh_pass = false;
+        } else if (x_low >= 8.0) {
+          if (cell.get_region_ID() != 11)
+            three_region_mesh_pass = false;
+        } else {
           // this should not occur, test fails
           three_region_mesh_pass = false;
         }
       }
 
-      if (three_region_mesh_pass) cout<<"TEST PASSED: three region mesh construction"<<endl;
-      else { 
-        cout<<"TEST FAILED: three region mesh construction"<<endl; 
+      if (three_region_mesh_pass)
+        cout << "TEST PASSED: three region mesh construction" << endl;
+      else {
+        cout << "TEST FAILED: three region mesh construction" << endl;
         nfail++;
       }
     }
