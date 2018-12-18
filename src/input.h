@@ -48,6 +48,7 @@
 #include <string>
 #include <unordered_map>
 
+#include <pugixml.hpp>
 #include "config.h"
 #include "constants.h"
 #include "mpi.h"
@@ -104,100 +105,97 @@ public:
     vector<float> y;
     vector<float> z;
 
-    ptree pt;
-    read_xml(fileName, pt);
-    std::string tempString;
-    // traverse pt
-    BOOST_FOREACH (ptree::value_type const &v, pt.get_child("prototype")) {
-      // read in basic problem parameters
-      if (v.first == "common") {
-        tFinish = v.second.get<double>("t_stop");
-        dt = v.second.get<double>("dt_start");
-        tStart = v.second.get<double>("t_start");
-        tMult = v.second.get<double>("t_mult", 1.0);
-        dtMax = v.second.get<double>("dt_max", dt);
-        n_photons = v.second.get<uint64_t>("photons");
-        seed = v.second.get<int>("seed");
-        grip_size = v.second.get<int>("grip_size", 10);
-        map_size = v.second.get<int>("map_size");
-        output_freq = v.second.get<int>("output_frequency", 1);
-        tempString = v.second.get<std::string>("tilt", std::string("FALSE"));
-        if (tempString == "TRUE")
-          use_tilt = 1;
-        else
-          use_tilt = 0;
-        tempString =
-            v.second.get<std::string>("use_combing", std::string("TRUE"));
-        if (tempString == "TRUE")
-          use_comb = 1;
-        else
-          use_comb = 0;
+    pugi::xml_document doc;
+    pugi::xml_parse_result load_result = doc.load_file(filename);
 
-        // stratified sampling
-        tempString = v.second.get<std::string>("stratified_sampling",
-                                               std::string("FALSE"));
-        if (tempString == "TRUE")
-          use_strat = true;
-        else
-          use_strat = false;
+    // error checking
+    if (!load_result) {
+      std::cout << load_result.description() << std::endl;
+      std::cout<<"Improperly formatted xml file" << std::endl;
+      exit(EXIT_FAILURE);
+    }
 
-        // write silo flag
-        tempString =
-            v.second.get<std::string>("write_silo", std::string("FALSE"));
-        if (tempString == "TRUE")
-          write_silo = true;
-        else
-          write_silo = false;
+    // check each necessary branch exists and create nodes for each
+    pugi::xml_node settings_node =
+      doc.child("prototype").child("common");
+    pugi::xml_node spatial_node =
+      doc.child("prototype").child("spatial");
 
-        // number of particles to run between MPI message checks
-        batch_size = v.second.get<uint32_t>("batch_size", 100);
+    if (!settings_node  || !spatial_node) {
+      std::cout << "'general_settings' section not found!" << std::endl;           
+      exit(EXIT_FAILURE);                                                          
+    }
 
-        // preferred number of particles per MPI send
-        particle_message_size =
-            v.second.get<uint32_t>("particle_message_size", 100);
+    tFinish = settings_nodes.child("t_stop").as_double();
+    dt = settings_nodes.child("dt").as_double();
+    tStart = settings_nodes.child("t_start").as_double();
+    tMult =settings_nodes.child("t_mult").as_double(); 
+    dtMax = settings_nodes.child("dt_max").as_double();
+    n_photons =settings_nodes.child("n_photons").as_int(); 
+    seed = settings_nodes.child("seed").as_int();
+    grip_size = settings_nodes.child("grip_size").as_int();
+    map_size = settings_nodes.child("map_size").as_int();
+    output_freq = settings_nodes.child("output_frequency").as_int();
 
-        // domain decomposed transport aglorithm
-        tempString = v.second.get<std::string>("dd_transport_type",
-                                               std::string("CELL_PASS"));
-        if (tempString == "CELL_PASS")
-          dd_mode = CELL_PASS;
-        else if (tempString == "CELL_PASS_RMA")
-          dd_mode = CELL_PASS_RMA;
-        else if (tempString == "PARTICLE_PASS")
-          dd_mode = PARTICLE_PASS;
-        else if (tempString == "REPLICATED")
-          dd_mode = REPLICATED;
-        else {
-          if (rank == 0) {
-            cout << "WARNING: Domain decomposition method not recognized... ";
-            cout << "setting to PARTICLE PASSING method" << endl;
-          }
-          dd_mode = PARTICLE_PASS;
-        }
+    // use particle combing population control
+    std::string tempString = settings_nodes.child("use_combing").value();
+    if (tempString == "TRUE")
+      use_comb = 1;
+    else
+      use_comb = 0;
 
-        // domain decomposition method
-        tempString = v.second.get<std::string>("mesh_decomposition",
-                                               std::string("PARMETIS"));
-        if (tempString == "PARMETIS")
-          decomp_mode = PARMETIS;
-        else if (tempString == "CUBE")
-          decomp_mode = CUBE;
-        else {
-          if (rank == 0) {
-            cout << "WARNING: Mesh decomposition method not recognized... ";
-            cout << "setting to PARMETIS method" << endl;
-          }
-          decomp_mode = PARMETIS;
-        }
-        if (dd_mode == REPLICATED) {
-          if (rank == 0) {
-            std::cout << "Replicated transport mode, mesh decomposition method";
-            std::cout << " ignored" << std::endl;
-          }
-        }
-      } // end common
+    // write silo flag
+    tempString = settings_nodes.child("write_silo").value();
+    if (tempString == "TRUE")
+      write_silo = true;
+    else
+      write_silo = false;
 
-      // read in basic problem parameters
+    // number of particles to run between MPI message checks
+    batch_size = settings_nodes.child("batch_size").as_int(); 
+
+    // preferred number of particles per MPI send
+    particle_message_size =settings_nodes.child("buffer_size").as_double(); 
+
+    // domain decomposed transport aglorithm
+    tempString = settings_nodes.child("dd_transport_type").value(); 
+    if (tempString == "CELL_PASS")
+      dd_mode = CELL_PASS;
+    else if (tempString == "CELL_PASS_RMA")
+      dd_mode = CELL_PASS_RMA;
+    else if (tempString == "PARTICLE_PASS")
+      dd_mode = PARTICLE_PASS;
+    else if (tempString == "REPLICATED")
+      dd_mode = REPLICATED;
+    else {
+      if (rank == 0) {
+        cout << "WARNING: Domain decomposition method not recognized... ";
+        cout << "setting to PARTICLE PASSING method" << endl;
+      }
+      dd_mode = PARTICLE_PASS;
+    }
+
+    // domain decomposition method
+    tempString =  settings_nodes.child("mesh_decomposition").as_double();
+    if (tempString == "PARMETIS")
+      decomp_mode = PARMETIS;
+    else if (tempString == "CUBE")
+      decomp_mode = CUBE;
+    else {
+      if (rank == 0) {
+        cout << "WARNING: Mesh decomposition method not recognized... ";
+        cout << "setting to PARMETIS method" << endl;
+      }
+      decomp_mode = PARMETIS;
+    }
+    if (dd_mode == REPLICATED) {
+      if (rank == 0) {
+        std::cout << "Replicated transport mode, mesh decomposition method";
+        std::cout << " ignored" << std::endl;
+      }
+    }
+
+
       else if (v.first == "debug_options") {
         tempString = v.second.get<std::string>("print_verbose", "FALSE");
         if (tempString == "TRUE")
@@ -211,17 +209,16 @@ public:
           print_mesh_info = false;
       } // end common
 
-      // read in detailed spatial information
-      else if (v.first == "spatial") {
+    for (pugi::xml_node_iterator it = spatial_node.begin(); it != spatial_node.end(); ++it) {
+          
         using_detailed_mesh = true;
         double d_x_start, d_x_end, d_y_start, d_y_end, d_z_start, d_z_end;
         uint32_t d_x_cells, d_y_cells, d_z_cells;
-        BOOST_FOREACH (ptree::value_type const &g, v.second) {
-          if (g.first == "x_division") {
+        if (it->name() == "x_division") {
             // x information for this region
-            d_x_start = g.second.get<double>("x_start");
-            d_x_end = g.second.get<double>("x_end");
-            d_x_cells = g.second.get<uint32_t>("n_x_cells");
+            d_x_start = it->get_child("x_start").as_double();
+            d_x_end = it->get_child("x_end").as_double(); 
+            d_x_cells = it->get_child("n_x_cells").as_int();
             x_start.push_back(d_x_start);
             x_end.push_back(d_x_end);
             n_x_cells.push_back(d_x_cells);
@@ -231,11 +228,11 @@ public:
               x.push_back(d_x_start + i * (d_x_end - d_x_start) / d_x_cells);
           }
 
-          if (g.first == "y_division") {
+          if (it->name() == "y_division") {
             // y information for this region
-            d_y_start = g.second.get<double>("y_start");
-            d_y_end = g.second.get<double>("y_end");
-            d_y_cells = g.second.get<uint32_t>("n_y_cells");
+            d_y_start = it->get_child("y_start").as_double();
+            d_y_end = it->get_child("y_end").as_double();
+            d_y_cells = it->get_child("n_y_cells").as_int();
             y_start.push_back(d_y_start);
             y_end.push_back(d_y_end);
             n_y_cells.push_back(d_y_cells);
@@ -245,11 +242,11 @@ public:
               y.push_back(d_y_start + i * (d_y_end - d_y_start) / d_y_cells);
           }
 
-          if (g.first == "z_division") {
+          if (it->name() == "z_division") {
             // z information for this region
-            d_z_start = g.second.get<double>("z_start");
-            d_z_end = g.second.get<double>("z_end");
-            d_z_cells = g.second.get<uint32_t>("n_z_cells");
+            d_z_start = it->get_child("z_start").as_double();
+            d_z_end = it->get_child("z_end").as_double();
+            d_z_cells = it->get_child("n_z_cells").as_int();
             z_start.push_back(d_z_start);
             z_end.push_back(d_z_end);
             n_z_cells.push_back(d_z_cells);
@@ -259,11 +256,11 @@ public:
               z.push_back(d_z_start + i * (d_z_end - d_z_start) / d_z_cells);
           }
 
-          if (g.first == "region_map") {
-            x_key = (g.second.get<uint32_t>("x_div_ID"));
-            y_key = (g.second.get<uint32_t>("y_div_ID"));
-            z_key = (g.second.get<uint32_t>("z_div_ID"));
-            region_ID = (g.second.get<uint32_t>("region_ID"));
+          if (it->name() == "region_map") {
+            x_key = it->get_child("x_div_ID").as_int();
+            y_key = it->get_child("y_div_ID").as_int();
+            z_key = it->get_child("z_div_ID").as_int();
+            region_ID = it->get_child("region_ID").as_int();
             // make a unique key using the division ID of x,y and z
             // this mapping allows for 1000 unique divisions in
             // each dimension (way too many)
@@ -273,40 +270,10 @@ public:
         }
       }
 
-      // read in simple spatial data
-      else if (v.first == "simple_spatial") {
-        using_simple_mesh = true;
-
-        x_start.push_back(v.second.get<double>("x_start"));
-        x_end.push_back(v.second.get<double>("x_end"));
-        n_x_cells.push_back(v.second.get<uint32_t>("n_x_cells"));
-
-        y_start.push_back(v.second.get<double>("y_start"));
-        y_end.push_back(v.second.get<double>("y_end"));
-        n_y_cells.push_back(v.second.get<uint32_t>("n_y_cells"));
-
-        z_start.push_back(v.second.get<double>("z_start"));
-        z_end.push_back(v.second.get<double>("z_end"));
-        n_z_cells.push_back(v.second.get<uint32_t>("n_z_cells"));
-
-        region_ID = (v.second.get<uint32_t>("region_ID", 0));
-
-        // add spatial information to SILO information
-        for (uint32_t i = 0; i < n_x_cells[0]; ++i)
-          x.push_back(x_start[0] + i * (x_end[0] - x_start[0]) / n_x_cells[0]);
-        for (uint32_t i = 0; i < n_y_cells[0]; ++i)
-          y.push_back(y_start[0] + i * (y_end[0] - y_start[0]) / n_y_cells[0]);
-        for (uint32_t i = 0; i < n_z_cells[0]; ++i)
-          z.push_back(z_start[0] + i * (z_end[0] - z_start[0]) / n_z_cells[0]);
-
-        // map zero key to region_ID
-        region_map[0] = region_ID;
-      }
-
-      else if (v.first == "boundary") {
+      if (it->name() == "boundary") {
         // read in boundary conditions
         bool b_error = false;
-        tempString = v.second.get<std::string>("bc_right");
+        tempString = it->get_child("bc_right").value();
         if (tempString == "REFLECT")
           bc[X_POS] = REFLECT;
         else if (tempString == "VACUUM")
@@ -314,7 +281,7 @@ public:
         else
           b_error = true;
 
-        tempString = v.second.get<std::string>("bc_left");
+        tempString =it->get_child("bc_left").value(); 
         if (tempString == "REFLECT")
           bc[X_NEG] = REFLECT;
         else if (tempString == "VACUUM")
@@ -322,7 +289,7 @@ public:
         else
           b_error = true;
 
-        tempString = v.second.get<std::string>("bc_up");
+        tempString =it->get_child("bc_up").value(); 
         if (tempString == "REFLECT")
           bc[Y_POS] = REFLECT;
         else if (tempString == "VACUUM")
@@ -330,7 +297,7 @@ public:
         else
           b_error = true;
 
-        tempString = v.second.get<std::string>("bc_down");
+        tempString = it->get_child("bc_down").value(); 
         if (tempString == "REFLECT")
           bc[Y_NEG] = REFLECT;
         else if (tempString == "VACUUM")
@@ -338,7 +305,7 @@ public:
         else
           b_error = true;
 
-        tempString = v.second.get<std::string>("bc_top");
+        tempString = it->get_child("bc_top").value(); 
         if (tempString == "REFLECT")
           bc[Z_POS] = REFLECT;
         else if (tempString == "VACUUM")
@@ -346,7 +313,7 @@ public:
         else
           b_error = true;
 
-        tempString = v.second.get<std::string>("bc_bottom");
+        tempString =it->get_child("bc_bottom").value();  
         if (tempString == "REFLECT")
           bc[Z_NEG] = REFLECT;
         else if (tempString == "VACUUM")
