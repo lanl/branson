@@ -638,6 +638,132 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
 //----------------------------------------------------------------------------//
 
 //----------------------------------------------------------------------------//
+//! Use two-sided communication and allreduces to share new cell indices in mesh
+// connectivity
+void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
+                                 const int n_rank) {
+  using std::unordered_map;
+  using std::unordered_set;
+  using std::vector;
+
+  if (rank == 0)
+    std::cout << "remapping with allreduce..." << std::endl;
+
+  // gather the number of cells on each processor
+  uint32_t n_cell_post_decomp = mesh.get_n_local_cells();
+  vector<uint32_t> out_cells_proc(n_rank, 0);
+  out_cells_proc[rank] = mesh.get_n_local_cells();
+  MPI_Allreduce(MPI_IN_PLACE, &out_cells_proc[0], n_rank, MPI_UNSIGNED, MPI_SUM,
+                MPI_COMM_WORLD);
+
+  // prefix sum on out_cells to get global numbering
+  vector<uint32_t> prefix_cells_proc(n_rank, 0);
+  partial_sum(out_cells_proc.begin(), out_cells_proc.end(),
+              prefix_cells_proc.begin());
+
+  // set global numbering
+  uint32_t g_start = prefix_cells_proc[rank] - n_cell_post_decomp;
+  uint32_t g_end = prefix_cells_proc[rank] - 1;
+  mesh.set_global_bound(g_start, g_end);
+
+  // set the grip ID to be the cells at the center of grips using global cell
+  // indices
+  mesh.set_grip_ID_using_cell_index();
+
+  // get the maximum grip size for correct parallel operations
+  uint32_t max_grip_size = mesh.get_max_grip_size();
+  uint32_t global_max_grip_size = 0;
+  uint32_t global_min_grip_size = 10000000;
+  MPI_Allreduce(&max_grip_size, &global_max_grip_size, 1, MPI_UNSIGNED, MPI_MAX,
+                MPI_COMM_WORLD);
+  MPI_Allreduce(&max_grip_size, &global_min_grip_size, 1, MPI_UNSIGNED, MPI_MIN,
+                MPI_COMM_WORLD);
+  mesh.set_max_grip_size(global_max_grip_size);
+
+  if (rank == 0) {
+    std::cout << "Minimum/Maximum grip size: " << global_min_grip_size;
+    std::cout << " / " << global_max_grip_size << std::endl;
+  }
+
+  // prepend zero to the prefix array to make it a standard bounds array
+  prefix_cells_proc.insert(prefix_cells_proc.begin(), 0);
+  mesh.set_off_rank_bounds(prefix_cells_proc);
+
+  // change global indices to match a simple number system for easy sorting,
+  unordered_map<uint32_t, uint32_t> local_boundary_map =
+      mesh.get_boundary_nodes();
+  unordered_map<uint32_t, uint32_t> local_boundary_grip_map =
+      mesh.get_boundary_grips();
+
+  uint32_t n_boundary = local_boundary_map.size();
+  // get the size of boundary cells on each rank, use a prefix sum to get this
+  // vectors offsets
+  vector<uint32_t> out_bcells_proc(n_rank, 0);
+  vector<uint32_t> prefix_bcells_proc(n_rank, 0);
+  out_bcells_proc[rank] = n_boundary;
+  MPI_Allreduce(MPI_IN_PLACE, &out_bcells_proc[0], n_rank, MPI_UNSIGNED,
+    MPI_SUM, MPI_COMM_WORLD);
+
+  partial_sum(out_bcells_proc.begin(), out_bcells_proc.end(),
+              prefix_bcells_proc.begin());
+  // insert zero at the start to get write location
+  prefix_bcells_proc.insert(prefix_bcells_proc.begin(), 0);
+
+  // write the original boundary indices to a global array
+  uint32_t n_global_bcells = prefix_bcells_proc.back();
+  vector<uint32_t> original_b_indices(n_global_bcells);
+  uint32_t start = prefix_bcells_proc[rank];
+  for (auto& imap: local_boundary_map)
+    original_b_indices[start++] = imap.first;
+  MPI_Allreduce(MPI_IN_PLACE, &original_b_indices[0], n_global_bcells, MPI_UNSIGNED, MPI_SUM,
+    MPI_COMM_WORLD);
+
+  // find the indices in this global array for your boundary cells
+  auto b_nodes = mesh.get_boundary_neighbors();
+  std::map<uint32_t, uint32_t> b_indices; // map indices to original IDs
+  for (uint32_t i=0; i<n_global_bcells; ++i) {
+    if (b_nodes.count(original_b_indices[i]))
+      b_indices[i] = original_b_indices[i];
+  }
+
+  // now fill the global array with the real new indices (in the same location
+  // as the old index)
+  start = prefix_bcells_proc[rank];
+  std::fill(original_b_indices.begin(), original_b_indices.end(), 0);
+  for (auto& imap: local_boundary_map)
+    original_b_indices[start++] = imap.second;
+  MPI_Allreduce(MPI_IN_PLACE, &original_b_indices[0], n_global_bcells, MPI_UNSIGNED, MPI_SUM,
+    MPI_COMM_WORLD);
+
+  // iterate through the indices required by your rank
+  std::unordered_map<uint32_t, uint32_t> id_old_to_new;
+  for (auto& imap : b_indices)
+    id_old_to_new[imap.second] = original_b_indices[imap.first];
+
+  // now fill the global array with the real new grip indices (in the same
+  // location as the old index)
+  start = prefix_bcells_proc[rank];
+  std::fill(original_b_indices.begin(), original_b_indices.end(), 0);
+  for (auto& imap: local_boundary_grip_map)
+    original_b_indices[start++] = imap.second;
+  MPI_Allreduce(MPI_IN_PLACE, &original_b_indices[0], n_global_bcells, MPI_UNSIGNED, MPI_SUM,
+    MPI_COMM_WORLD);
+
+  // iterate through the indices required by your rank
+  std::unordered_map<uint32_t, uint32_t> grip_old_to_new;
+  for (auto& imap : b_indices)
+    grip_old_to_new[imap.second] = original_b_indices[imap.first];
+
+  unordered_map<uint32_t, uint32_t> local_map = mesh.get_new_global_index_map();
+  unordered_map<uint32_t, uint32_t> local_grip_map = mesh.get_grip_map();
+  local_map.insert(id_old_to_new.begin(), id_old_to_new.end());
+  local_grip_map.insert(grip_old_to_new.begin(), grip_old_to_new.end());
+
+  // now update the indices of local IDs
+  mesh.renumber_local_cell_indices(local_map, local_grip_map);
+}
+
+//----------------------------------------------------------------------------//
 //! Use two-sided communication to share new cell indices in mesh connectivity
 void remap_cell_and_grip_indices(Proto_Mesh &mesh, const int rank,
                                  const int n_rank) {
@@ -1042,7 +1168,7 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   t_overdecomp.stop_timer("overdecomp");
 
   t_remap.start_timer("remap");
-  remap_cell_and_grip_indices_rma(mesh, rank, n_rank);
+  remap_cell_and_grip_indices_allreduce(mesh, rank, n_rank);
   t_remap.stop_timer("remap");
 
   if (rank == 0) {
