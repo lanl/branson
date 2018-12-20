@@ -55,22 +55,22 @@
 
     <region_map>
       <x_div_ID>0</x_div_ID>
-      <y_div_ID>0</x_div_ID>
-      <z_div_ID>0</x_div_ID>
+      <y_div_ID>0</y_div_ID>
+      <z_div_ID>0</z_div_ID>
       <region_ID>230</region_ID>
     </region_map>
 
     <region_map>
       <x_div_ID>1</x_div_ID>
-      <y_div_ID>0</x_div_ID>
-      <z_div_ID>0</x_div_ID>
+      <y_div_ID>0</y_div_ID>
+      <z_div_ID>0</z_div_ID>
       <region_ID>177</region_ID>
     </region_map>
 
     <region_map>
       <x_div_ID>2</x_div_ID>
-      <y_div_ID>0</x_div_ID>
-      <z_div_ID>0</x_div_ID>
+      <y_div_ID>0</y_div_ID>
+      <z_div_ID>0</z_div_ID>
       <region_ID>11</region_ID>
     </region_map>
 

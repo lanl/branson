@@ -67,9 +67,7 @@
 class Input {
 public:
   //! Constructor
-  Input(std::string fileName)
-      : using_simple_mesh(false), using_detailed_mesh(false) {
-    using boost::property_tree::ptree;
+  Input(std::string fileName) {
     using Constants::ELEMENT;
     using Constants::REFLECT;
     using Constants::VACUUM;
@@ -106,59 +104,92 @@ public:
     vector<float> z;
 
     pugi::xml_document doc;
-    pugi::xml_parse_result load_result = doc.load_file(filename);
+    pugi::xml_parse_result load_result = doc.load_file(fileName.c_str());
 
     // error checking
     if (!load_result) {
-      std::cout << load_result.description() << std::endl;
-      std::cout<<"Improperly formatted xml file" << std::endl;
+      cout << load_result.description() << endl;
+      cout<<"Improperly formatted xml file" << endl;
+      pugi::xml_node proto_node =
+        doc.child("prototype");
+      cout<<"parsed regions: "<<endl;
+      for (pugi::xml_node_iterator it = proto_node.begin(); it != proto_node.end(); ++it)
+        cout<<it->name()<<endl;
       exit(EXIT_FAILURE);
     }
 
     // check each necessary branch exists and create nodes for each
     pugi::xml_node settings_node =
       doc.child("prototype").child("common");
+    pugi::xml_node debug_node =
+      doc.child("prototype").child("debug");
     pugi::xml_node spatial_node =
       doc.child("prototype").child("spatial");
+    pugi::xml_node bc_node =
+      doc.child("prototype").child("boundary");
+    pugi::xml_node region_node =
+      doc.child("prototype").child("regions");
 
-    if (!settings_node  || !spatial_node) {
-      std::cout << "'general_settings' section not found!" << std::endl;           
+    if (!settings_node) {
+      std::cout << "'common' section not found!" << std::endl;           
+      exit(EXIT_FAILURE);                                                          
+    }
+    if (!spatial_node) {
+      std::cout << "'spatial' section not found!" << std::endl;           
+      exit(EXIT_FAILURE);                                                          
+    }
+    if (!bc_node) {
+      std::cout << "'boundary' section not found!" << std::endl;           
+      exit(EXIT_FAILURE);                                                          
+    }
+    if (!region_node) {
+      std::cout << "'regions' section not found!" << std::endl;           
       exit(EXIT_FAILURE);                                                          
     }
 
-    tFinish = settings_nodes.child("t_stop").as_double();
-    dt = settings_nodes.child("dt").as_double();
-    tStart = settings_nodes.child("t_start").as_double();
-    tMult =settings_nodes.child("t_mult").as_double(); 
-    dtMax = settings_nodes.child("dt_max").as_double();
-    n_photons =settings_nodes.child("n_photons").as_int(); 
-    seed = settings_nodes.child("seed").as_int();
-    grip_size = settings_nodes.child("grip_size").as_int();
-    map_size = settings_nodes.child("map_size").as_int();
-    output_freq = settings_nodes.child("output_frequency").as_int();
+    tFinish = settings_node.child("t_stop").text().as_double();
+    dt = settings_node.child("dt_start").text().as_double();
+    tStart = settings_node.child("t_start").text().as_double();
+    tMult =settings_node.child("t_mult").text().as_double(); 
+    dtMax = settings_node.child("dt_max").text().as_double();
+    unsigned long long n_photons_long = settings_node.child("photons").text().as_llong();
+    if (n_photons_long > UINT64_MAX) {
+      cout<<"ERROR: Can't convert "<<n_photons_long;
+      cout<<" to uint64, too large"<<endl;
+      exit(EXIT_FAILURE);
+    }
+    n_photons = static_cast<uint64_t>(n_photons_long); 
+    seed = settings_node.child("seed").text().as_int();
+    grip_size = settings_node.child("grip_size").text().as_int();
+    map_size = settings_node.child("map_size").text().as_int();
+    output_freq = settings_node.child("output_frequency").text().as_int();
 
     // use particle combing population control
-    std::string tempString = settings_nodes.child("use_combing").value();
-    if (tempString == "TRUE")
-      use_comb = 1;
-    else
+    std::string tempString = settings_node.child_value("use_combing");
+    if (tempString == "FALSE")
       use_comb = 0;
+    else if (tempString == "TRUE")
+      use_comb = 1;
+    else {
+      cout<<"\"use_combing\" not found or recognized, defaulting to TRUE"<<endl;
+      use_comb =1;
+    }
 
     // write silo flag
-    tempString = settings_nodes.child("write_silo").value();
+    tempString = settings_node.child_value("write_silo");
     if (tempString == "TRUE")
       write_silo = true;
     else
       write_silo = false;
 
     // number of particles to run between MPI message checks
-    batch_size = settings_nodes.child("batch_size").as_int(); 
+    batch_size = settings_node.child("batch_size").text().as_int(); 
 
     // preferred number of particles per MPI send
-    particle_message_size =settings_nodes.child("buffer_size").as_double(); 
+    particle_message_size =settings_node.child("particle_message_size").text().as_double(); 
 
     // domain decomposed transport aglorithm
-    tempString = settings_nodes.child("dd_transport_type").value(); 
+    tempString = settings_node.child_value("dd_transport_type"); 
     if (tempString == "CELL_PASS")
       dd_mode = CELL_PASS;
     else if (tempString == "CELL_PASS_RMA")
@@ -176,7 +207,7 @@ public:
     }
 
     // domain decomposition method
-    tempString =  settings_nodes.child("mesh_decomposition").as_double();
+    tempString =  settings_node.child("mesh_decomposition").text().as_double();
     if (tempString == "PARMETIS")
       decomp_mode = PARMETIS;
     else if (tempString == "CUBE")
@@ -195,170 +226,155 @@ public:
       }
     }
 
+    // debug options
+    print_verbose = false;
+    print_mesh_info = false;
+    tempString = debug_node.child_value("print_verbose");
+    if (tempString == "TRUE")
+      print_verbose = true;
+    tempString = debug_node.child_value("print_mesh_info");
+    if (tempString == "TRUE")
+      print_mesh_info = true;
 
-      else if (v.first == "debug_options") {
-        tempString = v.second.get<std::string>("print_verbose", "FALSE");
-        if (tempString == "TRUE")
-          print_verbose = true;
-        else
-          print_verbose = false;
-        tempString = v.second.get<std::string>("print_mesh_info", "FALSE");
-        if (tempString == "TRUE")
-          print_mesh_info = true;
-        else
-          print_mesh_info = false;
-      } // end common
-
-    for (pugi::xml_node_iterator it = spatial_node.begin(); it != spatial_node.end(); ++it) {
-          
-        using_detailed_mesh = true;
-        double d_x_start, d_x_end, d_y_start, d_y_end, d_z_start, d_z_end;
-        uint32_t d_x_cells, d_y_cells, d_z_cells;
-        if (it->name() == "x_division") {
-            // x information for this region
-            d_x_start = it->get_child("x_start").as_double();
-            d_x_end = it->get_child("x_end").as_double(); 
-            d_x_cells = it->get_child("n_x_cells").as_int();
-            x_start.push_back(d_x_start);
-            x_end.push_back(d_x_end);
-            n_x_cells.push_back(d_x_cells);
-            nx_divisions++;
-            // push back the master x points for silo
-            for (uint32_t i = 0; i < d_x_cells; ++i)
-              x.push_back(d_x_start + i * (d_x_end - d_x_start) / d_x_cells);
-          }
-
-          if (it->name() == "y_division") {
-            // y information for this region
-            d_y_start = it->get_child("y_start").as_double();
-            d_y_end = it->get_child("y_end").as_double();
-            d_y_cells = it->get_child("n_y_cells").as_int();
-            y_start.push_back(d_y_start);
-            y_end.push_back(d_y_end);
-            n_y_cells.push_back(d_y_cells);
-            ny_divisions++;
-            // push back the master y points for silo
-            for (uint32_t i = 0; i < d_y_cells; ++i)
-              y.push_back(d_y_start + i * (d_y_end - d_y_start) / d_y_cells);
-          }
-
-          if (it->name() == "z_division") {
-            // z information for this region
-            d_z_start = it->get_child("z_start").as_double();
-            d_z_end = it->get_child("z_end").as_double();
-            d_z_cells = it->get_child("n_z_cells").as_int();
-            z_start.push_back(d_z_start);
-            z_end.push_back(d_z_end);
-            n_z_cells.push_back(d_z_cells);
-            nz_divisions++;
-            // push back the master z points for silo
-            for (uint32_t i = 0; i < d_z_cells; ++i)
-              z.push_back(d_z_start + i * (d_z_end - d_z_start) / d_z_cells);
-          }
-
-          if (it->name() == "region_map") {
-            x_key = it->get_child("x_div_ID").as_int();
-            y_key = it->get_child("y_div_ID").as_int();
-            z_key = it->get_child("z_div_ID").as_int();
-            region_ID = it->get_child("region_ID").as_int();
-            // make a unique key using the division ID of x,y and z
-            // this mapping allows for 1000 unique divisions in
-            // each dimension (way too many)
-            key = z_key * 1000000 + y_key * 1000 + x_key;
-            region_map[key] = region_ID;
-          }
-        }
+    // spatial inputs
+    for (pugi::xml_node_iterator it = spatial_node.begin(); it != spatial_node.end(); ++it)
+    {
+      std::string name_string = it->name();
+      double d_x_start, d_x_end, d_y_start, d_y_end, d_z_start, d_z_end;
+      uint32_t d_x_cells, d_y_cells, d_z_cells;
+      if (name_string == "x_division") {
+        // x information for this region
+        d_x_start = it->child("x_start").text().as_double();
+        d_x_end = it->child("x_end").text().as_double(); 
+        d_x_cells = it->child("n_x_cells").text().as_int();
+        x_start.push_back(d_x_start);
+        x_end.push_back(d_x_end);
+        n_x_cells.push_back(d_x_cells);
+        nx_divisions++;
+        // push back the master x points for silo
+        for (uint32_t i = 0; i < d_x_cells; ++i)
+          x.push_back(d_x_start + i * (d_x_end - d_x_start) / d_x_cells);
       }
 
-      if (it->name() == "boundary") {
-        // read in boundary conditions
-        bool b_error = false;
-        tempString = it->get_child("bc_right").value();
-        if (tempString == "REFLECT")
-          bc[X_POS] = REFLECT;
-        else if (tempString == "VACUUM")
-          bc[X_POS] = VACUUM;
-        else
-          b_error = true;
-
-        tempString =it->get_child("bc_left").value(); 
-        if (tempString == "REFLECT")
-          bc[X_NEG] = REFLECT;
-        else if (tempString == "VACUUM")
-          bc[X_NEG] = VACUUM;
-        else
-          b_error = true;
-
-        tempString =it->get_child("bc_up").value(); 
-        if (tempString == "REFLECT")
-          bc[Y_POS] = REFLECT;
-        else if (tempString == "VACUUM")
-          bc[Y_POS] = VACUUM;
-        else
-          b_error = true;
-
-        tempString = it->get_child("bc_down").value(); 
-        if (tempString == "REFLECT")
-          bc[Y_NEG] = REFLECT;
-        else if (tempString == "VACUUM")
-          bc[Y_NEG] = VACUUM;
-        else
-          b_error = true;
-
-        tempString = it->get_child("bc_top").value(); 
-        if (tempString == "REFLECT")
-          bc[Z_POS] = REFLECT;
-        else if (tempString == "VACUUM")
-          bc[Z_POS] = VACUUM;
-        else
-          b_error = true;
-
-        tempString =it->get_child("bc_bottom").value();  
-        if (tempString == "REFLECT")
-          bc[Z_NEG] = REFLECT;
-        else if (tempString == "VACUUM")
-          bc[Z_NEG] = VACUUM;
-        else
-          b_error = true;
-
-        if (b_error) {
-          cout << "ERROR: Boundary type not reconginzed. Exiting..." << endl;
-          exit(EXIT_FAILURE);
-        }
+      if (name_string == "y_division") {
+        // y information for this region
+        d_y_start = it->child("y_start").text().as_double();
+        d_y_end = it->child("y_end").text().as_double();
+        d_y_cells = it->child("n_y_cells").text().as_int();
+        y_start.push_back(d_y_start);
+        y_end.push_back(d_y_end);
+        n_y_cells.push_back(d_y_cells);
+        ny_divisions++;
+        // push back the master y points for silo
+        for (uint32_t i = 0; i < d_y_cells; ++i)
+          y.push_back(d_y_start + i * (d_y_end - d_y_start) / d_y_cells);
       }
 
-      // read in region data
-      else if (v.first == "regions") {
-        BOOST_FOREACH (ptree::value_type const &g, v.second) {
-          if (g.first == "region") {
-            Region temp_region;
-            temp_region.set_ID(g.second.get<uint32_t>("ID"));
-            temp_region.set_cV(g.second.get<double>("CV", 0.0));
-            temp_region.set_rho(g.second.get<double>("density", 0.0));
-            temp_region.set_opac_A(g.second.get<double>("opacA", 0.0));
-            temp_region.set_opac_B(g.second.get<double>("opacB", 0.0));
-            temp_region.set_opac_C(g.second.get<double>("opacC", 0.0));
-            temp_region.set_opac_S(g.second.get<double>("opacS", 0.0));
-            temp_region.set_T_e(g.second.get<double>("initial_T_e", 0.0));
-            // default T_r to T_e if not specified
-            temp_region.set_T_r(
-                g.second.get<double>("initial_T_r", temp_region.get_T_e()));
-            // map user defined ID to index in region vector
-            region_ID_to_index[temp_region.get_ID()] = regions.size();
-            // add to list of regions
-            regions.push_back(temp_region);
-          }
-        }
+      if (name_string == "z_division") {
+        // z information for this region
+        d_z_start = it->child("z_start").text().as_double();
+        d_z_end = it->child("z_end").text().as_double();
+        d_z_cells = it->child("n_z_cells").text().as_int();
+        z_start.push_back(d_z_start);
+        z_end.push_back(d_z_end);
+        n_z_cells.push_back(d_z_cells);
+        nz_divisions++;
+        // push back the master z points for silo
+        for (uint32_t i = 0; i < d_z_cells; ++i)
+          z.push_back(d_z_start + i * (d_z_end - d_z_start) / d_z_cells);
       }
 
-      // if both simple_spatial and detailed_spatial are true, exit with an
-      // error message
-      if (using_detailed_mesh && using_simple_mesh) {
-        cout << "ERROR: Spatial information cannot be specified in both";
-        cout << " simple and detailed XML regions. Exiting...\n";
-        exit(EXIT_FAILURE);
+      if (name_string == "region_map") {
+        x_key = it->child("x_div_ID").text().as_int();
+        y_key = it->child("y_div_ID").text().as_int();
+        z_key = it->child("z_div_ID").text().as_int();
+        region_ID = it->child("region_ID").text().as_int();
+        // make a unique key using the division ID of x,y and z
+        // this mapping allows for 1000 unique divisions in
+        // each dimension (way too many)
+        key = z_key * 1000000 + y_key * 1000 + x_key;
+        region_map[key] = region_ID;
       }
-    } // end xml parse
+    }
+
+    // read in boundary conditions
+    bool b_error = false;
+    tempString = bc_node.child_value("bc_right");
+    if (tempString == "REFLECT")
+      bc[X_POS] = REFLECT;
+    else if (tempString == "VACUUM")
+      bc[X_POS] = VACUUM;
+    else
+      b_error = true;
+
+    tempString =bc_node.child_value("bc_left"); 
+    if (tempString == "REFLECT")
+      bc[X_NEG] = REFLECT;
+    else if (tempString == "VACUUM")
+      bc[X_NEG] = VACUUM;
+    else
+      b_error = true;
+
+    tempString =bc_node.child_value("bc_up"); 
+    if (tempString == "REFLECT")
+      bc[Y_POS] = REFLECT;
+    else if (tempString == "VACUUM")
+      bc[Y_POS] = VACUUM;
+    else
+      b_error = true;
+
+    tempString = bc_node.child_value("bc_down"); 
+    if (tempString == "REFLECT")
+      bc[Y_NEG] = REFLECT;
+    else if (tempString == "VACUUM")
+      bc[Y_NEG] = VACUUM;
+    else
+      b_error = true;
+
+    tempString = bc_node.child_value("bc_top"); 
+    if (tempString == "REFLECT")
+      bc[Z_POS] = REFLECT;
+    else if (tempString == "VACUUM")
+      bc[Z_POS] = VACUUM;
+    else
+      b_error = true;
+
+    tempString =bc_node.child_value("bc_bottom");  
+    if (tempString == "REFLECT")
+      bc[Z_NEG] = REFLECT;
+    else if (tempString == "VACUUM")
+      bc[Z_NEG] = VACUUM;
+    else
+      b_error = true;
+
+    if (b_error) {
+      cout << "ERROR: Boundary type not reconginzed. Exiting..." << endl;
+      exit(EXIT_FAILURE);
+    }
+    // end boundary node
+
+    // read in region data
+    for (pugi::xml_node_iterator it = region_node.begin(); it != region_node.end(); ++it)
+    {
+      std::string name_string = it->name();
+      if (name_string == "region") {
+        Region temp_region;
+        temp_region.set_ID(it->child("ID").text().as_int());
+        temp_region.set_cV(it->child("CV").text().as_double());
+        temp_region.set_rho(it->child("density").text().as_double());
+        temp_region.set_opac_A(it->child("opacA").text().as_double());
+        temp_region.set_opac_B(it->child("opacB").text().as_double());
+        temp_region.set_opac_C(it->child("opacC").text().as_double());
+        temp_region.set_opac_S(it->child("opacS").text().as_double());
+        temp_region.set_T_e(it->child("initial_T_e").text().as_double());
+        // default T_r to T_e if not specified
+        temp_region.set_T_r(it->child("initial_T_r").text().as_double());
+        // map user defined ID to index in region vector
+        region_ID_to_index[temp_region.get_ID()] = regions.size();
+        // add to list of regions
+        regions.push_back(temp_region);
+      }
+    }
 
     // get global cell counts
     n_global_x_cells = std::accumulate(n_x_cells.begin(), n_x_cells.end(), 0);
@@ -366,10 +382,7 @@ public:
     n_global_z_cells = std::accumulate(n_z_cells.begin(), n_z_cells.end(), 0);
 
     // set total number of divisions
-    if (using_simple_mesh)
-      n_divisions = 1;
-    else
-      n_divisions = nx_divisions * ny_divisions * nz_divisions;
+    n_divisions = nx_divisions * ny_divisions * nz_divisions;
 
     // make sure at least one region is specified
     if (!regions.size()) {
@@ -377,26 +390,8 @@ public:
       exit(EXIT_FAILURE);
     }
 
-    // only one region can be specified in simple mesh mode
-    if (using_simple_mesh && regions.size() != 1) {
-      cout << "ERROR: Only one region may be specified in simple mesh mode. ";
-      cout << " Exiting..." << endl;
-      exit(EXIT_FAILURE);
-    }
-
-    // for simple spatial input, region ID must match region ID in region map
-    if (using_simple_mesh) {
-      if (regions[0].get_ID() != region_map[0]) {
-        cout
-            << "ERROR: Region ID in simple spatial blocl must match region ID ";
-        cout << "in region block. Exiting..." << endl;
-        exit(EXIT_FAILURE);
-      }
-    }
-
-    // for detailed meshes, the total number of divisions  must equal the
-    // number of unique region maps
-    if (using_detailed_mesh && n_divisions != region_map.size()) {
+    // the total number of divisions  must equal the number of unique region maps
+    if (n_divisions != region_map.size()) {
       cout << "ERROR: Number of total divisions must match the number of ";
       cout << "unique region maps. Exiting..." << endl;
       exit(EXIT_FAILURE);
@@ -485,11 +480,6 @@ public:
 #endif
     cout << "Spatial Information -- cells x,y,z: " << n_global_x_cells << " ";
     cout << n_global_y_cells << " " << n_global_z_cells << endl;
-    if (using_simple_mesh) {
-      cout << "dx: " << (x_end[0] - x_start[0]) / n_x_cells[0]
-           << " dy: " << (y_end[0] - y_start[0]) / n_y_cells[0]
-           << " dz: " << (z_end[0] - z_start[0]) / n_z_cells[0] << endl;
-    }
 
     cout << "--Material Information--" << endl;
     for (uint32_t r = 0; r < regions.size(); ++r) {
@@ -675,8 +665,6 @@ public:
 
 private:
   // flags
-  bool using_simple_mesh;   //!< Use the simple mesh specification
-  bool using_detailed_mesh; //!< Use the detailed mesh specification
   bool write_silo;          //!< Dump SILO output files
 
   Constants::bc_type bc[6]; //!< Boundary condition array
