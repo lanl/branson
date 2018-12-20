@@ -3,7 +3,7 @@
 ################################################################################
 
 # Load the modules for each libary and the environment variables will be set
-# correctly (load cmake, compiler, mpi, boost, metis, parmetis and optionally
+# correctly (load cmake, compiler, mpi, metis, parmetis and optionally
 # hdf5 and silo)
 
 # Enbable debug mode by passing -DCMAKE_BUILD_TYPE=Debug to CMake, default is

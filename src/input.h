@@ -12,43 +12,14 @@
 #ifndef input_h_
 #define input_h_
 
-// Suppresses warnings found in Boost headers...
-// http://wiki.services.openoffice.org/wiki/Writing_warning-free_code#When_all_else_fails
-#if defined __GNUC__
-#pragma GCC system_header
-// Intel defines __GNUC__ by default
-#ifdef __INTEL_COMPILER
-#pragma warning push
-#endif
-#elif defined __SUNPRO_CC
-#pragma disable_warn
-#elif defined _MSC_VER
-#pragma warning(push, 1)
-#endif
-
-#include <boost/foreach.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/xml_parser.hpp>
-
-#if defined __GNUC__
-#pragma GCC system_header
-#ifdef __INTEL_COMPILER
-#pragma warning pop
-#endif
-#elif defined __SUNPRO_CC
-#pragma enable_warn
-#elif defined _MSC_VER
-#pragma warning(pop)
-#endif
-
 #include <functional>
 #include <iostream>
 #include <numeric>
 #include <stdlib.h>
 #include <string>
 #include <unordered_map>
-
 #include <pugixml.hpp>
+
 #include "config.h"
 #include "constants.h"
 #include "mpi.h"
@@ -59,7 +30,7 @@
  * \class Input
  * \brief Reads input data from an XML file and stores that data
  *
- * Boost's XML parser is used to read an XML input file. This class stores that
+ * Pugi's XML parser is used to read an XML input file. This class stores that
  * information and provides functions to access it. This class also prints the
  * problem information.
  */
@@ -131,20 +102,20 @@ public:
       doc.child("prototype").child("regions");
 
     if (!settings_node) {
-      std::cout << "'common' section not found!" << std::endl;           
-      exit(EXIT_FAILURE);                                                          
+      std::cout << "'common' section not found!" << std::endl;
+      exit(EXIT_FAILURE);
     }
     if (!spatial_node) {
-      std::cout << "'spatial' section not found!" << std::endl;           
-      exit(EXIT_FAILURE);                                                          
+      std::cout << "'spatial' section not found!" << std::endl;
+      exit(EXIT_FAILURE);
     }
     if (!bc_node) {
-      std::cout << "'boundary' section not found!" << std::endl;           
-      exit(EXIT_FAILURE);                                                          
+      std::cout << "'boundary' section not found!" << std::endl;
+      exit(EXIT_FAILURE);
     }
     if (!region_node) {
-      std::cout << "'regions' section not found!" << std::endl;           
-      exit(EXIT_FAILURE);                                                          
+      std::cout << "'regions' section not found!" << std::endl;
+      exit(EXIT_FAILURE);
     }
 
     tFinish = settings_node.child("t_stop").text().as_double();
@@ -172,15 +143,14 @@ public:
       use_comb = 1;
     else {
       cout<<"\"use_combing\" not found or recognized, defaulting to TRUE"<<endl;
-      use_comb =1;
+      use_comb = 1;
     }
 
     // write silo flag
+    write_silo = false;
     tempString = settings_node.child_value("write_silo");
     if (tempString == "TRUE")
       write_silo = true;
-    else
-      write_silo = false;
 
     // number of particles to run between MPI message checks
     batch_size = settings_node.child("batch_size").text().as_int(); 
@@ -207,7 +177,7 @@ public:
     }
 
     // domain decomposition method
-    tempString =  settings_node.child("mesh_decomposition").text().as_double();
+    tempString =  settings_node.child_value("mesh_decomposition");
     if (tempString == "PARMETIS")
       decomp_mode = PARMETIS;
     else if (tempString == "CUBE")
@@ -556,11 +526,11 @@ public:
   }
 
   //! Return a pointer to the x coordinates of the mesh in SILO format
-  float const *const get_silo_x_ptr(void) const { return silo_x; }
+  const float *get_silo_x_ptr(void) const { return silo_x; }
   //! Return a pointer to the y coordinates of the mesh in SILO format
-  float const *const get_silo_y_ptr(void) const { return silo_y; }
+  const float *get_silo_y_ptr(void) const { return silo_y; }
   //! Return a pointer to the z coordinates of the mesh in SILO format
-  float const *const get_silo_z_ptr(void) const { return silo_z; }
+  const float *get_silo_z_ptr(void) const { return silo_z; }
 
   //! Return the total number of x divisions in the problem
   uint32_t get_n_x_divisions(void) const { return n_x_cells.size(); }
