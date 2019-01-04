@@ -3,7 +3,7 @@
 ################################################################################
 
 # Load the modules for each libary and the environment variables will be set
-# correctly (load cmake, compiler, mpi, boost, metis, parmetis and optionally
+# correctly (load cmake, compiler, mpi, metis, parmetis and optionally
 # hdf5 and silo)
 
 # Enbable debug mode by passing -DCMAKE_BUILD_TYPE=Debug to CMake, default is
@@ -141,13 +141,13 @@ configure_file(config.h.in ${PROJECT_BINARY_DIR}/config.h)
 
 add_executable(BRANSON main.cc)
 target_include_directories( BRANSON PRIVATE
-  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>) #  ${PROJECT_SOURCE_DIR}/pugixml/src/)
+  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> ${PROJECT_SOURCE_DIR}/pugixml/src/)
 set( branson_deps
   ParMETIS::parmetis
   MPI::MPI_CXX
   MPI::MPI_C
   METIS::metis 
-  )  #pugixml
+  pugixml)
 if( VIZ_LIBRARIES_FOUND )
   set( branson_deps "Silo::silo;${HDF5_LIBRARIES};${branson_deps}" )
 endif()

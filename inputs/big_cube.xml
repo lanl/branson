@@ -24,21 +24,32 @@
     <print_mesh_info>FALSE</print_mesh_info>
   </debug_options>
 
-  <simple_spatial>
-    <x_start>0.0</x_start>
-    <x_end> 4.0</x_end>
-    <n_x_cells>800</n_x_cells>
+  <spatial>
+    <x_division>
+      <x_start>0.0</x_start>
+      <x_end> 4.0</x_end>
+      <n_x_cells>800</n_x_cells>
+    </x_division>
 
-    <y_start>0.0</y_start>
-    <y_end> 4.0</y_end>
-    <n_y_cells>800</n_y_cells>
+    <y_division>
+      <y_start>0.0</y_start>
+      <y_end> 4.0</y_end>
+      <n_y_cells>800</n_y_cells>
+    </y_division>
 
-    <z_start>0.0</z_start>
-    <z_end>4.0</z_end>
-    <n_z_cells>800</n_z_cells>
+    <z_division>
+      <z_start>0.0</z_start>
+      <z_end>4.0</z_end>
+      <n_z_cells>800</n_z_cells>
+    </z_division>
 
-    <region_ID>6</region_ID>
-  </simple_spatial>
+    <region_map>
+      <x_div_ID>0</x_div_ID>
+      <y_div_ID>0</y_div_ID>
+      <z_div_ID>0</z_div_ID>
+      <region_ID>6</region_ID>
+    </region_map>
+  </spatial>
 
   <boundary>
     <bc_right>REFLECT</bc_right>

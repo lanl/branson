@@ -76,15 +76,27 @@ public:
 
     // if mode is replicated ignore decomposition options, otherwise use
     // parmetis or a simple cube
-    if (input.get_dd_mode() == REPLICATED)
+    if (input.get_dd_mode() == REPLICATED) {
       replicate_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size());
-    else if (input.get_decomposition_mode() == PARMETIS)
+      // get decomposition information from proto mesh
+      off_rank_bounds = proto_mesh.get_off_rank_bounds();
+      on_rank_start = off_rank_bounds.front();
+      on_rank_end = off_rank_bounds.back() - 1;
+    } else if (input.get_decomposition_mode() == PARMETIS) {
       decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(),
                      PARMETIS);
-    else if (input.get_decomposition_mode() == CUBE)
+      // get decomposition information from proto mesh
+      off_rank_bounds = proto_mesh.get_off_rank_bounds();
+      on_rank_start = off_rank_bounds[rank];
+      on_rank_end = off_rank_bounds[rank + 1] - 1;
+    } else if (input.get_decomposition_mode() == CUBE) {
       decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(),
                      CUBE);
-    else {
+      // get decomposition information from proto mesh
+      off_rank_bounds = proto_mesh.get_off_rank_bounds();
+      on_rank_start = off_rank_bounds[rank];
+      on_rank_end = off_rank_bounds[rank + 1] - 1;
+    } else {
       std::cout << "Method/decomposition not recognized, exiting...";
       exit(EXIT_FAILURE);
     }
@@ -129,10 +141,6 @@ public:
       mpi_window_set = true;
     }
 
-    // get decomposition information from proto mesh
-    off_rank_bounds = proto_mesh.get_off_rank_bounds();
-    on_rank_start = off_rank_bounds[rank];
-    on_rank_end = off_rank_bounds[rank + 1] - 1;
     // get adjacent bounds from proto mesh
     adjacent_procs = proto_mesh.get_proc_adjacency_list();
 
