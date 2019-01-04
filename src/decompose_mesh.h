@@ -17,10 +17,10 @@
 #include <mpi.h>
 #include <numeric>
 #include <parmetis.h>
+#include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <unistd.h>
 
 #include "buffer.h"
 #include "mpi_types.h"
@@ -642,7 +642,7 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
 //! Use two-sided communication and allreduces to share new cell indices in mesh
 // connectivity
 void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
-                                 const int n_rank) {
+                                           const int n_rank) {
   using std::unordered_map;
   using std::unordered_set;
   using std::vector;
@@ -703,7 +703,7 @@ void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
   vector<uint32_t> prefix_bcells_proc(n_rank, 0);
   out_bcells_proc[rank] = n_boundary;
   MPI_Allreduce(MPI_IN_PLACE, &out_bcells_proc[0], n_rank, MPI_UNSIGNED,
-    MPI_SUM, MPI_COMM_WORLD);
+                MPI_SUM, MPI_COMM_WORLD);
 
   partial_sum(out_bcells_proc.begin(), out_bcells_proc.end(),
               prefix_bcells_proc.begin());
@@ -714,15 +714,15 @@ void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
   uint32_t n_global_bcells = prefix_bcells_proc.back();
   vector<uint32_t> original_b_indices(n_global_bcells);
   uint32_t start = prefix_bcells_proc[rank];
-  for (auto& imap: local_boundary_map)
+  for (auto &imap : local_boundary_map)
     original_b_indices[start++] = imap.first;
-  MPI_Allreduce(MPI_IN_PLACE, &original_b_indices[0], n_global_bcells, MPI_UNSIGNED, MPI_SUM,
-    MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &original_b_indices[0], n_global_bcells,
+                MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
 
   // find the indices in this global array for your boundary cells
   auto b_nodes = mesh.get_boundary_neighbors();
   std::map<uint32_t, uint32_t> b_indices; // map indices to original IDs
-  for (uint32_t i=0; i<n_global_bcells; ++i) {
+  for (uint32_t i = 0; i < n_global_bcells; ++i) {
     if (b_nodes.count(original_b_indices[i]))
       b_indices[i] = original_b_indices[i];
   }
@@ -731,28 +731,28 @@ void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
   // as the old index)
   start = prefix_bcells_proc[rank];
   std::fill(original_b_indices.begin(), original_b_indices.end(), 0);
-  for (auto& imap: local_boundary_map)
+  for (auto &imap : local_boundary_map)
     original_b_indices[start++] = imap.second;
-  MPI_Allreduce(MPI_IN_PLACE, &original_b_indices[0], n_global_bcells, MPI_UNSIGNED, MPI_SUM,
-    MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &original_b_indices[0], n_global_bcells,
+                MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
 
   // iterate through the indices required by your rank
   std::unordered_map<uint32_t, uint32_t> id_old_to_new;
-  for (auto& imap : b_indices)
+  for (auto &imap : b_indices)
     id_old_to_new[imap.second] = original_b_indices[imap.first];
 
   // now fill the global array with the real new grip indices (in the same
   // location as the old index)
   start = prefix_bcells_proc[rank];
   std::fill(original_b_indices.begin(), original_b_indices.end(), 0);
-  for (auto& imap: local_boundary_grip_map)
+  for (auto &imap : local_boundary_grip_map)
     original_b_indices[start++] = imap.second;
-  MPI_Allreduce(MPI_IN_PLACE, &original_b_indices[0], n_global_bcells, MPI_UNSIGNED, MPI_SUM,
-    MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &original_b_indices[0], n_global_bcells,
+                MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
 
   // iterate through the indices required by your rank
   std::unordered_map<uint32_t, uint32_t> grip_old_to_new;
-  for (auto& imap : b_indices)
+  for (auto &imap : b_indices)
     grip_old_to_new[imap.second] = original_b_indices[imap.first];
 
   unordered_map<uint32_t, uint32_t> local_map = mesh.get_new_global_index_map();

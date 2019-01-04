@@ -82,24 +82,21 @@ public:
       off_rank_bounds = proto_mesh.get_off_rank_bounds();
       on_rank_start = off_rank_bounds.front();
       on_rank_end = off_rank_bounds.back() - 1;
-    }
-    else if (input.get_decomposition_mode() == PARMETIS) {
+    } else if (input.get_decomposition_mode() == PARMETIS) {
       decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(),
                      PARMETIS);
       // get decomposition information from proto mesh
       off_rank_bounds = proto_mesh.get_off_rank_bounds();
       on_rank_start = off_rank_bounds[rank];
       on_rank_end = off_rank_bounds[rank + 1] - 1;
-    }
-    else if (input.get_decomposition_mode() == CUBE) {
+    } else if (input.get_decomposition_mode() == CUBE) {
       decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(),
                      CUBE);
       // get decomposition information from proto mesh
       off_rank_bounds = proto_mesh.get_off_rank_bounds();
       on_rank_start = off_rank_bounds[rank];
       on_rank_end = off_rank_bounds[rank + 1] - 1;
-    }
-    else {
+    } else {
       std::cout << "Method/decomposition not recognized, exiting...";
       exit(EXIT_FAILURE);
     }

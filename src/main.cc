@@ -40,7 +40,7 @@ using std::vector;
 
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
-  
+
   // check to see if number of arguments is correct
   if (argc != 2) {
     cout << "Usage: BRANSON <path_to_input_file>" << endl;
@@ -52,9 +52,16 @@ int main(int argc, char **argv) {
     // get MPI parmeters and set them in mpi_info
     const Info mpi_info;
     if (mpi_info.get_rank() == 0) {
-      cout << "-------- Branson, a massively parallel proxy app for Implicit Monte Carlo ------"<<endl;
-      cout << "-------- Author: Alex Long (along@lanl.gov) ------------------------------------"<<endl;
-      cout << "-------- Version: 0.8 ----------------------------------------------------------"<<endl<<endl;
+      cout << "-------- Branson, a massively parallel proxy app for Implicit "
+              "Monte Carlo ------"
+           << endl;
+      cout << "-------- Author: Alex Long (along@lanl.gov) "
+              "------------------------------------"
+           << endl;
+      cout << "-------- Version: 0.8 "
+              "----------------------------------------------------------"
+           << endl
+           << endl;
       cout << " Branson compiled on: " << mpi_info.get_machine_name() << endl;
     }
 

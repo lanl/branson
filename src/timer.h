@@ -17,10 +17,8 @@
 #include <string>
 #include <unordered_map>
 
-class Timer
-{
-  public:
-
+class Timer {
+public:
   Timer(void) {}
   ~Timer(void) {}
 
@@ -35,25 +33,24 @@ class Timer
   //! Stop timer with name (must be the last active timer)
   void stop_timer(std::string name) {
     double time_seconds =
-      std::chrono::duration_cast<std::chrono::microseconds>(
-      std::chrono::high_resolution_clock::now() - temp_start).count() / 1.0e6;
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::high_resolution_clock::now() - temp_start)
+            .count() /
+        1.0e6;
     times[name] += time_seconds;
   }
 
   //! Print all timers that have been measured with this clsas
   void print_timers(void) const {
-    for (auto const & i_time : times) {
-      std::cout<<i_time.first<<": "<<i_time.second<<std::endl;
+    for (auto const &i_time : times) {
+      std::cout << i_time.first << ": " << i_time.second << std::endl;
     }
   }
 
   //! Get the current elapsed time for a timer
-  double get_time(std::string name) {
-    return times[name];
-  }
+  double get_time(std::string name) { return times[name]; }
 
-  private:
-
+private:
   //! Starting time for the latest timing instance
   std::chrono::high_resolution_clock::time_point temp_start;
 
