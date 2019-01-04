@@ -14,12 +14,12 @@
 
 #include <functional>
 #include <iostream>
+#include <map>
 #include <numeric>
+#include <pugixml.hpp>
 #include <stdlib.h>
 #include <string>
 #include <unordered_map>
-#include <pugixml.hpp>
-#include <map>
 
 #include "config.h"
 #include "constants.h"
@@ -82,26 +82,21 @@ public:
       // error checking
       if (!load_result) {
         cout << load_result.description() << endl;
-        cout<<"Improperly formatted xml file" << endl;
-        pugi::xml_node proto_node =
-          doc.child("prototype");
-        cout<<"parsed regions: "<<endl;
-        for (pugi::xml_node_iterator it = proto_node.begin(); it != proto_node.end(); ++it)
-          cout<<it->name()<<endl;
+        cout << "Improperly formatted xml file" << endl;
+        pugi::xml_node proto_node = doc.child("prototype");
+        cout << "parsed regions: " << endl;
+        for (pugi::xml_node_iterator it = proto_node.begin();
+             it != proto_node.end(); ++it)
+          cout << it->name() << endl;
         exit(EXIT_FAILURE);
       }
 
       // check each necessary branch exists and create nodes for each
-      pugi::xml_node settings_node =
-        doc.child("prototype").child("common");
-      pugi::xml_node debug_node =
-        doc.child("prototype").child("debug");
-      pugi::xml_node spatial_node =
-        doc.child("prototype").child("spatial");
-      pugi::xml_node bc_node =
-        doc.child("prototype").child("boundary");
-      pugi::xml_node region_node =
-        doc.child("prototype").child("regions");
+      pugi::xml_node settings_node = doc.child("prototype").child("common");
+      pugi::xml_node debug_node = doc.child("prototype").child("debug");
+      pugi::xml_node spatial_node = doc.child("prototype").child("spatial");
+      pugi::xml_node bc_node = doc.child("prototype").child("boundary");
+      pugi::xml_node region_node = doc.child("prototype").child("regions");
 
       if (!settings_node) {
         std::cout << "'common' section not found!" << std::endl;
@@ -123,15 +118,16 @@ public:
       tFinish = settings_node.child("t_stop").text().as_double();
       dt = settings_node.child("dt_start").text().as_double();
       tStart = settings_node.child("t_start").text().as_double();
-      tMult =settings_node.child("t_mult").text().as_double(); 
+      tMult = settings_node.child("t_mult").text().as_double();
       dtMax = settings_node.child("dt_max").text().as_double();
-      unsigned long long n_photons_long = settings_node.child("photons").text().as_llong();
+      unsigned long long n_photons_long =
+          settings_node.child("photons").text().as_llong();
       if (n_photons_long > UINT64_MAX) {
-        cout<<"ERROR: Can't convert "<<n_photons_long;
-        cout<<" to uint64, too large"<<endl;
+        cout << "ERROR: Can't convert " << n_photons_long;
+        cout << " to uint64, too large" << endl;
         exit(EXIT_FAILURE);
       }
-      n_photons = static_cast<uint64_t>(n_photons_long); 
+      n_photons = static_cast<uint64_t>(n_photons_long);
       seed = settings_node.child("seed").text().as_int();
       grip_size = settings_node.child("grip_size").text().as_int();
       map_size = settings_node.child("map_size").text().as_int();
@@ -144,7 +140,8 @@ public:
       else if (tempString == "TRUE")
         use_comb = 1;
       else {
-        cout<<"\"use_combing\" not found or recognized, defaulting to TRUE"<<endl;
+        cout << "\"use_combing\" not found or recognized, defaulting to TRUE"
+             << endl;
         use_comb = 1;
       }
 
@@ -160,15 +157,15 @@ public:
       if (tempString == "TRUE")
         use_tilt = true;
 
-
       // number of particles to run between MPI message checks
-      batch_size = settings_node.child("batch_size").text().as_int(); 
+      batch_size = settings_node.child("batch_size").text().as_int();
 
       // preferred number of particles per MPI send
-      particle_message_size =settings_node.child("particle_message_size").text().as_double(); 
+      particle_message_size =
+          settings_node.child("particle_message_size").text().as_double();
 
       // domain decomposed transport aglorithm
-      tempString = settings_node.child_value("dd_transport_type"); 
+      tempString = settings_node.child_value("dd_transport_type");
       if (tempString == "CELL_PASS")
         dd_mode = CELL_PASS;
       else if (tempString == "CELL_PASS_RMA")
@@ -184,7 +181,7 @@ public:
       }
 
       // domain decomposition method
-      tempString =  settings_node.child_value("mesh_decomposition");
+      tempString = settings_node.child_value("mesh_decomposition");
       if (tempString == "PARMETIS")
         decomp_mode = PARMETIS;
       else if (tempString == "CUBE")
@@ -210,15 +207,15 @@ public:
         print_mesh_info = true;
 
       // spatial inputs
-      for (pugi::xml_node_iterator it = spatial_node.begin(); it != spatial_node.end(); ++it)
-      {
+      for (pugi::xml_node_iterator it = spatial_node.begin();
+           it != spatial_node.end(); ++it) {
         std::string name_string = it->name();
         double d_x_start, d_x_end, d_y_start, d_y_end, d_z_start, d_z_end;
         uint32_t d_x_cells, d_y_cells, d_z_cells;
         if (name_string == "x_division") {
           // x information for this region
           d_x_start = it->child("x_start").text().as_double();
-          d_x_end = it->child("x_end").text().as_double(); 
+          d_x_end = it->child("x_end").text().as_double();
           d_x_cells = it->child("n_x_cells").text().as_int();
           x_start.push_back(d_x_start);
           x_end.push_back(d_x_end);
@@ -280,7 +277,7 @@ public:
       else
         b_error = true;
 
-      tempString =bc_node.child_value("bc_left"); 
+      tempString = bc_node.child_value("bc_left");
       if (tempString == "REFLECT")
         bc[X_NEG] = REFLECT;
       else if (tempString == "VACUUM")
@@ -288,7 +285,7 @@ public:
       else
         b_error = true;
 
-      tempString =bc_node.child_value("bc_up"); 
+      tempString = bc_node.child_value("bc_up");
       if (tempString == "REFLECT")
         bc[Y_POS] = REFLECT;
       else if (tempString == "VACUUM")
@@ -296,7 +293,7 @@ public:
       else
         b_error = true;
 
-      tempString = bc_node.child_value("bc_down"); 
+      tempString = bc_node.child_value("bc_down");
       if (tempString == "REFLECT")
         bc[Y_NEG] = REFLECT;
       else if (tempString == "VACUUM")
@@ -304,7 +301,7 @@ public:
       else
         b_error = true;
 
-      tempString = bc_node.child_value("bc_top"); 
+      tempString = bc_node.child_value("bc_top");
       if (tempString == "REFLECT")
         bc[Z_POS] = REFLECT;
       else if (tempString == "VACUUM")
@@ -312,7 +309,7 @@ public:
       else
         b_error = true;
 
-      tempString =bc_node.child_value("bc_bottom");  
+      tempString = bc_node.child_value("bc_bottom");
       if (tempString == "REFLECT")
         bc[Z_NEG] = REFLECT;
       else if (tempString == "VACUUM")
@@ -327,8 +324,8 @@ public:
       // end boundary node
 
       // read in region data
-      for (pugi::xml_node_iterator it = region_node.begin(); it != region_node.end(); ++it)
-      {
+      for (pugi::xml_node_iterator it = region_node.begin();
+           it != region_node.end(); ++it) {
         std::string name_string = it->name();
         if (name_string == "region") {
           Region temp_region;
@@ -359,8 +356,8 @@ public:
 
       // make sure at least one region is specified
       if (!regions.size()) {
-       cout << "ERROR: No regions were specified. Exiting..." << endl;
-       exit(EXIT_FAILURE);
+        cout << "ERROR: No regions were specified. Exiting..." << endl;
+        exit(EXIT_FAILURE);
       }
 
       // the total number of divisions  must equal the number of unique region maps
@@ -388,7 +385,7 @@ public:
       // need to check buffers
       if (dd_mode == REPLICATED)
         batch_size = 100000000;
-    }
+    } // end xml parse
 
     const int n_bools = 6;
     const int n_uint = 16;
@@ -396,15 +393,16 @@ public:
     MPI_Datatype MPI_Region = mpi_types.get_region_type();
 
     // root rank broadcasts read values
-    if (rank ==0) {
+    if (rank == 0) {
       // some helper values
-      uint32_t n_regions= regions.size();
+      uint32_t n_regions = regions.size();
       uint32_t n_x_div = n_x_cells.size();
       uint32_t n_y_div = n_y_cells.size();
       uint32_t n_z_div = n_z_cells.size();
-  
+
       // bools
-      vector<int> all_bools = {write_silo, use_tilt, use_comb, use_strat, print_verbose, print_mesh_info};
+      vector<int> all_bools = {write_silo, use_tilt,      use_comb,
+                               use_strat,  print_verbose, print_mesh_info};
       MPI_Bcast(&all_bools[0], n_bools, MPI_INT, 0, MPI_COMM_WORLD);
 
       // bcs
@@ -412,14 +410,30 @@ public:
       MPI_Bcast(&bcast_bcs[0], 6, MPI_INT, 0, MPI_COMM_WORLD);
 
       // uint32
-      vector<uint32_t> all_uint = {seed, dd_mode, decomp_mode, output_freq, grip_size, map_size, batch_size, particle_message_size, n_divisions, n_global_x_cells, n_global_y_cells, n_global_z_cells, n_regions, n_x_div, n_y_div, n_z_div};
+      vector<uint32_t> all_uint = {seed,
+                                   dd_mode,
+                                   decomp_mode,
+                                   output_freq,
+                                   grip_size,
+                                   map_size,
+                                   batch_size,
+                                   particle_message_size,
+                                   n_divisions,
+                                   n_global_x_cells,
+                                   n_global_y_cells,
+                                   n_global_z_cells,
+                                   n_regions,
+                                   n_x_div,
+                                   n_y_div,
+                                   n_z_div};
       MPI_Bcast(&all_uint[0], n_uint, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
 
       // uint64
-      MPI_Bcast(&n_photons, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD); 
+      MPI_Bcast(&n_photons, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
 
       // double
-      vector<double> all_doubles = {tStart, dt, tFinish, tMult, dtMax, T_source};
+      vector<double> all_doubles = {tStart, dt,    tFinish,
+                                    tMult,  dtMax, T_source};
       MPI_Bcast(&all_doubles[0], n_doubles, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
       // region processing
@@ -430,11 +444,14 @@ public:
         division_key.push_back(rmap.first);
         region_at_division.push_back(rmap.second);
       }
-      if (division_key.size() != n_divisions || region_at_division.size() != n_divisions)
-        std::cout<<"something went wrong in division key communication"<<std::endl;
+      if (division_key.size() != n_divisions ||
+          region_at_division.size() != n_divisions)
+        std::cout << "something went wrong in division key communication"
+                  << std::endl;
 
       MPI_Bcast(&division_key[0], n_divisions, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-      MPI_Bcast(&region_at_division[0], n_divisions, MPI_UNSIGNED, 0, MPI_COMM_WORLD); 
+      MPI_Bcast(&region_at_division[0], n_divisions, MPI_UNSIGNED, 0,
+                MPI_COMM_WORLD);
 
       // mesh spacing and coordinate processing
       MPI_Bcast(&x_start[0], n_x_div, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -446,34 +463,55 @@ public:
       MPI_Bcast(&z_start[0], n_z_div, MPI_DOUBLE, 0, MPI_COMM_WORLD);
       MPI_Bcast(&z_end[0], n_z_div, MPI_DOUBLE, 0, MPI_COMM_WORLD);
       MPI_Bcast(&n_z_cells[0], n_z_div, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-    }
-    else {
+    } else {
       // set bools
       vector<int> all_bools(8);
 
       MPI_Bcast(&all_bools[0], n_bools, MPI_INT, 0, MPI_COMM_WORLD);
-      write_silo = all_bools[0]; use_tilt = all_bools[1]; use_comb = all_bools[2]; use_strat = all_bools[3]; print_verbose = all_bools[4]; print_mesh_info = all_bools[5];
+      write_silo = all_bools[0];
+      use_tilt = all_bools[1];
+      use_comb = all_bools[2];
+      use_strat = all_bools[3];
+      print_verbose = all_bools[4];
+      print_mesh_info = all_bools[5];
 
       // set bcs
       vector<int> bcast_bcs(6);
       MPI_Bcast(&bcast_bcs[0], 6, MPI_INT, 0, MPI_COMM_WORLD);
-      for (int i =0;i<6;++i) bc[i] = Constants::bc_type(bcast_bcs[i]);
+      for (int i = 0; i < 6; ++i)
+        bc[i] = Constants::bc_type(bcast_bcs[i]);
 
       // set uints
       vector<uint32_t> all_uint(n_uint);
       MPI_Bcast(&all_uint[0], n_uint, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-      seed = all_uint[0]; dd_mode = all_uint[1]; decomp_mode = all_uint[2]; output_freq = all_uint[3]; grip_size = all_uint[4]; map_size = all_uint[5]; batch_size = all_uint[6]; particle_message_size = all_uint[7]; n_divisions = all_uint[8]; n_global_x_cells = all_uint[9]; n_global_y_cells = all_uint[10]; n_global_z_cells = all_uint[11];
+      seed = all_uint[0];
+      dd_mode = all_uint[1];
+      decomp_mode = all_uint[2];
+      output_freq = all_uint[3];
+      grip_size = all_uint[4];
+      map_size = all_uint[5];
+      batch_size = all_uint[6];
+      particle_message_size = all_uint[7];
+      n_divisions = all_uint[8];
+      n_global_x_cells = all_uint[9];
+      n_global_y_cells = all_uint[10];
+      n_global_z_cells = all_uint[11];
       const uint32_t n_regions = all_uint[12];
       const uint32_t n_x_div = all_uint[13];
       const uint32_t n_y_div = all_uint[14];
       const uint32_t n_z_div = all_uint[15];
-      
+
       // uint64
-      MPI_Bcast(&n_photons, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD); 
+      MPI_Bcast(&n_photons, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
 
       vector<double> all_doubles(n_doubles);
       MPI_Bcast(&all_doubles[0], n_doubles, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-      tStart = all_doubles[0]; dt = all_doubles[1]; tFinish = all_doubles[2]; tMult = all_doubles[3];  dtMax =  all_doubles[4]; T_source = all_doubles[5];
+      tStart = all_doubles[0];
+      dt = all_doubles[1];
+      tFinish = all_doubles[2];
+      tMult = all_doubles[3];
+      dtMax = all_doubles[4];
+      T_source = all_doubles[5];
 
       // region processing (broadcast directly into member variable)
       regions.resize(n_regions);
@@ -483,11 +521,12 @@ public:
       vector<uint32_t> division_key(n_divisions);
       vector<uint32_t> region_at_division(n_divisions);
       MPI_Bcast(&division_key[0], n_divisions, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-      MPI_Bcast(&region_at_division[0], n_divisions, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-      for (uint32_t i=0;i<n_divisions;++i) {
+      MPI_Bcast(&region_at_division[0], n_divisions, MPI_UNSIGNED, 0,
+                MPI_COMM_WORLD);
+      for (uint32_t i = 0; i < n_divisions; ++i) {
         region_map[division_key[i]] = region_at_division[i];
       }
-      for (uint32_t i = 0; i<n_regions;++i)
+      for (uint32_t i = 0; i < n_regions; ++i)
         region_ID_to_index[regions[i].get_ID()] = i;
 
       // mesh spacing and coordinate processing
@@ -515,7 +554,7 @@ public:
 
       silo_x = new float[n_global_x_cells];
       silo_y = new float[n_global_y_cells];
-      silo_z = new float[n_global_z_cells]; 
+      silo_z = new float[n_global_z_cells];
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -767,10 +806,9 @@ public:
     return bc[direction];
   }
 
-
 private:
   // flags
-  bool write_silo;          //!< Dump SILO output files
+  bool write_silo; //!< Dump SILO output files
 
   Constants::bc_type bc[6]; //!< Boundary condition array
 
@@ -805,7 +843,7 @@ private:
   uint32_t decomp_mode; //!< Mode of decomposing mesh
 
   // Debug parameters
-  uint32_t output_freq;      //!< How often to print temperature information
+  uint32_t output_freq; //!< How often to print temperature information
   bool print_verbose;   //!< Verbose printing flag
   bool print_mesh_info; //!< Mesh information printing flag
 
