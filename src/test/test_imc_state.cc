@@ -32,11 +32,12 @@ int main(int argc, char *argv[]) {
 
   // test get functions
   {
+    MPI_Types mpi_types;
     bool get_functions_pass = true;
 
     //setup imc_state
     string filename("simple_input.xml");
-    Input input(filename);
+    Input input(filename, mpi_types);
     IMC_State imc_state(input, rank);
 
     if (imc_state.get_dt() != input.get_dt())
@@ -65,12 +66,13 @@ int main(int argc, char *argv[]) {
 
   // test time increment functions
   {
+    MPI_Types mpi_types;
     bool time_functions_pass = true;
     double tolerance = 1.0e-8;
 
     // setup imc_state
     string large_filename("large_particle_input.xml");
-    Input input(large_filename);
+    Input input(large_filename, mpi_types);
     IMC_State imc_state(input, rank);
 
     double init_dt = imc_state.get_dt();
@@ -116,10 +118,11 @@ int main(int argc, char *argv[]) {
 
   // test get and set of 64 bit quantities
   {
+    MPI_Types mpi_types;
     bool large_quantity_pass = true;
     // setup imc_state
     string filename("simple_input.xml");
-    Input input(filename);
+    Input input(filename, mpi_types);
     IMC_State imc_state(input, rank);
 
     uint64_t big_64_bit_number_1 = 7000000000;
@@ -152,10 +155,11 @@ int main(int argc, char *argv[]) {
 
   // test reduction of 64 bit diagnostic quantities
   {
+    MPI_Types mpi_types;
     bool large_reduction_pass = true;
     // setup imc_state
     string filename("simple_input.xml");
-    Input input(filename);
+    Input input(filename, mpi_types);
     IMC_State imc_state(input, rank);
 
     uint32_t big_32_bit_number = 3500000000;

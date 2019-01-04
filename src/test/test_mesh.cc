@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
     // is assigned the correct region
     {
       string filename("simple_input.xml");
-      Input input(filename);
+      Input input(filename, mpi_types);
       Proto_Mesh mesh(input, mpi_types, mpi_info);
 
       bool simple_mesh_pass = true;
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
       bool three_region_mesh_pass = true;
       // first test large particle input file
       string three_reg_filename("three_region_mesh_input.xml");
-      Input three_reg_input(three_reg_filename);
+      Input three_reg_input(three_reg_filename, mpi_types);
 
       Proto_Mesh mesh(three_reg_input, mpi_types, mpi_info);
 
