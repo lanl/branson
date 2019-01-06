@@ -98,12 +98,12 @@ public:
   //--------------------------------------------------------------------------//
 
   //! Search rank bounds to get remote mesh owner's rank
-  uint32_t get_off_rank_id(const uint32_t &g_index) const {
+  int get_off_rank_id(const uint32_t &g_index) const {
     //find rank of index
     bool found = false;
-    uint32_t min_i = 0;
-    uint32_t max_i = rank_bounds.size() - 1;
-    uint32_t s_i; //search index
+    int min_i = 0;
+    int max_i = rank_bounds.size() - 1;
+    int s_i; //search index
     while (!found) {
       s_i = (max_i + min_i) / 2;
       if (s_i == max_i || s_i == min_i)

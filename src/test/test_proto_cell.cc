@@ -37,7 +37,7 @@ int main(void) {
 
     uint32_t cell_ID = 3271733928; // 64-bit cell ID
     uint32_t grip_ID = 3271733920; // 64-bit cell ID
-    int32_t region_ID = 12;
+    uint32_t region_ID = 12;
     uint32_t silo_index = 1231;
 
     vector<Constants::bc_type> bcs{Constants::REFLECT, Constants::VACUUM,

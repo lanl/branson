@@ -191,7 +191,8 @@ int main(int argc, char *argv[]) {
     std::vector<double> E_to_rank(n_rank, 0.0);
 
     // write tallies
-    uint32_t cell_id, write_rank;
+    uint32_t cell_id;
+    int write_rank;
     for (uint32_t i = 0; i < n_tally; ++i) {
       write_rank = rank;
       while (write_rank == rank) {

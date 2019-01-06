@@ -305,7 +305,7 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon> &census,
 
   // copy received census photons to the end of the census list
   vector<Photon> new_on_rank_census;
-  for (uint32_t i = 0; i < n_donors; ++i) {
+  for (int i = 0; i < n_donors; ++i) {
     census.insert(census.end(), recv_photons[i].begin(), recv_photons[i].end());
   }
 

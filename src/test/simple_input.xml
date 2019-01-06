@@ -8,7 +8,7 @@
     <dt_max>1.0</dt_max>
     <photons>10000</photons>
     <seed>14706</seed>
-    <tilt>FALSE</tilt>
+    <tilt>TRUE</tilt>
     <output_frequency>1</output_frequency>
     <stratified_sampling>FALSE</stratified_sampling>
     <dd_transport_type>PARTICLE_PASS</dd_transport_type>
@@ -18,8 +18,8 @@
   </common>
 
   <debug_options>
-    <print_verbose>FALSE</print_verbose>
-    <print_mesh_info>FALSE</print_mesh_info>
+    <print_verbose>TRUE</print_verbose>
+    <print_mesh_info>TRUE</print_mesh_info>
   </debug_options>
 
   <spatial>

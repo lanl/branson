@@ -8,6 +8,18 @@ if( DEFINED ENV{CRAYPE_VERSION} )
   message("In Cray Environment, MPI executable is: ${MPIEXEC_EXECUTABLE}")
 endif()
 
+# allow run as root
+if( "$ENV{GITLAB_CI}" STREQUAL "true" OR "$ENV{TRAVIS}" STREQUAL "true")
+  message("In CI mode, allow running mpiexec as root")
+  set(runasroot "--allow-run-as-root --oversubscribe")
+endif()
+
+# set extra flags for mpiexec in testing
+set( MPIEXEC_POSTFLAGS "-bind-to none ${runasroot}" CACHE STRING
+  "extra mpirun flags (list)." FORCE)
+
+string( REPLACE " " ";" mpiexec_postflags_list "${MPIEXEC_POSTFLAGS}" )
+
 #------------------------------------------------------------------------------#
 # Helper for building and registering tests.
 #
@@ -36,6 +48,7 @@ function( add_branson_test )
     add_test(
       NAME    ${ctest_name}_${np}pe
       COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np}
+              ${mpiexec_postflags_list}
               $<TARGET_FILE:${build_target}> )
     set_tests_properties( ${ctest_name}_${np}pe PROPERTIES PROCESSORS ${np} )
   endforeach()
@@ -62,11 +75,15 @@ endforeach()
 #------------------------------------------------------------------------------#
 # Other tests
 
-add_branson_test( SOURCE test_remap_census.cc  PE_LIST "8" )
 add_branson_test( SOURCE test_load_balance.cc  PE_LIST "4" )
-add_branson_test( SOURCE test_tally_manager.cc PE_LIST "8" )
 add_branson_test( SOURCE test_parmetis.cc      PE_LIST "1;4" )
 add_branson_test( SOURCE test_imc_state.cc     PE_LIST "2" )
+
+# Don't run 8 proc tests in CI mode
+if(NOT ("$ENV{GITLAB_CI}" STREQUAL "true" OR "$ENV{TRAVIS}" STREQUAL "true"))
+  add_branson_test( SOURCE test_remap_census.cc  PE_LIST "8" )
+  add_branson_test( SOURCE test_tally_manager.cc PE_LIST "8" )
+endif()
 
 #------------------------------------------------------------------------------#
 # copy these input files for Input, IMC_State, Mesh and write_silo tests
