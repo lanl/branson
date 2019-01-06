@@ -356,8 +356,8 @@ void bt_load_balance(std::vector<Work_Packet> &work,
   // start with the current number of particles on this rank
   uint64_t balanced_rank_particles = n_particle_on_rank;
   uint64_t partner_rank_particles, avg_particles;
-  int64_t n_send_census;
-  int64_t temp_n_send;
+  uint64_t n_send_census;
+  uint64_t temp_n_send;
   bool balanced;
   uint64_t start_cut_index = 0; //! Begin slice of census list
 

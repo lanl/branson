@@ -286,7 +286,7 @@ void exchange_cells_post_partitioning(const int rank,
   }
 
   // receive sizes, ranks
-  for (uint32_t i = 0; i < n_donors; ++i) {
+  for (int i = 0; i < n_donors; ++i) {
     MPI_Irecv(&recv_from_rank[i], 1, MPI_UNSIGNED, MPI_ANY_SOURCE, 0,
               MPI_COMM_WORLD, &reqs[n_acceptors + i]);
   }
@@ -295,7 +295,7 @@ void exchange_cells_post_partitioning(const int rank,
   MPI_Barrier(MPI_COMM_WORLD);
 
   // map donor rank to message size
-  for (uint32_t i = 0; i < n_donors; ++i)
+  for (int i = 0; i < n_donors; ++i)
     donor_rank_size[status[n_acceptors + i].MPI_SOURCE] = recv_from_rank[i];
 
   // now send the buffers and post receives
@@ -316,7 +316,7 @@ void exchange_cells_post_partitioning(const int rank,
   MPI_Waitall(reqs.size(), &reqs[0], MPI_STATUS_IGNORE);
   MPI_Barrier(MPI_COMM_WORLD);
 
-  for (uint32_t i = 0; i < n_donors; ++i) {
+  for (int i = 0; i < n_donors; ++i) {
     vector<Proto_Cell> new_cells = recv_cell[i].get_object();
     for (uint32_t i = 0; i < new_cells.size(); ++i) {
       mesh.add_mesh_cell(new_cells[i]);
