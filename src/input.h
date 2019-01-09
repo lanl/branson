@@ -93,7 +93,7 @@ public:
 
       // check each necessary branch exists and create nodes for each
       pugi::xml_node settings_node = doc.child("prototype").child("common");
-      pugi::xml_node debug_node = doc.child("prototype").child("debug");
+      pugi::xml_node debug_node = doc.child("prototype").child("debug_options");
       pugi::xml_node spatial_node = doc.child("prototype").child("spatial");
       pugi::xml_node bc_node = doc.child("prototype").child("boundary");
       pugi::xml_node region_node = doc.child("prototype").child("regions");
@@ -153,7 +153,7 @@ public:
 
       // use tilting (not currently used)
       use_tilt = false;
-      tempString = settings_node.child_value("use_tilt");
+      tempString = settings_node.child_value("tilt");
       if (tempString == "TRUE")
         use_tilt = true;
 

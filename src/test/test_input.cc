@@ -42,7 +42,6 @@ int main(int argc, char *argv[]) {
   {
     MPI_Types mpi_types;
 
-
     // test the get functions to make sure correct values are set from the input
     // file (reader is working correctly) and that the get functions are working
     // these values are hardcoded in simple_input.xml
@@ -65,15 +64,15 @@ int main(int argc, char *argv[]) {
       if (input.get_dz(0) != 3.0)
         simple_input_pass = false;
 
-      if (input.get_tilt_bool() != false)
+      if (input.get_tilt_bool() != true)
         simple_input_pass = false;
       if (input.get_comb_bool() != true)
         simple_input_pass = false;
       if (input.get_stratified_bool() != false)
         simple_input_pass = false;
-      if (input.get_verbose_print_bool() != false)
+      if (input.get_verbose_print_bool() != true)
         simple_input_pass = false;
-      if (input.get_print_mesh_info_bool() != false)
+      if (input.get_print_mesh_info_bool() != true)
         simple_input_pass = false;
       if (input.get_output_freq() != 1)
         simple_input_pass = false;
