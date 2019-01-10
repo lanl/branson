@@ -60,7 +60,7 @@ Installing Branson:
   default is Release.
 - If cmake has trouble finding your installed TPLs, you can try
   - appending their locations to `CMAKE_PREFIX_PATH`,
-  - Setting helper variables like `BOOST_ROOT` or `HDF5_ROOT` (refer to the
+  - Setting helper variables like `HDF5_ROOT` (refer to the
     [cmake
     documentation](https://cmake.org/cmake/help/latest/module/FindHDF5.html?highlight=findhdf5)
     or the `FindXXX.cmake` scripts in Branson's `src/config` directory for a
