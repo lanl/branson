@@ -47,7 +47,6 @@ Installing Branson:
   - [CMake 3.9+](https://cmake.org/download/)
   - MPI 3.0+ ([OpenMPI 1.10+](https://www.open-mpi.org/software/ompi/),
     [mpich](http://www.mpich.org), etc.)
-  - [Boost](http://www.boost.org) (only headers are required)
   - [Metis](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview)
   - [Parmetis](http://glaros.dtc.umn.edu/gkhome/metis/parmetis/overview)
 - Optional dependencies (needed for visualization)
@@ -103,6 +102,8 @@ ctest -j 32
 - Branson was written by Alex R. Long
 - [Random123](http://www.deshawresearch.com/resources_random123.html)
   is by D. E. Shaw Research, Copyright 2010-2011
+- [PugiXML](https://github.com/zeux/pugixml)
+  is by zeux (Arseny Kapoulkine), MIT License
 - RNG.h uses code from [Draco](https://github.com/lanl/Draco)
 
 ## Release

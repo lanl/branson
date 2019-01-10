@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
       cout << "-------- Author: Alex Long (along@lanl.gov) "
               "------------------------------------"
            << endl;
-      cout << "-------- Version: 0.8 "
+      cout << "-------- Version: 0.81"
               "----------------------------------------------------------"
            << endl
            << endl;
