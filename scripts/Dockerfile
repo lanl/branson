@@ -17,7 +17,7 @@ MAINTAINER KineticTheory "https://github.com/KineticTheory"
 ENV DEBIAN_FRONTEND noninteractive
 ENV DEBCONF_NONINTERACTIVE_SEEN true
 ENV SPACK_ROOT=/vendors/spack
-ENV DRACO_TPL="cmake@3.11.4 random123@1.09 openmpi@3.1.1 netlib-lapack@3.8.0 metis@5.1.0 parmetis@4.0.3"
+ENV DRACO_TPL="cmake@3.11.4 random123@1.09 openmpi@3.1.1 netlib-lapack@3.8.0 metis@5.1.0"
 ENV FORCE_UNSAFE_CONFIGURE=1
 ENV DISTRO=bionic
 ENV CLANG_FORMAT_VER=6.0

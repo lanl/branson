@@ -54,7 +54,7 @@ public:
     using Constants::CELL_PASS;
     using Constants::CELL_PASS_RMA;
     using Constants::CUBE;
-    using Constants::PARMETIS;
+    using Constants::METIS;
     using Constants::PARTICLE_PASS;
     using Constants::REPLICATED;
     using std::cout;
@@ -182,14 +182,14 @@ public:
 
       // domain decomposition method
       tempString = settings_node.child_value("mesh_decomposition");
-      if (tempString == "PARMETIS")
-        decomp_mode = PARMETIS;
+      if (tempString == "METIS")
+        decomp_mode = METIS;
       else if (tempString == "CUBE")
         decomp_mode = CUBE;
       else {
         cout << "WARNING: Mesh decomposition method not recognized... ";
-        cout << "setting to PARMETIS method" << endl;
-        decomp_mode = PARMETIS;
+        cout << "setting to METIS method" << endl;
+        decomp_mode = METIS;
       }
       if (dd_mode == REPLICATED) {
         std::cout << "Replicated transport mode, mesh decomposition method";
@@ -580,7 +580,7 @@ public:
     using Constants::REPLICATED;
     // mesh decomposition
     using Constants::CUBE;
-    using Constants::PARMETIS;
+    using Constants::METIS;
 
     cout << "Problem Specifications:";
     cout << "Constants -- c: " << c << " (cm/sh) , a: " << a << endl;
@@ -664,8 +664,8 @@ public:
     }
 
     cout << "Mesh decomposition: ";
-    if (decomp_mode == PARMETIS && dd_mode != REPLICATED)
-      cout << "PARMETIS" << endl;
+    if (decomp_mode == METIS && dd_mode != REPLICATED)
+      cout << "METIS" << endl;
     else if (decomp_mode == CUBE && dd_mode != REPLICATED)
       cout << "CUBE" << endl;
     else if (dd_mode == REPLICATED)

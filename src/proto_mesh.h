@@ -35,7 +35,7 @@
  *
  * Using an Input class, make the mesh with the correct material properties
  * for each region. The mesh numbering and mapping between global IDs and local
- * indices are all determined with the aid of Parmetis in the decompose_mesh
+ * indices are all determined with the aid of Metis in the decompose_mesh
  * function. The Proto_Mesh does not hold any physical data (i.e. opacity, heat
  * capacity, temperature).
  *
@@ -324,6 +324,11 @@ public:
   //! Gets cell from vector list of cells before it's deleted
   Proto_Cell get_pre_window_allocation_cell(const uint32_t &local_ID) const {
     return cell_list[local_ID];
+  }
+
+  //! Gets contant reference to cell vector before it's deleted
+  const std::vector<Proto_Cell> &get_pre_window_allocation_cells() const {
+    return cell_list;
   }
 
   uint32_t get_off_rank_id(const uint32_t &index) const {

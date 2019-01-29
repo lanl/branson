@@ -39,7 +39,7 @@
  *
  * Using an Input class, make the mesh with the correct material properties
  * for each region. The mesh numbering and mapping between global IDs and local
- * indices are all determined with the aid of Parmetis in the decompose_mesh
+ * indices are all determined with the aid of Metis in the decompose_mesh
  * function. The mesh class also manages two-sided messaging in the mesh-
  * passing method.
  *
@@ -62,7 +62,7 @@ public:
     using Constants::bc_type;
     using Constants::CUBE;
     using Constants::ELEMENT;
-    using Constants::PARMETIS;
+    using Constants::METIS;
     using Constants::REPLICATED;
     using Constants::X_NEG;
     using Constants::X_POS;
@@ -75,16 +75,16 @@ public:
     Proto_Mesh proto_mesh(input, mpi_types, mpi_info);
 
     // if mode is replicated ignore decomposition options, otherwise use
-    // parmetis or a simple cube
+    // metis or a simple cube
     if (input.get_dd_mode() == REPLICATED) {
       replicate_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size());
       // get decomposition information from proto mesh
       off_rank_bounds = proto_mesh.get_off_rank_bounds();
       on_rank_start = off_rank_bounds.front();
       on_rank_end = off_rank_bounds.back() - 1;
-    } else if (input.get_decomposition_mode() == PARMETIS) {
+    } else if (input.get_decomposition_mode() == METIS) {
       decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(),
-                     PARMETIS);
+                     METIS);
       // get decomposition information from proto mesh
       off_rank_bounds = proto_mesh.get_off_rank_bounds();
       on_rank_start = off_rank_bounds[rank];

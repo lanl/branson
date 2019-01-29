@@ -76,7 +76,6 @@ endforeach()
 # Other tests
 
 add_branson_test( SOURCE test_load_balance.cc  PE_LIST "4" )
-add_branson_test( SOURCE test_parmetis.cc      PE_LIST "1;4" )
 add_branson_test( SOURCE test_imc_state.cc     PE_LIST "2" )
 
 # Don't run 8 proc tests in CI mode

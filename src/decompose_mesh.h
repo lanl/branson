@@ -3,7 +3,7 @@
  * \file   decompose_mesh.h
  * \author Alex Long
  * \date   June 17 2015
- * \brief  Functions to decompose mesh with ParMetis
+ * \brief  Functions to decompose mesh with Metis or cubes
  * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
  *         All rights reserved
  */
@@ -16,7 +16,7 @@
 #include <iostream>
 #include <mpi.h>
 #include <numeric>
-#include <parmetis.h>
+#include <metis.h>
 #include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
@@ -48,9 +48,10 @@ void print_MPI_out(const Proto_Mesh &mesh, const uint32_t rank,
 //----------------------------------------------------------------------------//
 
 //----------------------------------------------------------------------------//
-//! partition a mesh with parmetis
-std::vector<int> parmetis_partition(Proto_Mesh &mesh, int &edgecut,
-                                    const int rank, const int n_rank) {
+//! partition a mesh with metis
+std::vector<int> metis_partition(Proto_Mesh &mesh, int &edgecut,
+                                    const int rank, const int n_rank,
+                                    const MPI_Types &mpi_types) {
 
   using Constants::X_NEG;
   using Constants::X_POS;
@@ -62,6 +63,10 @@ std::vector<int> parmetis_partition(Proto_Mesh &mesh, int &edgecut,
 
   MPI_Comm comm;
   MPI_Comm_dup(MPI_COMM_WORLD, &comm);
+
+  constexpr int cell_tag = 10100;
+  constexpr int part_tag = 21023;
+  MPI_Datatype MPI_Proto_Cell = mpi_types.get_proto_cell_type();
 
   // get the number of cells on each processor
   // vtxdist has number of vertices on each rank, same for all ranks
@@ -76,93 +81,128 @@ std::vector<int> parmetis_partition(Proto_Mesh &mesh, int &edgecut,
   partial_sum(start_ncells.begin(), start_ncells.end(), vtxdist.begin());
   vtxdist.insert(vtxdist.begin(), 0);
 
-  // build adjacency list needed for ParMetis call for each rank also get
-  // coordinates of cell centers for geometry based partitioning
-  float *xyz = new float[ncell_on_rank * 3];
-  vector<int> xadj;
-  vector<int> adjncy;
-  int adjncy_ctr = 0;
-  Proto_Cell cell;
-  uint32_t g_ID; //! Global ID
-  for (uint32_t i = 0; i < ncell_on_rank; ++i) {
-    cell = mesh.get_pre_window_allocation_cell(i);
-    g_ID = cell.get_ID();
-    cell.get_center(&xyz[i * 3]);
-    uint32_t xm_neighbor = cell.get_next_cell(X_NEG);
-    uint32_t xp_neighbor = cell.get_next_cell(X_POS);
-    uint32_t ym_neighbor = cell.get_next_cell(Y_NEG);
-    uint32_t yp_neighbor = cell.get_next_cell(Y_POS);
-    uint32_t zm_neighbor = cell.get_next_cell(Z_NEG);
-    uint32_t zp_neighbor = cell.get_next_cell(Z_POS);
+  uint32_t n_global_cells = vtxdist.back();
 
-    xadj.push_back(adjncy_ctr); // starting index in xadj for this cell's nodes
-    if (xm_neighbor != g_ID) {
-      adjncy.push_back(xm_neighbor);
-      adjncy_ctr++;
-    }
-    if (xp_neighbor != g_ID) {
-      adjncy.push_back(xp_neighbor);
-      adjncy_ctr++;
-    }
-    if (ym_neighbor != g_ID) {
-      adjncy.push_back(ym_neighbor);
-      adjncy_ctr++;
-    }
-    if (yp_neighbor != g_ID) {
-      adjncy.push_back(yp_neighbor);
-      adjncy_ctr++;
-    }
-    if (zm_neighbor != g_ID) {
-      adjncy.push_back(zm_neighbor);
-      adjncy_ctr++;
-    }
-    if (zp_neighbor != g_ID) {
-      adjncy.push_back(zp_neighbor);
-      adjncy_ctr++;
-    }
-  }
-  xadj.push_back(adjncy_ctr);
-
-  int wgtflag = 0; // no weights for cells
-  int numflag = 0; // C-style numbering
-  int ncon = 1;
-  int nparts = n_rank; // sub-domains = n_rank
-
-  float *tpwgts = new float[nparts];
-  for (int i = 0; i < nparts; ++i)
-    tpwgts[i] = 1.0 / float(nparts);
-
-  float *ubvec = new float[ncon];
-  for (int i = 0; i < ncon; ++i)
-    ubvec[i] = 1.05;
-
-  int options[3];
-  options[0] = 1;    // 0--use default values, 1--use the values in 1 and 2
-  options[1] = 3;    // output level
-  options[2] = 1242; // random number seed
-
+  // return partition of each cell on rank
   std::vector<int> part(ncell_on_rank);
 
-  ParMETIS_V3_PartKway(
-      &vtxdist[0], // array describing how cells are distributed
-      &xadj[0],    // how cells are stored locally
-      &adjncy[0],  // how cells are stored loccaly
-      NULL,        // weight of vertices
-      NULL,        // weight of edges
-      &wgtflag,    // 0 means no weights for node or edges
-      &numflag,    // numbering style, 0 for C-style
-      &ncon,       // weights per vertex
-      &nparts,     // number of sub-domains
-      tpwgts,      // weight per sub-domain
-      ubvec,       // unbalance in vertex weight
-      options,     // options array
-      &edgecut,    // OUTPUT: Number of edgecuts
-      &part[0],    // OUTPUT: partition of each vertex
-      &comm);      // MPI communicator
+  // non-root ranks gather send cells to root
+  if (rank != 0) {
+    const std::vector<Proto_Cell> send_cells =
+        mesh.get_pre_window_allocation_cells();
+    MPI_Send(&send_cells[0], ncell_on_rank, MPI_Proto_Cell, 0, cell_tag,
+             MPI_COMM_WORLD);
+    MPI_Recv(&part[0], ncell_on_rank, MPI_INT, 0, part_tag, MPI_COMM_WORLD,
+             MPI_STATUS_IGNORE);
+    edgecut = 1;
+  }
+  // root rank gathers all cells and uses METIS to setup partitions
+  else {
+    std::vector<Proto_Cell> all_cells(n_global_cells);
+    const std::vector<Proto_Cell> send_cells =
+        mesh.get_pre_window_allocation_cells();
+    std::copy(send_cells.begin(), send_cells.end(), all_cells.begin());
+    for (int irank = 1; irank < n_rank; ++irank) {
+      MPI_Recv(&all_cells[vtxdist[irank]], start_ncells[irank], MPI_Proto_Cell,
+               irank, cell_tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
 
-  delete[] ubvec;
-  delete[] tpwgts;
-  delete[] xyz;
+    // do partitioning
+    // build adjacency list needed for Metis call for each rank
+    vector<int> xadj;
+    vector<int> adjncy;
+    int adjncy_ctr = 0;
+    uint32_t g_ID; //! Global ID
+    for (auto &icell : all_cells) {
+      g_ID = icell.get_ID();
+      uint32_t xm_neighbor = icell.get_next_cell(X_NEG);
+      uint32_t xp_neighbor = icell.get_next_cell(X_POS);
+      uint32_t ym_neighbor = icell.get_next_cell(Y_NEG);
+      uint32_t yp_neighbor = icell.get_next_cell(Y_POS);
+      uint32_t zm_neighbor = icell.get_next_cell(Z_NEG);
+      uint32_t zp_neighbor = icell.get_next_cell(Z_POS);
+
+      xadj.push_back(
+          adjncy_ctr); // starting index in xadj for this cell's nodes
+      if (xm_neighbor != g_ID) {
+        adjncy.push_back(xm_neighbor);
+        adjncy_ctr++;
+      }
+      if (xp_neighbor != g_ID) {
+        adjncy.push_back(xp_neighbor);
+        adjncy_ctr++;
+      }
+      if (ym_neighbor != g_ID) {
+        adjncy.push_back(ym_neighbor);
+        adjncy_ctr++;
+      }
+      if (yp_neighbor != g_ID) {
+        adjncy.push_back(yp_neighbor);
+        adjncy_ctr++;
+      }
+      if (zm_neighbor != g_ID) {
+        adjncy.push_back(zm_neighbor);
+        adjncy_ctr++;
+      }
+      if (zp_neighbor != g_ID) {
+        adjncy.push_back(zp_neighbor);
+        adjncy_ctr++;
+      }
+    }
+    xadj.push_back(adjncy_ctr);
+
+    int ncon = 1;
+    int n_parts = n_rank; // sub-domains = n_rank
+
+    int rank_options[METIS_NOPTIONS];
+
+    METIS_SetDefaultOptions(rank_options);
+    rank_options[METIS_OPTION_NUMBERING] = 0; // C-style numbering
+    //rank_options[1] = 3;    // output level
+    //rank_options[2] = 1242; // random number seed
+
+    int signed_n_global_cells = n_global_cells;
+
+    std::vector<int> global_part(n_global_cells);
+
+    int metis_return = METIS_PartGraphKway(
+        &signed_n_global_cells, // number of on-rank vertices
+        &ncon,                  // weight of vertices
+        &xadj[0],               // how cells are stored locally
+        &adjncy[0],             // how cells are stored loccaly
+        NULL,                   // weight of vertices
+        NULL,                   // size of vertices for comm volume
+        NULL,                   // weight of the edges
+        &n_parts,               // number of ranks (partitions)
+        NULL,                   // tpwgts (NULL = equal weight domains)
+        NULL,                   // unbalance in v-weight (NULL=1.001)
+        rank_options,           // options array
+        &edgecut,               // OUTPUT: Number of edgecuts
+        &global_part[0]);       // OUTPUT: rank of each cell
+
+    if (metis_return == METIS_ERROR_INPUT)
+      std::cout << "METIS: Input error" << std::endl;
+    else if (metis_return == METIS_ERROR_MEMORY)
+      std::cout << "METIS: Memory error" << std::endl;
+    else if (metis_return == METIS_ERROR)
+      std::cout << "METIS: Input error" << std::endl;
+
+    if (!edgecut) {
+      std::cout << "ERROR: No partitioning occured, run with more cells or in";
+      std::cout << "replicated mode. Exiting..." << std::endl;
+      exit(EXIT_FAILURE);
+    }
+
+    // send partitioning to other ranks
+    for (int irank = 1; irank < n_rank; ++irank) {
+      MPI_Send(&global_part[vtxdist[irank]], start_ncells[irank], MPI_INT,
+               irank, part_tag, MPI_COMM_WORLD);
+    }
+
+    // copy out root ranks partitioning
+    std::copy(global_part.begin(), global_part.begin() + ncell_on_rank,
+              part.begin());
+  }
 
   return part;
 }
@@ -765,13 +805,13 @@ void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
 }
 
 //----------------------------------------------------------------------------//
-//! Generate new partitioning with ParMetis, send and receive cells, renumber
-// mesh and communicate renumbering
+//! Generate new partitioning with Metis, replications or cubes, send and
+// receive cells, renumber mesh and communicate renumbering
 void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
                     const Info &mpi_info, const uint32_t grip_size,
                     const int decomposition_type) {
   using Constants::CUBE;
-  using Constants::PARMETIS;
+  using Constants::METIS;
   using std::unordered_map;
   using std::unordered_set;
   Timer t_partition;
@@ -781,7 +821,7 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   int rank = mpi_info.get_rank();
   int n_rank = mpi_info.get_n_rank();
 
-  // parmetis sets this, if it's zero no changes were made to the default
+  // metis sets this, if it's zero no changes were made to the default
   // partition (cube decomposition always changes paritioning)
   int edgecut = 0;
   if (rank == 0)
@@ -793,8 +833,8 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   if (decomposition_type == CUBE) {
     part = cube_partition(mesh, rank, n_rank);
     edgecut = 1;
-  } else if (decomposition_type == PARMETIS)
-    part = parmetis_partition(mesh, edgecut, rank, n_rank);
+  } else if (decomposition_type == METIS)
+    part = metis_partition(mesh, edgecut, rank, n_rank, mpi_types);
   else {
     if (rank == 0) {
       std::cout << "Decomposition type not recognized.";
