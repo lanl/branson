@@ -31,7 +31,7 @@ enum {
   CELL_PASS_RMA,
   REPLICATED
 };                                 //!< Parallel types
-enum { PARMETIS, CUBE };           //!< Mesh decomposition method
+enum { METIS, CUBE };              //!< Mesh decomposition method
 enum { EMISSION, INITIAL_CENSUS }; //!< Particle type for work packets
 const int grip_id_tag(1);          //!< MPI tag for grip ID messages
 const int cell_id_tag(2);          //!< MPI tag for requested cell ID messages

@@ -42,8 +42,8 @@ macro(setupTPLs)
   #link_directories(${CALIPER_INSTALL_DIR}/lib)
 
   ##############################################################################
-  # metis and parmetis
-  # Load modules for metis and parmetis to get correct environment variables
+  # metis
+  # Load modules for metis to get correct environment variables
   ##############################################################################
   if( NOT TARGET METIS::metis )
 
@@ -64,26 +64,6 @@ macro(setupTPLs)
    sparse matrices.")
 
   endif()
-
-  if( NOT TARGET ParMETIS::parmetis )
-
-    message( STATUS "Looking for ParMETIS..." )
-    find_package( ParMETIS QUIET REQUIRED )
-    if( ParMETIS_FOUND )
-      message( STATUS "Looking for ParMETIS..found ${ParMETIS_LIBRARY}" )
-    else()
-      message( STATUS "Looking for ParMETIS..not found" )
-    endif()
-
-    set_package_properties( ParMETIS PROPERTIES
-      DESCRIPTION "MPI Parallel METIS"
-      TYPE REQUIRED
-      URL "http://glaros.dtc.umn.edu/gkhome/metis/parmetis/overview"
-      PURPOSE "ParMETIS is an MPI-based parallel library that implements a
-   variety of algorithms for partitioning unstructured graphs, meshes, and for
-   computing fill-reducing orderings of sparse matrices." )
-
-endif()
 
   ##############################################################################
   # Silo and HDF5 libraries

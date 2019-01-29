@@ -3,7 +3,7 @@
 ################################################################################
 
 # Load the modules for each libary and the environment variables will be set
-# correctly (load cmake, compiler, mpi, metis, parmetis and optionally
+# correctly (load cmake, compiler, mpi, metis, and optionally
 # hdf5 and silo)
 
 # Enbable debug mode by passing -DCMAKE_BUILD_TYPE=Debug to CMake, default is
@@ -89,7 +89,7 @@ elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
 endif()
 
 #------------------------------------------------------------------------------#
-# Look for Third Party Libraries (metis, parmetis, etc.)
+# Look for Third Party Libraries (metis, etc.)
 add_subdirectory(pugixml)
 
 include(find_tpls)
@@ -143,10 +143,9 @@ add_executable(BRANSON main.cc)
 target_include_directories( BRANSON PRIVATE
   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> ${PROJECT_SOURCE_DIR}/pugixml/src/)
 set( branson_deps
-  ParMETIS::parmetis
   MPI::MPI_CXX
   MPI::MPI_C
-  METIS::metis 
+  METIS::metis
   pugixml)
 if( VIZ_LIBRARIES_FOUND )
   set( branson_deps "Silo::silo;${HDF5_LIBRARIES};${branson_deps}" )

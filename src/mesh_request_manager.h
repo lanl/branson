@@ -403,8 +403,6 @@ public:
   void request_cell(const uint32_t &g_index, Message_Counter &mctr) {
     typedef std::pair<uint32_t, uint32_t> rpair;
     // store cell for requesting if not already stored
-    if (g_index > rank_bounds.back())
-      std::cout << "this is bad: g index > bounds" << std::endl;
     if (!mesh_is_requested(g_index)) {
       // get the rank of the global index, add to set if there are fewer than
       // max_ids for that rank
@@ -436,6 +434,9 @@ public:
     s_cell_count = 0;
     r_cell_max_index = 0;
     r_cell_count = 0;
+    s_id_in_use.clear();
+    r_cell_in_use.clear();
+    s_cell_in_use.clear();
   }
 
   //! End simulation by cancelling pending receives requests

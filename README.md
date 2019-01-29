@@ -48,7 +48,6 @@ Installing Branson:
   - MPI 3.0+ ([OpenMPI 1.10+](https://www.open-mpi.org/software/ompi/),
     [mpich](http://www.mpich.org), etc.)
   - [Metis](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview)
-  - [Parmetis](http://glaros.dtc.umn.edu/gkhome/metis/parmetis/overview)
 - Optional dependencies (needed for visualization)
   - [HDF5](https://support.hdfgroup.org/HDF5/)
   - [Silo](http://wci.llnl.gov/simulation/computer-codes/silo)
