@@ -14,9 +14,9 @@
 
 #include <algorithm>
 #include <iostream>
+#include <metis.h>
 #include <mpi.h>
 #include <numeric>
-#include <metis.h>
 #include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
@@ -49,9 +49,8 @@ void print_MPI_out(const Proto_Mesh &mesh, const uint32_t rank,
 
 //----------------------------------------------------------------------------//
 //! partition a mesh with metis
-std::vector<int> metis_partition(Proto_Mesh &mesh, int &edgecut,
-                                    const int rank, const int n_rank,
-                                    const MPI_Types &mpi_types) {
+std::vector<int> metis_partition(Proto_Mesh &mesh, int &edgecut, const int rank,
+                                 const int n_rank, const MPI_Types &mpi_types) {
 
   using Constants::X_NEG;
   using Constants::X_POS;
