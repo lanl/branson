@@ -16,6 +16,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <iomanip>
 
 #ifdef VIZ_LIBRARIES_FOUND
 #include <silo.h>
@@ -146,9 +147,9 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
   if (rank == 0) {
 
     // write the global mesh
-    float *x = mesh.get_silo_x();
-    float *y = mesh.get_silo_y();
-    float *z = mesh.get_silo_z();
+    float *x = const_cast<float*>(mesh.get_silo_x());
+    float *y = const_cast<float*>(mesh.get_silo_y());
+    float *z = const_cast<float*>(mesh.get_silo_z());
 
     int *dims;
     float **coords;
