@@ -130,14 +130,10 @@ int main(int argc, char *argv[]) {
     uint64_t big_64_bit_number_3 = 9000000000;
 
     Message_Counter mctr;
-    mctr.n_particles_sent = big_64_bit_number_1;
 
     imc_state.set_network_message_counts(mctr);
     imc_state.set_census_size(big_64_bit_number_2);
     imc_state.set_transported_particles(big_64_bit_number_3);
-
-    if (imc_state.get_step_particles_sent() != big_64_bit_number_1)
-      large_quantity_pass = false;
 
     if (imc_state.get_census_size() != big_64_bit_number_2)
       large_quantity_pass = false;
@@ -166,14 +162,10 @@ int main(int argc, char *argv[]) {
     uint64_t combined_64_bit_number = 7000000000;
 
     Message_Counter mctr;
-    mctr.n_particles_sent = big_32_bit_number;
 
     imc_state.set_network_message_counts(mctr);
 
-    imc_state.print_conservation(0);
-
-    if (imc_state.get_total_particles_sent() != combined_64_bit_number)
-      large_reduction_pass = false;
+    imc_state.print_conservation();
 
     if (large_reduction_pass)
       cout << "TEST PASSED: IMC_State 64 bit value reduction" << endl;

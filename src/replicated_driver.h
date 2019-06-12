@@ -25,7 +25,6 @@
 #include "message_counter.h"
 #include "mpi_types.h"
 #include "replicated_transport.h"
-#include "source.h"
 #include "timer.h"
 #include "write_silo.h"
 
@@ -83,7 +82,7 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
       imc_state.set_post_mat_E(0.0);
     }
 
-    imc_state.print_conservation(imc_parameters.get_dd_mode());
+    imc_state.print_conservation();
     // update time for next step
     imc_state.next_time_step();
   }

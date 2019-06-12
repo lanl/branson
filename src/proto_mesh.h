@@ -226,7 +226,7 @@ public:
   //--------------------------------------------------------------------------//
   // const functions                                                          //
   //--------------------------------------------------------------------------//
-  uint32_t get_max_grip_size(void) const { return max_grip_size; }
+  //uint32_t get_max_grip_size(void) const { return max_grip_size; }
   uint32_t get_n_local_cells(void) const { return n_cell; }
   uint32_t get_my_rank(void) const { return rank; }
   uint32_t get_offset(void) const { return on_rank_start; }
@@ -397,7 +397,7 @@ public:
     uint32_t grip_start_index = 0;
     uint32_t grip_count = 0;
     // start with max_grip_size at zero
-    max_grip_size = 0;
+    //max_grip_size = 0;
 
     unordered_map<uint32_t, uint32_t> start_index_to_count;
 
@@ -430,7 +430,7 @@ public:
       // sizes (for convenience in parallel comm)
       new_grip_ID = on_rank_start + grip_start_index + grip_count / 2;
       // update max grip size
-      max_grip_size = max(max_grip_size, grip_count);
+      //max_grip_size = max(max_grip_size, grip_count);
       // loop over cells in grip and set new ID
       grip_end_index = grip_start_index + grip_count;
       for (uint32_t j = grip_start_index; j < grip_end_index; ++j)

@@ -80,7 +80,8 @@ public:
   inline uint32_t get_ID(void) const { return g_ID; }
 
   // Return global grip ID
-  inline uint32_t get_grip_ID(void) const { return grip_ID; }
+  //inline uint32_t get_grip_ID(void) const { return grip_ID; }
+  inline uint32_t get_grip_ID(void) const { return g_ID; }
 
   // Return region ID
   inline uint32_t get_region_ID(void) const { return region_ID; }
