@@ -145,7 +145,6 @@ target_include_directories( BRANSON PRIVATE
 set( branson_deps
   MPI::MPI_CXX
   MPI::MPI_C
-  METIS::metis
   pugixml)
 if( VIZ_LIBRARIES_FOUND )
   set( branson_deps "Silo::silo;${HDF5_LIBRARIES};${branson_deps}" )

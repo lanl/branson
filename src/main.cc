@@ -22,17 +22,10 @@
 #include "info.h"
 #include "input.h"
 #include "mesh.h"
-#include "mesh_pass_driver.h"
 #include "mpi_types.h"
-#include "particle_pass_driver.h"
 #include "replicated_driver.h"
-#include "rma_mesh_pass_driver.h"
 #include "timer.h"
 
-using Constants::CELL_PASS;
-using Constants::CELL_PASS_RMA;
-using Constants::PARTICLE_PASS;
-using Constants::REPLICATED;
 using std::cout;
 using std::endl;
 using std::string;
@@ -52,8 +45,8 @@ int main(int argc, char **argv) {
     // get MPI parmeters and set them in mpi_info
     const Info mpi_info;
     if (mpi_info.get_rank() == 0) {
-      cout << "-------- Branson, a massively parallel proxy app for Implicit "
-              "Monte Carlo ------"
+      cout << "----- Branson LITE, a massively parallel proxy app for Implicit "
+              "Monte Carlo ----"
            << endl;
       cout << "-------- Author: Alex Long (along@lanl.gov) "
               "------------------------------------"
@@ -100,25 +93,13 @@ int main(int argc, char **argv) {
 
     timers.start_timer("Total transport");
 
-    if (input.get_dd_mode() == PARTICLE_PASS)
-      imc_particle_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
-    else if (input.get_dd_mode() == CELL_PASS)
-      imc_mesh_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
-    else if (input.get_dd_mode() == CELL_PASS_RMA)
-      imc_rma_mesh_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
-    else if (input.get_dd_mode() == REPLICATED)
-      imc_replicated_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
-    else {
-      cout << "Driver for DD transport method currently not supported" << endl;
-      exit(EXIT_FAILURE);
-    }
+    imc_replicated_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
 
     timers.stop_timer("Total transport");
 
     if (mpi_info.get_rank() == 0) {
       cout << "****************************************";
       cout << "****************************************" << endl;
-      imc_state.print_simulation_footer(input.get_dd_mode());
       timers.print_timers();
     }
 

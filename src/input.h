@@ -50,13 +50,6 @@ public:
     using Constants::Y_POS;
     using Constants::Z_NEG;
     using Constants::Z_POS;
-    // DD methods
-    using Constants::CELL_PASS;
-    using Constants::CELL_PASS_RMA;
-    using Constants::CUBE;
-    using Constants::METIS;
-    using Constants::PARTICLE_PASS;
-    using Constants::REPLICATED;
     using std::cout;
     using std::endl;
     using std::vector;
@@ -94,7 +87,10 @@ public:
       // check each necessary branch exists and create nodes for each
       pugi::xml_node settings_node = doc.child("prototype").child("common");
       pugi::xml_node debug_node = doc.child("prototype").child("debug_options");
+      // One of these spatial input types should be specified, but not both!
       pugi::xml_node spatial_node = doc.child("prototype").child("spatial");
+      pugi::xml_node simple_spatial_node =
+          doc.child("prototype").child("simple_spatial");
       pugi::xml_node bc_node = doc.child("prototype").child("boundary");
       pugi::xml_node region_node = doc.child("prototype").child("regions");
 
@@ -102,8 +98,15 @@ public:
         std::cout << "'common' section not found!" << std::endl;
         exit(EXIT_FAILURE);
       }
-      if (!spatial_node) {
-        std::cout << "'spatial' section not found!" << std::endl;
+      if (!spatial_node && !simple_spatial_node) {
+        std::cout << "'spatial' or 'simple_spatial' section not found!"
+                  << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      if (spatial_node && simple_spatial_node) {
+        std::cout
+            << "Cannot specify both 'spatial' and 'simple_spatial' sections!"
+            << std::endl;
         exit(EXIT_FAILURE);
       }
       if (!bc_node) {
@@ -129,8 +132,6 @@ public:
       }
       n_photons = static_cast<uint64_t>(n_photons_long);
       seed = settings_node.child("seed").text().as_int();
-      grip_size = settings_node.child("grip_size").text().as_int();
-      map_size = settings_node.child("map_size").text().as_int();
       output_freq = settings_node.child("output_frequency").text().as_int();
 
       // use particle combing population control
@@ -156,45 +157,6 @@ public:
       tempString = settings_node.child_value("tilt");
       if (tempString == "TRUE")
         use_tilt = true;
-
-      // number of particles to run between MPI message checks
-      batch_size = settings_node.child("batch_size").text().as_int();
-
-      // preferred number of particles per MPI send
-      particle_message_size =
-          settings_node.child("particle_message_size").text().as_double();
-
-      // domain decomposed transport aglorithm
-      tempString = settings_node.child_value("dd_transport_type");
-      if (tempString == "CELL_PASS")
-        dd_mode = CELL_PASS;
-      else if (tempString == "CELL_PASS_RMA")
-        dd_mode = CELL_PASS_RMA;
-      else if (tempString == "PARTICLE_PASS")
-        dd_mode = PARTICLE_PASS;
-      else if (tempString == "REPLICATED")
-        dd_mode = REPLICATED;
-      else {
-        cout << "WARNING: Domain decomposition method not recognized... ";
-        cout << "setting to PARTICLE PASSING method" << endl;
-        dd_mode = PARTICLE_PASS;
-      }
-
-      // domain decomposition method
-      tempString = settings_node.child_value("mesh_decomposition");
-      if (tempString == "METIS")
-        decomp_mode = METIS;
-      else if (tempString == "CUBE")
-        decomp_mode = CUBE;
-      else {
-        cout << "WARNING: Mesh decomposition method not recognized... ";
-        cout << "setting to METIS method" << endl;
-        decomp_mode = METIS;
-      }
-      if (dd_mode == REPLICATED) {
-        std::cout << "Replicated transport mode, mesh decomposition method";
-        std::cout << " ignored" << std::endl;
-      }
 
       // debug options
       print_verbose = false;
@@ -265,6 +227,55 @@ public:
           key = z_key * 1000000 + y_key * 1000 + x_key;
           region_map[key] = region_ID;
         }
+      }
+
+      // spatial inputs
+      if (simple_spatial_node) {
+        double d_x_start, d_x_end, d_y_start, d_y_end, d_z_start, d_z_end;
+        uint32_t d_x_cells, d_y_cells, d_z_cells;
+
+        nx_divisions = 1;
+        ny_divisions = 1;
+        nz_divisions = 1;
+
+        d_x_start = simple_spatial_node.child("x_start").text().as_double();
+        d_x_end = simple_spatial_node.child("x_end").text().as_double();
+        d_x_cells = simple_spatial_node.child("n_x_cells").text().as_int();
+
+        // push back the master x points for silo
+        for (uint32_t i = 0; i < d_x_cells; ++i)
+          x.push_back(d_x_start + i * (d_x_end - d_x_start) / d_x_cells);
+
+        d_y_start = simple_spatial_node.child("y_start").text().as_double();
+        d_y_end = simple_spatial_node.child("y_end").text().as_double();
+        d_y_cells = simple_spatial_node.child("n_y_cells").text().as_int();
+
+        // push back the master y points for silo
+        for (uint32_t i = 0; i < d_y_cells; ++i)
+          y.push_back(d_y_start + i * (d_y_end - d_y_start) / d_y_cells);
+
+        d_z_start = simple_spatial_node.child("z_start").text().as_double();
+        d_z_end = simple_spatial_node.child("z_end").text().as_double();
+        d_z_cells = simple_spatial_node.child("n_z_cells").text().as_int();
+
+        // push back the master z points for silo
+        for (uint32_t i = 0; i < d_z_cells; ++i)
+          z.push_back(d_z_start + i * (d_z_end - d_z_start) / d_z_cells);
+
+        region_ID = simple_spatial_node.child("region_ID").text().as_int();
+
+        x_start.push_back(d_x_start);
+        x_end.push_back(d_x_end);
+        n_x_cells.push_back(d_x_cells);
+        y_start.push_back(d_y_start);
+        y_end.push_back(d_y_end);
+        n_y_cells.push_back(d_y_cells);
+        z_start.push_back(d_z_start);
+        z_end.push_back(d_z_end);
+        n_z_cells.push_back(d_z_cells);
+
+        // single region -- maps to 0:
+        region_map[0] = region_ID;
       }
 
       // read in boundary conditions
@@ -380,15 +391,10 @@ public:
         silo_y[j] = y[j];
       for (uint32_t k = 0; k < z.size(); ++k)
         silo_z[k] = z[k];
-
-      // batch size should be very large in replicated mode since there is no
-      // need to check buffers
-      if (dd_mode == REPLICATED)
-        batch_size = 100000000;
     } // end xml parse
 
     const int n_bools = 6;
-    const int n_uint = 16;
+    const int n_uint = 10;
     const int n_doubles = 6;
     MPI_Datatype MPI_Region = mpi_types.get_region_type();
 
@@ -411,13 +417,7 @@ public:
 
       // uint32
       vector<uint32_t> all_uint = {seed,
-                                   dd_mode,
-                                   decomp_mode,
                                    output_freq,
-                                   grip_size,
-                                   map_size,
-                                   batch_size,
-                                   particle_message_size,
                                    n_divisions,
                                    n_global_x_cells,
                                    n_global_y_cells,
@@ -463,6 +463,7 @@ public:
       MPI_Bcast(&z_start[0], n_z_div, MPI_DOUBLE, 0, MPI_COMM_WORLD);
       MPI_Bcast(&z_end[0], n_z_div, MPI_DOUBLE, 0, MPI_COMM_WORLD);
       MPI_Bcast(&n_z_cells[0], n_z_div, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+
     } else {
       // set bools
       vector<int> all_bools(8);
@@ -485,21 +486,15 @@ public:
       vector<uint32_t> all_uint(n_uint);
       MPI_Bcast(&all_uint[0], n_uint, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
       seed = all_uint[0];
-      dd_mode = all_uint[1];
-      decomp_mode = all_uint[2];
-      output_freq = all_uint[3];
-      grip_size = all_uint[4];
-      map_size = all_uint[5];
-      batch_size = all_uint[6];
-      particle_message_size = all_uint[7];
-      n_divisions = all_uint[8];
-      n_global_x_cells = all_uint[9];
-      n_global_y_cells = all_uint[10];
-      n_global_z_cells = all_uint[11];
-      const uint32_t n_regions = all_uint[12];
-      const uint32_t n_x_div = all_uint[13];
-      const uint32_t n_y_div = all_uint[14];
-      const uint32_t n_z_div = all_uint[15];
+      output_freq = all_uint[1];
+      n_divisions = all_uint[2];
+      n_global_x_cells = all_uint[3];
+      n_global_y_cells = all_uint[4];
+      n_global_z_cells = all_uint[5];
+      const uint32_t n_regions = all_uint[6];
+      const uint32_t n_x_div = all_uint[7];
+      const uint32_t n_y_div = all_uint[8];
+      const uint32_t n_z_div = all_uint[9];
 
       // uint64
       MPI_Bcast(&n_photons, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
@@ -517,7 +512,7 @@ public:
       regions.resize(n_regions);
       MPI_Bcast(&regions[0], n_regions, MPI_Region, 0, MPI_COMM_WORLD);
 
-      n_divisions = all_uint[8];
+      n_divisions = all_uint[2];
       vector<uint32_t> division_key(n_divisions);
       vector<uint32_t> region_at_division(n_divisions);
       MPI_Bcast(&division_key[0], n_divisions, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
@@ -573,14 +568,6 @@ public:
     using Constants::c;
     using std::cout;
     using std::endl;
-    // DD methods
-    using Constants::CELL_PASS;
-    using Constants::CELL_PASS_RMA;
-    using Constants::PARTICLE_PASS;
-    using Constants::REPLICATED;
-    // mesh decomposition
-    using Constants::CUBE;
-    using Constants::METIS;
 
     cout << "Problem Specifications:";
     cout << "Constants -- c: " << c << " (cm/sh) , a: " << a << endl;
@@ -634,46 +621,9 @@ public:
     }
 
     cout << "--Parallel Information--" << endl;
-    cout << "DD algorithm: ";
-    if (dd_mode == CELL_PASS) {
-      cout << "CELL PASSING" << endl;
-      cout << "grip size: " << grip_size;
-      cout << ", map size: " << map_size;
-      cout << ", batch size: " << batch_size;
-      cout << endl;
-    } else if (dd_mode == CELL_PASS_RMA) {
-      cout << "CELL PASSING (with RMA on MPI windows)" << endl;
-      cout << "COMPILE PARAMETER: maximum number of RMA requests" << endl;
-      cout << "grip size: " << grip_size;
-      cout << ", map size: " << map_size;
-      cout << ", batch size: " << batch_size;
-      cout << endl;
-    } else if (dd_mode == PARTICLE_PASS) {
-      cout << "PARTICLE PASSING" << endl;
-      cout << "Batch size: " << batch_size;
-      cout << ", particle message size: " << particle_message_size;
-      cout << endl;
-    } else if (dd_mode == REPLICATED) {
-      cout << "REPLICATED" << endl;
-      cout << "No parameters are needed in replicated mode";
-      cout << endl;
-    } else {
-      cout << "ERROR: Parallel method not specific correctly";
-      cout << " Exiting..." << endl;
-      exit(EXIT_FAILURE);
-    }
-
-    cout << "Mesh decomposition: ";
-    if (decomp_mode == METIS && dd_mode != REPLICATED)
-      cout << "METIS" << endl;
-    else if (decomp_mode == CUBE && dd_mode != REPLICATED)
-      cout << "CUBE" << endl;
-    else if (dd_mode == REPLICATED)
-      cout << "N/A (no decomposition in replicated mode)" << std::endl;
-    else {
-      cout << "ERROR: Decomposition mode not specified correctly. Exiting...";
-      exit(EXIT_FAILURE);
-    }
+    cout << "REPLICATED" << endl;
+    cout << "No parameters are needed in replicated mode";
+    cout << endl;
 
     cout << endl;
   }
@@ -761,20 +711,6 @@ public:
   int get_rng_seed(void) const { return seed; }
   //! Return the number of photons set in the input file to run
   uint64_t get_number_photons(void) const { return n_photons; }
-  //! Return the batch size (particles to run between parallel processing)
-  uint32_t get_batch_size(void) const { return batch_size; }
-  //! Return the user requested number of particles in a message
-  uint32_t get_particle_message_size(void) const {
-    return particle_message_size;
-  }
-  //! Return the user requested grip size
-  uint32_t get_grip_size(void) const { return grip_size; }
-  //! Return the size of the working mesh map
-  uint32_t get_map_size(void) const { return map_size; }
-  //! Return the domain decomposition algorithm
-  uint32_t get_dd_mode(void) const { return dd_mode; }
-  //! Return the domain decomposition algorithm
-  uint32_t get_decomposition_mode(void) const { return decomp_mode; }
 
   // source functions
   //! Return the temperature of the face source
@@ -836,23 +772,14 @@ private:
   uint32_t seed;      //!< Random number seed
 
   // Method parameters
-  bool use_tilt;        //!< Use tilting for emission sampling
-  bool use_comb;        //!< Comb census photons
-  bool use_strat;       //!< Use strafifed sampling
-  uint32_t dd_mode;     //!< Mode of domain decomposed transport algorithm
-  uint32_t decomp_mode; //!< Mode of decomposing mesh
+  bool use_tilt;  //!< Use tilting for emission sampling
+  bool use_comb;  //!< Comb census photons
+  bool use_strat; //!< Use strafifed sampling
 
   // Debug parameters
   uint32_t output_freq; //!< How often to print temperature information
   bool print_verbose;   //!< Verbose printing flag
   bool print_mesh_info; //!< Mesh information printing flag
-
-  // parallel performance parameters
-  uint32_t grip_size; //!< Preferred number of cells in a parallel communication
-  uint32_t map_size;  //!< Size of stored off-rank mesh cells
-  uint32_t batch_size; //!< Particles to run between MPI message checks
-  uint32_t
-      particle_message_size; //!< Preferred number of particles in MPI sends
 
   // detailed mesh specifications
   uint32_t n_divisions;            //!< Number of divisions in the mesh

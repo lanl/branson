@@ -10,11 +10,7 @@
     <seed>14706</seed>
     <tilt>FALSE</tilt>
     <stratified_sampling>FALSE</stratified_sampling>
-    <dd_transport_type>CELL_PASS</dd_transport_type>
-    <grip_size>100</grip_size>
-    <map_size>5000</map_size>
-    <batch_size>500</batch_size>
-    <particle_message_size>1000</particle_message_size>
+    <use_combing>TRUE</use_combing>
     <output_frequency>1</output_frequency>
     <write_silo>TRUE</write_silo>
   </common>

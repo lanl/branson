@@ -36,40 +36,6 @@ int main(int argc, char *argv[]) {
 
     bool size_functions_pass = true;
 
-    // test particle size
-    MPI_Datatype MPI_Particle = mpi_types.get_particle_type();
-
-    int particle_size;
-    MPI_Type_size(MPI_Particle, &particle_size);
-
-    // copy should be the same size as size recorded in class
-    if (particle_size != mpi_types.get_particle_size())
-      size_functions_pass = false;
-
-    // copy should be the same size as actual Photon class
-    if (particle_size != sizeof(Photon))
-      size_functions_pass = false;
-
-    cout << "Particle object size :" << sizeof(Photon) << endl;
-    cout << "MPI Particle object size :" << particle_size << endl;
-
-    // test cell size
-    MPI_Datatype MPI_Cell = mpi_types.get_cell_type();
-
-    int cell_size;
-    MPI_Type_size(MPI_Cell, &cell_size);
-
-    // copy should be the same size as size recorded in class
-    if (cell_size != mpi_types.get_cell_size())
-      size_functions_pass = false;
-
-    // copy should be the same size as actual Cell class
-    if (cell_size != sizeof(Cell))
-      size_functions_pass = false;
-
-    cout << "Cell object size :" << sizeof(Cell) << endl;
-    cout << "MPI Cell object size :" << cell_size << endl;
-
     // test proto_cell size
     MPI_Datatype MPI_Proto_Cell = mpi_types.get_proto_cell_type();
 
@@ -86,23 +52,6 @@ int main(int argc, char *argv[]) {
 
     cout << "Proto_Cell object size :" << sizeof(Proto_Cell) << endl;
     cout << "MPI Proto_Cell object size :" << proto_cell_size << endl;
-
-    // test work packet size
-    MPI_Datatype MPI_Work_Packet = mpi_types.get_work_packet_type();
-
-    int work_packet_size;
-    MPI_Type_size(MPI_Work_Packet, &work_packet_size);
-
-    // copy should be the same size as size recorded in class
-    if (work_packet_size != mpi_types.get_work_packet_size())
-      size_functions_pass = false;
-
-    // copy should be the same size as actual Photon class
-    if (work_packet_size != sizeof(Work_Packet))
-      size_functions_pass = false;
-
-    cout << "Work Packet object size :" << sizeof(Work_Packet) << endl;
-    cout << "MPI Work Packet object size :" << work_packet_size << endl;
 
     if (size_functions_pass)
       cout << "TEST PASSED: MPI_Types size functions " << endl;
