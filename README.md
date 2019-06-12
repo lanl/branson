@@ -9,16 +9,14 @@ Branson
 
 ## Introduction
 
-So you've decided to use Branson...
+So you've decided to use Branson Lite...
 
 Here are some things to know:
 
 - Branson is not an acronym.
-- The point of Branson is to study different algorithms for parallel Monte Carlo
-  transport. Currently it contains particle passing and mesh passing methods for
-  domain decomposition.
-- Many of the parameters that impact parallel performance can be set in the
-  input file.
+- The point of Branson Lite is to provide a simple test bed for transport
+  methods development. It is a stripped-down version of Branson with only
+  mesh-replicated transport.
 - The input file format is ugly right now and I don't have a good list of
   parameters and what they do. Sorry.
 - Input files are in XML, which makes them easy to generate and change in
@@ -37,7 +35,7 @@ Accessing the sources
 git clone git@github.com:[github-username]/branson
 cd branson
 git remote add upstream git@github.com:lanl/branson
-git checkout -b develop upstream/develop
+git checkout -b lite upstream/lite
 ```
 
 Installing Branson:
@@ -47,7 +45,6 @@ Installing Branson:
   - [CMake 3.9+](https://cmake.org/download/)
   - MPI 3.0+ ([OpenMPI 1.10+](https://www.open-mpi.org/software/ompi/),
     [mpich](http://www.mpich.org), etc.)
-  - [Metis](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview)
 - Optional dependencies (needed for visualization)
   - [HDF5](https://support.hdfgroup.org/HDF5/)
   - [Silo](http://wci.llnl.gov/simulation/computer-codes/silo)

@@ -21,7 +21,6 @@
 #include "RNG.h"
 #include "constants.h"
 #include "input.h"
-#include "message_counter.h"
 #include "photon.h"
 
 //==============================================================================
@@ -53,29 +52,12 @@ public:
     // 64 bit
     trans_particles = 0;
     census_size = 0;
-    step_particles_sent = 0;
-    total_particles_sent = 0;
-    total_cells_requested = 0;
-    total_cells_sent = 0;
-    total_cell_messages = 0;
-    total_particle_messages = 0;
-
-    step_particle_messages = 0;
-    step_cells_requested = 0;
-    step_cell_messages = 0;
-    step_cells_sent = 0;
-
-    step_sends_posted = 0;
-    step_sends_completed = 0;
-    step_receives_posted = 0;
-    step_receives_completed = 0;
 
     m_RNG = new RNG();
     m_RNG->set_seed(input.get_rng_seed() + rank * 4106);
 
     rank_transport_runtime = 0.0;
     rank_rebalance_time = 0.0;
-    rank_load_balance_time = 0.0;
   }
 
   //! Destructor
@@ -99,12 +81,6 @@ public:
 
   //! Get number of particles in census
   uint64_t get_census_size(void) const { return census_size; }
-
-  //! Get number of particles sent over MPI for current timestep
-  uint64_t get_step_particles_sent(void) const { return step_particles_sent; }
-
-  //! Get number of particles sent over MPI for entire simulation
-  uint64_t get_total_particles_sent(void) const { return total_particles_sent; }
 
   //! Get census energy at the beginning of timestep
   double get_pre_census_E(void) { return pre_census_E; }
@@ -147,24 +123,6 @@ public:
     cout << m_time + m_dt << "  dt: " << m_dt << endl;
   }
 
-  //! Print end of timestep information
-  void print_simulation_footer(uint32_t dd_type) const {
-    using Constants::CELL_PASS;
-    using Constants::PARTICLE_PASS;
-    using std::cout;
-    using std::endl;
-    if (dd_type == PARTICLE_PASS) {
-      cout << "Total particles sent: " << total_particles_sent << endl;
-      cout << "Total particle messages: " << total_particle_messages << endl;
-    } else {
-      cout << "Total cells requested: " << total_cells_requested << endl;
-      cout << "Total cells sent: " << total_cells_sent << endl;
-      cout << "Total cell messages: " << total_cell_messages << endl;
-    }
-    cout << "****************************************";
-    cout << "****************************************" << endl;
-  }
-
   //! Get transport time for this rank on current timestep
   double get_rank_transport_runtime(void) { return rank_transport_runtime; }
 
@@ -173,10 +131,7 @@ public:
   //--------------------------------------------------------------------------//
 
   //! Perform reduction on diagnostic and conservation quantities and print
-  void print_conservation(uint32_t dd_type) {
-    using Constants::CELL_PASS;
-    using Constants::PARTICLE_PASS;
-    using Constants::REPLICATED;
+  void print_conservation() {
     using std::cout;
     using std::endl;
     using std::plus;
@@ -197,15 +152,6 @@ public:
     // 64 bit global integers
     uint64_t g_census_size = 0;
     uint64_t g_trans_particles = 0;
-    uint64_t g_step_particles_sent = 0;
-    uint64_t g_step_particle_messages = 0;
-    uint64_t g_step_cells_requested = 0;
-    uint64_t g_step_cell_messages = 0;
-    uint64_t g_step_cells_sent = 0;
-    uint64_t g_step_sends_posted = 0;
-    uint64_t g_step_sends_completed = 0;
-    uint64_t g_step_receives_posted = 0;
-    uint64_t g_step_receives_completed = 0;
 
     // reduce energy conservation values (double)
     MPI_Allreduce(&absorbed_E, &g_absorbed_E, 1, MPI_DOUBLE, MPI_SUM,
@@ -236,39 +182,14 @@ public:
     // 64 bit integer reductions
     MPI_Allreduce(&trans_particles, &g_trans_particles, 1, MPI_UNSIGNED_LONG,
                   MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_particles_sent, &g_step_particles_sent, 1,
-                  MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&census_size, &g_census_size, 1, MPI_UNSIGNED_LONG, MPI_SUM,
                   MPI_COMM_WORLD);
-    MPI_Allreduce(&step_cells_requested, &g_step_cells_requested, 1,
-                  MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_particle_messages, &g_step_particle_messages, 1,
-                  MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_cell_messages, &g_step_cell_messages, 1,
-                  MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_cells_sent, &g_step_cells_sent, 1, MPI_UNSIGNED_LONG,
-                  MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_sends_posted, &g_step_sends_posted, 1,
-                  MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_sends_completed, &g_step_sends_completed, 1,
-                  MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_receives_posted, &g_step_receives_posted, 1,
-                  MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_receives_completed, &g_step_receives_completed, 1,
-                  MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
 
     double rad_conservation = (g_absorbed_E + g_post_census_E + g_exit_E) -
                               (g_pre_census_E + g_emission_E + source_E);
 
     double mat_conservation =
         g_post_mat_E - (g_pre_mat_E + g_absorbed_E - g_emission_E);
-
-    // update total simulation counters
-    total_cells_requested += g_step_cells_requested;
-    total_cells_sent += g_step_cells_sent;
-    total_cell_messages += g_step_cell_messages;
-    total_particles_sent += g_step_particles_sent;
-    total_particle_messages += g_step_particle_messages;
 
     if (rank == 0) {
       cout << "Total Photons transported: " << g_trans_particles << endl;
@@ -281,25 +202,8 @@ public:
            << endl;
       cout << "Radiation conservation: " << rad_conservation << endl;
       cout << "Material conservation: " << mat_conservation << endl;
-      cout << "Sends posted: " << g_step_sends_posted;
-      cout << ", sends completed: " << g_step_sends_completed << endl;
-      cout << "Receives posted: " << g_step_receives_posted;
-      cout << ", receives completed: " << g_step_receives_completed << endl;
-      if (dd_type == PARTICLE_PASS) {
-        cout << "Step particles messages sent: " << g_step_particle_messages;
-        cout << ", Step particles sent: " << g_step_particles_sent << endl;
-      } else {
-        cout << "Step cell messages sent: " << g_step_cell_messages;
-        cout << ", Step cells sent: " << g_step_cells_sent << endl;
-        cout << "Step cells requested: " << g_step_cells_requested << endl;
-        cout << "Load balance time: " << rank_load_balance_time << endl;
-      }
       cout << "Transport time max/min: " << max_transport_time << "/";
       cout << min_transport_time << endl;
-      if (dd_type != PARTICLE_PASS && dd_type != REPLICATED) {
-        cout << "Census Rebalance time max/min: " << max_rebalance_time << "/";
-        cout << min_rebalance_time << endl;
-      }
     } // if rank==0
   }
 
@@ -347,23 +251,6 @@ public:
   //! Set number of census particles for current timestep (diagnostic, 64 bit)
   void set_census_size(uint64_t _census_size) { census_size = _census_size; }
 
-  //! Set the network message counters used in diagnostics
-  void set_network_message_counts(Message_Counter &mctr) {
-    step_particles_sent = mctr.n_particles_sent;
-    step_particle_messages = mctr.n_particle_messages;
-    step_cell_messages = mctr.n_cell_messages;
-    step_cells_sent = mctr.n_cells_sent;
-    step_sends_posted = mctr.n_sends_posted;
-    step_sends_completed = mctr.n_sends_completed;
-    step_receives_posted = mctr.n_receives_posted;
-    step_receives_completed = mctr.n_receives_completed;
-  }
-
-  //! Set the number of cells requested in mesh passing method this timestep
-  void set_step_cells_requested(uint64_t _step_cells_requested) {
-    step_cells_requested = _step_cells_requested;
-  }
-
   //! Set transport runtime for this timestep
   void set_rank_transport_runtime(double _rank_transport_runtime) {
     rank_transport_runtime = _rank_transport_runtime;
@@ -372,11 +259,6 @@ public:
   //! Set load balance time for this timestep
   void set_rank_rebalance_time(double _rebalance_time) {
     rank_rebalance_time = _rebalance_time;
-  }
-
-  //! Set load balance time for this timestep
-  void set_load_balance_time(double _load_balance_time) {
-    rank_load_balance_time = _load_balance_time;
   }
 
   //--------------------------------------------------------------------------//
@@ -406,37 +288,8 @@ private:
   uint64_t trans_particles; //!< Particles transported
   uint64_t census_size;     //!< Number of particles in census
 
-  uint64_t step_particles_sent; //!< Number of particles passed
-
-  //! Total number of particles sent for simulation
-  uint64_t total_particles_sent;
-
-  //! Total number of cells requested for simulation
-  uint64_t total_cells_requested;
-
-  //! Total number of cells sent for simulation
-  uint64_t total_cells_sent;
-
-  //! Total number of cell message for simulation
-  uint64_t total_cell_messages;
-
-  //! Total number of particle messages sent for simulation
-  uint32_t total_particle_messages;
-
-  uint64_t step_particle_messages;  //!< Number of particle messages
-  uint64_t step_cells_requested;    //!< Number of cells requested by this rank
-  uint64_t step_cell_messages;      //!< Number of cell messages
-  uint64_t step_cells_sent;         //!< Number of cells passed
-  uint64_t step_sends_posted;       //!< Number of sent messages posted
-  uint64_t step_sends_completed;    //!< Number of sent messages completed
-  uint64_t step_receives_posted;    //!< Number of received messages completed
-  uint64_t step_receives_completed; //!< Number of received messages completed
-
   double rank_transport_runtime; //!< Transport step runtime for this rank
   double rank_rebalance_time;    //!< Time to rebalance census after transport
-
-  //! Time to load balance particles this timestep
-  double rank_load_balance_time;
 
   RNG *m_RNG; //!< Rank specific RNG
 };

@@ -58,7 +58,6 @@ endfunction()
 # 1 PE tests
 
 set(branson_test_sources_1pe
-  test_buffer.cc
   test_cell.cc
   test_proto_cell.cc
   test_counter_rng.cc
@@ -75,14 +74,7 @@ endforeach()
 #------------------------------------------------------------------------------#
 # Other tests
 
-add_branson_test( SOURCE test_load_balance.cc  PE_LIST "4" )
 add_branson_test( SOURCE test_imc_state.cc     PE_LIST "2" )
-
-# Don't run 8 proc tests in CI mode
-if(NOT ("$ENV{GITLAB_CI}" STREQUAL "true" OR "$ENV{TRAVIS}" STREQUAL "true"))
-  add_branson_test( SOURCE test_remap_census.cc  PE_LIST "8" )
-  add_branson_test( SOURCE test_tally_manager.cc PE_LIST "8" )
-endif()
 
 #------------------------------------------------------------------------------#
 # copy these input files for Input, IMC_State, Mesh and write_silo tests
