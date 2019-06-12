@@ -78,7 +78,6 @@ public:
 
   //! Get grip ID of cell in next direction
   inline uint32_t get_next_grip(const uint32_t &dir) const {
-    //return grip_next[dir];
     return e_next[dir];
   }
 
@@ -184,23 +183,16 @@ public:
 
   //! Print cell data (diagnostic only)
   void print(void) const {
-    using Constants::PROCESSOR;
     using std::cout;
     using std::endl;
     int32_t my_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
-    bool boundary = false;
-    for (uint32_t i = 0; i < 6; i++) {
-      if (bc[i] == PROCESSOR)
-        boundary = true;
-    }
 
     // cout<<g_ID<<" "<<boundary;
     // cout<<nodes[0]<<" "<<nodes[2]<<" "<<nodes[4]<<endl;
 
     cout << "Rank: " << my_rank << " Global ID: " << g_ID << endl;
     cout << nodes[0] << " " << nodes[2] << " " << nodes[4];
-    cout << " Processor bound: " << boundary << endl;
     // cout<<"Temperatures: "<<T_e<<" "<<T_r<<" "<<T_s<<endl;
     // cout<<"Density: "<<rho<<" cV: "<<cV<<" f: "<<f<<endl;
   }

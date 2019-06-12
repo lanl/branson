@@ -22,7 +22,6 @@
 #include "imc_state.h"
 #include "info.h"
 #include "mesh.h"
-#include "message_counter.h"
 #include "mpi_types.h"
 #include "replicated_transport.h"
 #include "timer.h"
@@ -35,14 +34,11 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
   vector<double> abs_E(mesh.get_global_num_cells(), 0.0);
   vector<double> track_E(mesh.get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
-  Message_Counter mctr;
   int rank = mpi_info.get_rank();
 
   while (!imc_state.finished()) {
     if (rank == 0)
       imc_state.print_timestep_header();
-
-    mctr.reset_counters();
 
     //set opacity, Fleck factor, all energy to source
     mesh.calculate_photon_energy(imc_state);

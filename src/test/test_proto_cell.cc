@@ -40,7 +40,7 @@ int main(void) {
     uint32_t silo_index = 1231;
 
     vector<Constants::bc_type> bcs{Constants::REFLECT, Constants::VACUUM,
-                                   Constants::ELEMENT, Constants::PROCESSOR,
+                                   Constants::ELEMENT, Constants::VACUUM,
                                    Constants::ELEMENT, Constants::VACUUM};
     vector<uint32_t> neighbors{3500000000, 3500000001, 3500000002,
                                3500000003, 3500000004, 3500000005};

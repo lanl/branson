@@ -22,23 +22,11 @@ const double k(1.60219e-31); //!< energy conversion constant GJ/keV
 const double a(0.01372);     //!< Boltzmann constant in GJ/cm^3/keV^4
 const double a_SO(1.0);      //!< Boltzmann constant for SO problems
 
-enum bc_type { REFLECT, VACUUM, ELEMENT, PROCESSOR }; //!< Boundary conditions
+enum bc_type { REFLECT, VACUUM, ELEMENT }; //!< Boundary conditions
 enum dir_type { X_NEG, X_POS, Y_NEG, Y_POS, Z_NEG, Z_POS }; //!< Directions
-enum event_type { KILL, EXIT, PASS, CENSUS, WAIT };         //!< Events
+enum event_type { KILL, EXIT, CENSUS, WAIT };         //!< Events
 enum { EMISSION, INITIAL_CENSUS }; //!< Particle type for work packets
-const int grip_id_tag(1);          //!< MPI tag for grip ID messages
-const int cell_id_tag(2);          //!< MPI tag for requested cell ID messages
-const int count_tag(3);            //!< MPI tag for completion count messages
-const int photon_tag(4);           //!< MPI tag for photon messages
-const int n_photon_tag(5);         //!< MPI tag for work packet messages
-const int work_tag(6);             //!< MPI tag for work packet messages
-const int n_work_tag(7);           //!< MPI tag for work packet messages
-const int tally_tag(8);            //!< MPI tag for tally messages
-const int n_tally_tag(9);          //!< MPI tag for number of tally messages
 
-//! MPI tag for cell messages NOTE: the number of grips in the message will
-// added to the end of this number
-const int cell_tag(10);
 }; // namespace Constants
 
 #endif // constants_h_

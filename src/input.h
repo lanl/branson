@@ -87,7 +87,9 @@ public:
       // check each necessary branch exists and create nodes for each
       pugi::xml_node settings_node = doc.child("prototype").child("common");
       pugi::xml_node debug_node = doc.child("prototype").child("debug_options");
+      // One of these spatial input types should be specified, but not both!
       pugi::xml_node spatial_node = doc.child("prototype").child("spatial");
+      pugi::xml_node simple_spatial_node = doc.child("prototype").child("simple_spatial");
       pugi::xml_node bc_node = doc.child("prototype").child("boundary");
       pugi::xml_node region_node = doc.child("prototype").child("regions");
 
@@ -95,8 +97,12 @@ public:
         std::cout << "'common' section not found!" << std::endl;
         exit(EXIT_FAILURE);
       }
-      if (!spatial_node) {
-        std::cout << "'spatial' section not found!" << std::endl;
+      if (!spatial_node && !simple_spatial_node) {
+        std::cout << "'spatial' or 'simple_spatial' section not found!" << std::endl;
+        exit(EXIT_FAILURE);
+      }
+      if (spatial_node && simple_spatial_node) {
+        std::cout << "Cannot specify both 'spatial' and 'simple_spatial' sections!" << std::endl;
         exit(EXIT_FAILURE);
       }
       if (!bc_node) {
@@ -147,14 +153,6 @@ public:
       tempString = settings_node.child_value("tilt");
       if (tempString == "TRUE")
         use_tilt = true;
-
-      // domain decomposed transport aglorithm
-      tempString = settings_node.child_value("dd_transport_type");
-
-      // domain decomposition method
-      tempString = settings_node.child_value("mesh_decomposition");
-      std::cout << "Replicated transport mode, mesh decomposition method";
-      std::cout << " ignored" << std::endl;
 
       // debug options
       print_verbose = false;
@@ -225,6 +223,55 @@ public:
           key = z_key * 1000000 + y_key * 1000 + x_key;
           region_map[key] = region_ID;
         }
+      }
+
+      // spatial inputs
+      if(simple_spatial_node) {
+        double d_x_start, d_x_end, d_y_start, d_y_end, d_z_start, d_z_end;
+        uint32_t d_x_cells, d_y_cells, d_z_cells;
+
+        nx_divisions = 1;
+        ny_divisions = 1;
+        nz_divisions = 1;
+
+        d_x_start = simple_spatial_node.child("x_start").text().as_double();
+        d_x_end = simple_spatial_node.child("x_end").text().as_double();
+        d_x_cells = simple_spatial_node.child("n_x_cells").text().as_int();
+
+        // push back the master x points for silo
+        for (uint32_t i = 0; i < d_x_cells; ++i)
+          x.push_back(d_x_start + i * (d_x_end - d_x_start) / d_x_cells);
+
+        d_y_start = simple_spatial_node.child("y_start").text().as_double();
+        d_y_end = simple_spatial_node.child("y_end").text().as_double();
+        d_y_cells = simple_spatial_node.child("n_y_cells").text().as_int();
+
+        // push back the master y points for silo
+        for (uint32_t i = 0; i < d_y_cells; ++i)
+          y.push_back(d_y_start + i * (d_y_end - d_y_start) / d_y_cells);
+
+        d_z_start = simple_spatial_node.child("z_start").text().as_double();
+        d_z_end = simple_spatial_node.child("z_end").text().as_double();
+        d_z_cells = simple_spatial_node.child("n_z_cells").text().as_int();
+
+        // push back the master z points for silo
+        for (uint32_t i = 0; i < d_z_cells; ++i)
+          z.push_back(d_z_start + i * (d_z_end - d_z_start) / d_z_cells);
+
+        region_ID = simple_spatial_node.child("region_ID").text().as_int();
+
+        x_start.push_back(d_x_start);
+        x_end.push_back(d_x_end);
+        n_x_cells.push_back(d_x_cells);
+        y_start.push_back(d_y_start);
+        y_end.push_back(d_y_end);
+        n_y_cells.push_back(d_y_cells);
+        z_start.push_back(d_z_start);
+        z_end.push_back(d_z_end);
+        n_z_cells.push_back(d_z_cells);
+
+        // single region -- maps to 0:
+        region_map[0] = region_ID;
       }
 
       // read in boundary conditions

@@ -21,7 +21,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include "buffer.h"
 #include "mpi_types.h"
 #include "proto_mesh.h"
 #include "timer.h"
@@ -70,8 +69,9 @@ void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   vector<int> send_to_rank(n_off_rank, 0);
 
   MPI_Request *reqs = new MPI_Request[n_off_rank * 2];
-  vector<Buffer<Proto_Cell>> send_cell(n_off_rank);
-  vector<Buffer<Proto_Cell>> recv_cell(n_off_rank);
+
+  vector<vector<Proto_Cell>> send_cell(n_off_rank);
+  vector<vector<Proto_Cell>> recv_cell(n_off_rank);
 
   for (uint32_t ir = 0; ir < n_off_rank; ++ir) {
     // sends
@@ -81,7 +81,8 @@ void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
     for (uint32_t i = 0; i < ncell_on_rank; ++i)
       send_list.push_back(mesh.get_pre_window_allocation_cell(i));
     send_to_rank[ir] = send_list.size();
-    send_cell[ir].fill(send_list);
+    send_cell[ir].resize(send_list.size());
+    send_cell[ir] = send_list;
 
     MPI_Isend(&send_to_rank[ir], 1, MPI_UNSIGNED, off_rank, 0, MPI_COMM_WORLD,
               &reqs[ir]);
@@ -95,12 +96,12 @@ void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   // now send the buffers and post receives
   for (uint32_t ir = 0; ir < n_off_rank; ++ir) {
     int off_rank = proc_map[ir];
-    MPI_Isend(send_cell[ir].get_buffer(), send_to_rank[ir], MPI_Proto_Cell,
+    MPI_Isend(&send_cell[ir][0], send_to_rank[ir], MPI_Proto_Cell,
               off_rank, 0, MPI_COMM_WORLD, &reqs[ir]);
 
     recv_cell[ir].resize(recv_from_rank[ir]);
 
-    MPI_Irecv(recv_cell[ir].get_buffer(), recv_from_rank[ir], MPI_Proto_Cell,
+    MPI_Irecv(&recv_cell[ir][0], recv_from_rank[ir], MPI_Proto_Cell,
               off_rank, 0, MPI_COMM_WORLD, &reqs[ir + n_off_rank]);
   }
 
@@ -109,7 +110,8 @@ void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   send_cell.clear();
 
   for (uint32_t ir = 0; ir < n_off_rank; ++ir) {
-    vector<Proto_Cell> new_cells = recv_cell[ir].get_object();
+    //vector<Proto_Cell> new_cells = recv_cell[ir].get_object();
+    vector<Proto_Cell> new_cells = recv_cell[ir];
     for (uint32_t i = 0; i < new_cells.size(); ++i) {
       mesh.add_mesh_cell(new_cells[i]);
     }

@@ -21,7 +21,6 @@
 #include "RNG.h"
 #include "constants.h"
 #include "input.h"
-#include "message_counter.h"
 #include "photon.h"
 
 //==============================================================================
@@ -53,11 +52,6 @@ public:
     // 64 bit
     trans_particles = 0;
     census_size = 0;
-
-    step_sends_posted = 0;
-    step_sends_completed = 0;
-    step_receives_posted = 0;
-    step_receives_completed = 0;
 
     m_RNG = new RNG();
     m_RNG->set_seed(input.get_rng_seed() + rank * 4106);
@@ -158,10 +152,6 @@ public:
     // 64 bit global integers
     uint64_t g_census_size = 0;
     uint64_t g_trans_particles = 0;
-    uint64_t g_step_sends_posted = 0;
-    uint64_t g_step_sends_completed = 0;
-    uint64_t g_step_receives_posted = 0;
-    uint64_t g_step_receives_completed = 0;
 
     // reduce energy conservation values (double)
     MPI_Allreduce(&absorbed_E, &g_absorbed_E, 1, MPI_DOUBLE, MPI_SUM,
@@ -194,14 +184,6 @@ public:
                   MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&census_size, &g_census_size, 1, MPI_UNSIGNED_LONG, MPI_SUM,
                   MPI_COMM_WORLD);
-    MPI_Allreduce(&step_sends_posted, &g_step_sends_posted, 1,
-                  MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_sends_completed, &g_step_sends_completed, 1,
-                  MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_receives_posted, &g_step_receives_posted, 1,
-                  MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&step_receives_completed, &g_step_receives_completed, 1,
-                  MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
 
     double rad_conservation = (g_absorbed_E + g_post_census_E + g_exit_E) -
                               (g_pre_census_E + g_emission_E + source_E);
@@ -220,10 +202,6 @@ public:
            << endl;
       cout << "Radiation conservation: " << rad_conservation << endl;
       cout << "Material conservation: " << mat_conservation << endl;
-      cout << "Sends posted: " << g_step_sends_posted;
-      cout << ", sends completed: " << g_step_sends_completed << endl;
-      cout << "Receives posted: " << g_step_receives_posted;
-      cout << ", receives completed: " << g_step_receives_completed << endl;
       cout << "Transport time max/min: " << max_transport_time << "/";
       cout << min_transport_time << endl;
     } // if rank==0
@@ -273,14 +251,6 @@ public:
   //! Set number of census particles for current timestep (diagnostic, 64 bit)
   void set_census_size(uint64_t _census_size) { census_size = _census_size; }
 
-  //! Set the network message counters used in diagnostics
-  void set_network_message_counts(Message_Counter &mctr) {
-    step_sends_posted = mctr.n_sends_posted;
-    step_sends_completed = mctr.n_sends_completed;
-    step_receives_posted = mctr.n_receives_posted;
-    step_receives_completed = mctr.n_receives_completed;
-  }
-
   //! Set transport runtime for this timestep
   void set_rank_transport_runtime(double _rank_transport_runtime) {
     rank_transport_runtime = _rank_transport_runtime;
@@ -317,11 +287,6 @@ private:
   // diagnostic 64 bit integers relating to particle and cell counts
   uint64_t trans_particles; //!< Particles transported
   uint64_t census_size;     //!< Number of particles in census
-
-  uint64_t step_sends_posted;       //!< Number of sent messages posted
-  uint64_t step_sends_completed;    //!< Number of sent messages completed
-  uint64_t step_receives_posted;    //!< Number of received messages completed
-  uint64_t step_receives_completed; //!< Number of received messages completed
 
   double rank_transport_runtime; //!< Transport step runtime for this rank
   double rank_rebalance_time;    //!< Time to rebalance census after transport

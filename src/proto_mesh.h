@@ -20,7 +20,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include "buffer.h"
 #include "constants.h"
 #include "imc_state.h"
 #include "info.h"
@@ -226,14 +225,10 @@ public:
   //--------------------------------------------------------------------------//
   // const functions                                                          //
   //--------------------------------------------------------------------------//
-  //uint32_t get_max_grip_size(void) const { return max_grip_size; }
   uint32_t get_n_local_cells(void) const { return n_cell; }
   uint32_t get_my_rank(void) const { return rank; }
   uint32_t get_offset(void) const { return on_rank_start; }
   uint32_t get_global_num_cells(void) const { return n_global; }
-  std::unordered_map<uint32_t, uint32_t> get_proc_adjacency_list(void) const {
-    return adjacent_procs;
-  }
 
   std::vector<uint32_t> get_off_rank_bounds(void) { return off_rank_bounds; }
 
@@ -264,98 +259,9 @@ public:
     return local_grip_map;
   }
 
-  //! returns a set of boundary indices
-  std::unordered_set<uint32_t> get_boundary_neighbors(void) const {
-    std::unordered_set<uint32_t> local_nodes;
-    std::unordered_set<uint32_t> boundary_neighbors;
-
-    // first, make a set of on processor indices
-    for (uint32_t i = 0; i < n_cell; ++i)
-      local_nodes.insert(cell_list[i].get_ID());
-
-    for (uint32_t i = 0; i < n_cell; ++i) {
-      const Proto_Cell &cell = cell_list[i];
-      for (uint32_t d = 0; d < 6; ++d) {
-        if (local_nodes.find(cell.get_next_cell(d)) == local_nodes.end())
-          boundary_neighbors.insert(cell.get_next_cell(d));
-      }
-    }
-    return boundary_neighbors;
-  }
-
-  //! returns a map of boundary cells of old to new indices
-  std::unordered_map<uint32_t, uint32_t> get_boundary_nodes(void) const {
-    std::unordered_set<uint32_t> local_nodes;
-    std::unordered_map<uint32_t, uint32_t> boundary_nodes;
-
-    // first, make a set of on processor indices
-    for (uint32_t i = 0; i < n_cell; ++i)
-      local_nodes.insert(cell_list[i].get_ID());
-
-    for (uint32_t i = 0; i < n_cell; ++i) {
-      const Proto_Cell &cell = cell_list[i];
-      for (uint32_t d = 0; d < 6; ++d) {
-        if (local_nodes.find(cell.get_next_cell(d)) == local_nodes.end())
-          boundary_nodes[cell.get_ID()] = i + on_rank_start;
-      }
-    }
-    return boundary_nodes;
-  }
-
-  //! returns a map of boundary cells with old to new grip indices
-  std::unordered_map<uint32_t, uint32_t> get_boundary_grips(void) const {
-    std::unordered_set<uint32_t> local_nodes;
-    std::unordered_map<uint32_t, uint32_t> boundary_grips;
-
-    // first, make a set of on processor indices
-    for (uint32_t i = 0; i < n_cell; ++i)
-      local_nodes.insert(cell_list[i].get_ID());
-
-    for (uint32_t i = 0; i < n_cell; ++i) {
-      const Proto_Cell &cell = cell_list[i];
-      for (uint32_t d = 0; d < 6; ++d) {
-        if (local_nodes.find(cell.get_next_cell(d)) == local_nodes.end())
-          boundary_grips[cell.get_ID()] = cell.get_grip_ID();
-      }
-    }
-    return boundary_grips;
-  }
-
   //! Gets cell from vector list of cells before it's deleted
   Proto_Cell get_pre_window_allocation_cell(const uint32_t &local_ID) const {
     return cell_list[local_ID];
-  }
-
-  //! Gets contant reference to cell vector before it's deleted
-  const std::vector<Proto_Cell> &get_pre_window_allocation_cells() const {
-    return cell_list;
-  }
-
-  uint32_t get_off_rank_id(const uint32_t &index) const {
-    // find rank of index
-    bool found = false;
-    uint32_t min_i = 0;
-    uint32_t max_i = off_rank_bounds.size() - 1;
-    uint32_t s_i; // search index
-    while (!found) {
-      s_i = (max_i + min_i) / 2;
-      if (s_i == max_i || s_i == min_i)
-        found = true;
-      else if (index >= off_rank_bounds[s_i])
-        min_i = s_i;
-      else
-        max_i = s_i;
-    }
-    return s_i;
-  }
-
-  int32_t get_rank(const uint32_t &index) const {
-    int32_t r_rank;
-    if (on_processor(index))
-      r_rank = rank;
-    else
-      r_rank = get_off_rank_id(index);
-    return r_rank;
   }
 
   uint32_t get_local_ID(const uint32_t &index) const {
@@ -396,8 +302,6 @@ public:
     uint32_t current_grip_ID = cell_list.front().get_grip_ID();
     uint32_t grip_start_index = 0;
     uint32_t grip_count = 0;
-    // start with max_grip_size at zero
-    //max_grip_size = 0;
 
     unordered_map<uint32_t, uint32_t> start_index_to_count;
 
@@ -430,7 +334,6 @@ public:
       // sizes (for convenience in parallel comm)
       new_grip_ID = on_rank_start + grip_start_index + grip_count / 2;
       // update max grip size
-      //max_grip_size = max(max_grip_size, grip_count);
       // loop over cells in grip and set new ID
       grip_end_index = grip_start_index + grip_count;
       for (uint32_t j = grip_start_index; j < grip_end_index; ++j)
@@ -449,11 +352,6 @@ public:
     off_rank_bounds = _off_rank_bounds;
   }
 
-  //! Gets cell reference from vector list of cells before it's deleted
-  Proto_Cell &get_pre_window_allocation_cell_ref(const uint32_t &local_ID) {
-    return cell_list[local_ID];
-  }
-
   //! Renumber the local cell IDs and connectivity of local cells after
   // decomposition using simple global numbering
   void renumber_local_cell_indices(
@@ -461,15 +359,11 @@ public:
       std::unordered_map<uint32_t, uint32_t> local_grip_map) {
 
     using Constants::dir_type;
-    using Constants::PROCESSOR;
     using std::unordered_map;
-
-    std::unordered_set<uint32_t> boundary_ids(get_boundary_neighbors());
 
     uint32_t next_index;
     // grip index is already set for cells, neighbors are not set!
-    // renumber global cell index,  adjacent cells and adjacent
-    // grips, also mark processor boundaries
+    // renumber global cell index
     for (uint32_t i = 0; i < n_cell; ++i) {
       Proto_Cell &cell = cell_list[i];
       cell.set_ID(i + on_rank_start);
@@ -482,16 +376,6 @@ public:
         if (local_map[next_index] > off_rank_bounds.back() ||
             local_grip_map[next_index] > off_rank_bounds.back())
           std::cout << "this is bad, g > global bounds!" << std::endl;
-        // if this index is a processor boundary, mark boundary condition
-        if (boundary_ids.find(next_index) != boundary_ids.end()) {
-          cell.set_bc(dir_type(d), PROCESSOR);
-          // determine adjacent ranks for minimizing communication
-          uint32_t off_rank = get_off_rank_id(local_map[next_index]);
-          if (adjacent_procs.find(off_rank) == adjacent_procs.end()) {
-            uint32_t rank_count = adjacent_procs.size();
-            adjacent_procs[off_rank] = rank_count;
-          } // if adjacent_proc.find(off_rank)
-        }
       } // end direction
     }   // end cell
   }
@@ -514,7 +398,6 @@ public:
     cell_list = new_mesh;
     n_cell = cell_list.size();
     new_cell_list.clear();
-    remove_cell_list.clear();
 
     // sort based on global cell ID
     sort(cell_list.begin(), cell_list.end());
@@ -525,11 +408,6 @@ public:
     using std::sort;
     // sort based on global cell ID
     sort(cell_list.begin(), cell_list.end(), Proto_Cell::sort_grip_ID);
-  }
-
-  //! Set maximum grip size
-  void set_max_grip_size(const uint32_t &new_max_grip_size) {
-    max_grip_size = new_max_grip_size;
   }
 
   //! Add mesh cell (used during decomposition, not parallel communication)
@@ -563,18 +441,12 @@ private:
 
   std::vector<Proto_Cell> cell_list;      //!< On processor proto-cells
   std::vector<Proto_Cell> new_cell_list;  //!< New received proto-cells
-  std::vector<uint32_t> remove_cell_list; //!< Cells to be removed
   std::vector<uint32_t>
       off_rank_bounds; //!< Ending value of global ID for each rank
-
-  std::unordered_map<uint32_t, uint32_t>
-      adjacent_procs; //!< List of adjacent processors
 
   std::vector<Region> regions; //!< Vector of regions in the problem
   std::unordered_map<uint32_t, uint32_t>
       region_ID_to_index; //!< Maps region ID to index
-
-  uint32_t max_grip_size; //!< Size of largest grip on this rank
 };
 
 #endif // proto_mesh_h_

@@ -23,7 +23,6 @@
 #include "constants.h"
 #include "info.h"
 #include "mesh.h"
-#include "message_counter.h"
 #include "photon.h"
 #include "sampling_functions.h"
 #include "source.h"
@@ -33,7 +32,6 @@ Constants::event_type transport_photon_particle_pass(
     double &census_E, std::vector<double> &rank_abs_E,
     std::vector<double> &rank_track_E) {
   using Constants::ELEMENT;
-  using Constants::PROCESSOR;
   using Constants::REFLECT;
   using Constants::VACUUM;
   // events
@@ -43,7 +41,6 @@ Constants::event_type transport_photon_particle_pass(
   using Constants::event_type;
   using Constants::EXIT;
   using Constants::KILL;
-  using Constants::PASS;
   using std::min;
 
   uint32_t cell_id, next_cell;
@@ -117,12 +114,6 @@ Constants::event_type transport_photon_particle_pass(
           phtn.set_cell(next_cell);
           cell_id = next_cell;
           cell = mesh.get_on_rank_cell(cell_id);
-        } else if (boundary_event == PROCESSOR) {
-          active = false;
-          // set correct cell index with global cell ID
-          next_cell = cell.get_next_cell(surface_cross);
-          phtn.set_cell(next_cell);
-          event = PASS;
         } else if (boundary_event == VACUUM) {
           exit_E += phtn.get_E();
           active = false;
@@ -151,7 +142,6 @@ std::vector<Photon> replicated_transport(Source &source, const Mesh &mesh,
   using Constants::event_type;
   using Constants::EXIT;
   using Constants::KILL;
-  using Constants::PASS;
   using Constants::WAIT;
   using std::cout;
   using std::endl;
@@ -193,9 +183,6 @@ std::vector<Photon> replicated_transport(Source &source, const Mesh &mesh,
     switch (event) {
     // this case should never be reached
     case WAIT:
-      break;
-    // this case should never be reached
-    case PASS:
       break;
     case KILL:
       break;
