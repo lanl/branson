@@ -22,7 +22,6 @@
 
 #include "cell.h"
 #include "constants.h"
-#include "replicate_mesh.h"
 #include "imc_parameters.h"
 #include "imc_state.h"
 #include "info.h"
@@ -30,8 +29,8 @@
 #include "mpi_types.h"
 #include "proto_cell.h"
 #include "proto_mesh.h"
+#include "replicate_mesh.h"
 #include "timer.h"
-
 
 //==============================================================================
 /*!
@@ -324,7 +323,7 @@ private:
   std::vector<double> m_source_E;   //!< Source energy vector
   std::vector<double> T_r;          //!< Diagnostic quantity
 
-  Cell *cells;         //!< Cell data allocated with MPI_Alloc
+  Cell *cells; //!< Cell data allocated with MPI_Alloc
 
   std::vector<uint32_t>
       off_rank_bounds;    //!< Ending value of global ID for each rank

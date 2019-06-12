@@ -25,7 +25,6 @@
 #include "proto_mesh.h"
 #include "timer.h"
 
-
 //----------------------------------------------------------------------------//
 
 //! Create replicated mesh by giving all cells to all other processors, renumber
@@ -96,13 +95,13 @@ void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   // now send the buffers and post receives
   for (uint32_t ir = 0; ir < n_off_rank; ++ir) {
     int off_rank = proc_map[ir];
-    MPI_Isend(&send_cell[ir][0], send_to_rank[ir], MPI_Proto_Cell,
-              off_rank, 0, MPI_COMM_WORLD, &reqs[ir]);
+    MPI_Isend(&send_cell[ir][0], send_to_rank[ir], MPI_Proto_Cell, off_rank, 0,
+              MPI_COMM_WORLD, &reqs[ir]);
 
     recv_cell[ir].resize(recv_from_rank[ir]);
 
-    MPI_Irecv(&recv_cell[ir][0], recv_from_rank[ir], MPI_Proto_Cell,
-              off_rank, 0, MPI_COMM_WORLD, &reqs[ir + n_off_rank]);
+    MPI_Irecv(&recv_cell[ir][0], recv_from_rank[ir], MPI_Proto_Cell, off_rank,
+              0, MPI_COMM_WORLD, &reqs[ir + n_off_rank]);
   }
 
   MPI_Waitall(n_off_rank * 2, reqs, MPI_STATUS_IGNORE);

@@ -24,9 +24,8 @@
  */
 //==============================================================================
 
-class MPI_Types
-{
-  public:
+class MPI_Types {
+public:
   //! constructor
   MPI_Types(void) {
 
@@ -39,13 +38,14 @@ class MPI_Types
       // 16 uint32_t, 6 int, 6 doubles
       int cell_array_of_block_length[3] = {16, 6, 6};
       // Displacements of each type in the cell
-      MPI_Aint cell_array_of_block_displace[3] =
-        {0, 16*sizeof(uint32_t), 16*sizeof(uint32_t)+6*sizeof(int)};
+      MPI_Aint cell_array_of_block_displace[3] = {
+          0, 16 * sizeof(uint32_t), 16 * sizeof(uint32_t) + 6 * sizeof(int)};
       //Type of each memory block
       MPI_Datatype cell_array_of_types[3] = {MPI_UNSIGNED, MPI_INT, MPI_DOUBLE};
 
       MPI_Type_create_struct(cell_entry_count, cell_array_of_block_length,
-        cell_array_of_block_displace, cell_array_of_types, &og_MPI_Proto_Cell);
+                             cell_array_of_block_displace, cell_array_of_types,
+                             &og_MPI_Proto_Cell);
 
       // Commit the type to MPI so it recognizes it in communication calls
       MPI_Type_commit(&og_MPI_Proto_Cell);
@@ -59,18 +59,18 @@ class MPI_Types
     // make and commit the MPI region type
     {
       // make the Region
-      const int region_entry_count = 2 ;
+      const int region_entry_count = 2;
       // 2 uint32_t, 9 doubles
-      int region_array_of_block_length[2] = { 2, 9};
+      int region_array_of_block_length[2] = {2, 9};
       // Displacements of each type in the cell
-      MPI_Aint region_array_of_block_displace[2] =
-        {0, 2*sizeof(uint32_t)};
+      MPI_Aint region_array_of_block_displace[2] = {0, 2 * sizeof(uint32_t)};
       //Type of each memory block
       MPI_Datatype region_array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
 
       MPI_Datatype og_MPI_Region;
       MPI_Type_create_struct(region_entry_count, region_array_of_block_length,
-        region_array_of_block_displace, region_array_of_types, &og_MPI_Region);
+                             region_array_of_block_displace,
+                             region_array_of_types, &og_MPI_Region);
 
       // Commit the type to MPI so it recognizes it in communication calls
       MPI_Type_commit(&og_MPI_Region);
@@ -80,7 +80,6 @@ class MPI_Types
       // context (I don't know why this is necessary)
       MPI_Type_dup(og_MPI_Region, &MPI_Region);
     }
-
   }
 
   // destructor
@@ -94,26 +93,25 @@ class MPI_Types
   //--------------------------------------------------------------------------//
 
   //! Return reference to MPI_Proto_Cell for use in communication calls
-  MPI_Datatype get_proto_cell_type(void) const {return MPI_Proto_Cell;}
+  MPI_Datatype get_proto_cell_type(void) const { return MPI_Proto_Cell; }
 
   //! Return reference to Region for use in communication calls
-  MPI_Datatype get_region_type(void) const {return MPI_Region;}
-
+  MPI_Datatype get_region_type(void) const { return MPI_Region; }
 
   //! Return size of MPI cell in bytes
-  int get_proto_cell_size(void) const {return mpi_proto_cell_size;}
+  int get_proto_cell_size(void) const { return mpi_proto_cell_size; }
 
   //! Return size of MPI Region in bytes
-  int get_region_size(void) const {return mpi_region_size;}
+  int get_region_size(void) const { return mpi_region_size; }
 
   //--------------------------------------------------------------------------//
   // member data                                                              //
   //--------------------------------------------------------------------------//
-  private:
+private:
   MPI_Datatype MPI_Proto_Cell; //!< Custom MPI datatype for proto mesh cell
-  MPI_Datatype MPI_Region; //!< Custom MPI datatype for region
-  int mpi_proto_cell_size; //!< Size of MPI_Cell datatype
-  int mpi_region_size; //!< Size of MPI_Region datatype
+  MPI_Datatype MPI_Region;     //!< Custom MPI datatype for region
+  int mpi_proto_cell_size;     //!< Size of MPI_Cell datatype
+  int mpi_region_size;         //!< Size of MPI_Region datatype
 };
 
 #endif // mpi_types_h_

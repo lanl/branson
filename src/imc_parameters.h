@@ -50,7 +50,7 @@ public:
 private:
   uint64_t n_user_photon; //!< User requested number of photons per timestep
 
-  bool write_silo_flag;      //!< Write SILO output files flag
+  bool write_silo_flag; //!< Write SILO output files flag
 };
 
 #endif // imc_parameters_h_

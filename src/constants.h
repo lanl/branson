@@ -24,7 +24,7 @@ const double a_SO(1.0);      //!< Boltzmann constant for SO problems
 
 enum bc_type { REFLECT, VACUUM, ELEMENT }; //!< Boundary conditions
 enum dir_type { X_NEG, X_POS, Y_NEG, Y_POS, Z_NEG, Z_POS }; //!< Directions
-enum event_type { KILL, EXIT, CENSUS, WAIT };         //!< Events
+enum event_type { KILL, EXIT, CENSUS, WAIT };               //!< Events
 enum { EMISSION, INITIAL_CENSUS }; //!< Particle type for work packets
 
 }; // namespace Constants

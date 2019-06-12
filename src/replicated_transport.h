@@ -133,7 +133,6 @@ Constants::event_type transport_photon_particle_pass(
   return event;
 }
 
-
 std::vector<Photon> replicated_transport(Source &source, const Mesh &mesh,
                                          IMC_State &imc_state,
                                          std::vector<double> &rank_abs_E,

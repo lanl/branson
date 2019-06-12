@@ -89,7 +89,8 @@ public:
       pugi::xml_node debug_node = doc.child("prototype").child("debug_options");
       // One of these spatial input types should be specified, but not both!
       pugi::xml_node spatial_node = doc.child("prototype").child("spatial");
-      pugi::xml_node simple_spatial_node = doc.child("prototype").child("simple_spatial");
+      pugi::xml_node simple_spatial_node =
+          doc.child("prototype").child("simple_spatial");
       pugi::xml_node bc_node = doc.child("prototype").child("boundary");
       pugi::xml_node region_node = doc.child("prototype").child("regions");
 
@@ -98,11 +99,14 @@ public:
         exit(EXIT_FAILURE);
       }
       if (!spatial_node && !simple_spatial_node) {
-        std::cout << "'spatial' or 'simple_spatial' section not found!" << std::endl;
+        std::cout << "'spatial' or 'simple_spatial' section not found!"
+                  << std::endl;
         exit(EXIT_FAILURE);
       }
       if (spatial_node && simple_spatial_node) {
-        std::cout << "Cannot specify both 'spatial' and 'simple_spatial' sections!" << std::endl;
+        std::cout
+            << "Cannot specify both 'spatial' and 'simple_spatial' sections!"
+            << std::endl;
         exit(EXIT_FAILURE);
       }
       if (!bc_node) {
@@ -226,7 +230,7 @@ public:
       }
 
       // spatial inputs
-      if(simple_spatial_node) {
+      if (simple_spatial_node) {
         double d_x_start, d_x_end, d_y_start, d_y_end, d_z_start, d_z_end;
         uint32_t d_x_cells, d_y_cells, d_z_cells;
 
@@ -768,9 +772,9 @@ private:
   uint32_t seed;      //!< Random number seed
 
   // Method parameters
-  bool use_tilt;        //!< Use tilting for emission sampling
-  bool use_comb;        //!< Comb census photons
-  bool use_strat;       //!< Use strafifed sampling
+  bool use_tilt;  //!< Use tilting for emission sampling
+  bool use_comb;  //!< Comb census photons
+  bool use_strat; //!< Use strafifed sampling
 
   // Debug parameters
   uint32_t output_freq; //!< How often to print temperature information

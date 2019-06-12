@@ -439,8 +439,8 @@ private:
   uint32_t on_rank_start; //!< Start of global index on rank
   uint32_t on_rank_end;   //!< End of global index on rank
 
-  std::vector<Proto_Cell> cell_list;      //!< On processor proto-cells
-  std::vector<Proto_Cell> new_cell_list;  //!< New received proto-cells
+  std::vector<Proto_Cell> cell_list;     //!< On processor proto-cells
+  std::vector<Proto_Cell> new_cell_list; //!< New received proto-cells
   std::vector<uint32_t>
       off_rank_bounds; //!< Ending value of global ID for each rank
 

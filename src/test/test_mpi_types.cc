@@ -53,7 +53,6 @@ int main(int argc, char *argv[]) {
     cout << "Proto_Cell object size :" << sizeof(Proto_Cell) << endl;
     cout << "MPI Proto_Cell object size :" << proto_cell_size << endl;
 
-
     if (size_functions_pass)
       cout << "TEST PASSED: MPI_Types size functions " << endl;
     else {

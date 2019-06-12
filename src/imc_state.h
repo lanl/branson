@@ -291,7 +291,6 @@ private:
   double rank_transport_runtime; //!< Transport step runtime for this rank
   double rank_rebalance_time;    //!< Time to rebalance census after transport
 
-
   RNG *m_RNG; //!< Rank specific RNG
 };
 
