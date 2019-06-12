@@ -52,7 +52,7 @@ public:
   Mesh(const Input &input, const MPI_Types &mpi_types, const Info &mpi_info,
        const IMC_Parameters &imc_p)
       : ngx(input.get_global_n_x_cells()), ngy(input.get_global_n_y_cells()),
-        ngz(input.get_global_n_z_cells()), n_global(ngz * ngy * ngz),
+        ngz(input.get_global_n_z_cells()), n_global(ngz * ngy * ngx),
         rank(mpi_info.get_rank()), n_rank(mpi_info.get_n_rank()),
         max_map_size(input.get_map_size()),
         mpi_cell_size(mpi_types.get_cell_size()), mpi_window_set(false),
