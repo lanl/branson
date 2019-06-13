@@ -382,9 +382,9 @@ public:
       x.push_back(x_end.back());
       y.push_back(y_end.back());
       z.push_back(z_end.back());
-      silo_x = new float[x.size()];
-      silo_y = new float[y.size()];
-      silo_z = new float[z.size()];
+      silo_x = std::vector<float>(x.size());
+      silo_y = std::vector<float>(y.size());
+      silo_z = std::vector<float>(z.size());
       for (uint32_t i = 0; i < x.size(); ++i)
         silo_x[i] = x[i];
       for (uint32_t j = 0; j < y.size(); ++j)
@@ -547,20 +547,17 @@ public:
       MPI_Bcast(&z_end[0], n_z_div, MPI_DOUBLE, 0, MPI_COMM_WORLD);
       MPI_Bcast(&n_z_cells[0], n_z_div, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
 
-      silo_x = new float[n_global_x_cells];
-      silo_y = new float[n_global_y_cells];
-      silo_z = new float[n_global_z_cells];
+      // other ranks don't write silo so they don't need the x,y,z coordinates
+      silo_x = std::vector<float>(n_global_x_cells, 0.0);
+      silo_y = std::vector<float>(n_global_y_cells, 0.0);
+      silo_z = std::vector<float>(n_global_z_cells, 0.0);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
   }
 
   //! Destructor
-  ~Input() {
-    delete[] silo_x;
-    delete[] silo_y;
-    delete[] silo_z;
-  };
+  ~Input(){};
 
   //! Print the information read from the input file
   void print_problem_info(void) const {
@@ -648,12 +645,12 @@ public:
     return n_z_cells[div];
   }
 
-  //! Return a pointer to the x coordinates of the mesh in SILO format
-  const float *get_silo_x_ptr(void) const { return silo_x; }
-  //! Return a pointer to the y coordinates of the mesh in SILO format
-  const float *get_silo_y_ptr(void) const { return silo_y; }
-  //! Return a pointer to the z coordinates of the mesh in SILO format
-  const float *get_silo_z_ptr(void) const { return silo_z; }
+  //! Return a constant reference to the x coordinates of the mesh in SILO format
+  const std::vector<float> &get_silo_x(void) const { return silo_x; }
+  //! Return a constant reference to the y coordinates of the mesh in SILO format
+  const std::vector<float> &get_silo_y(void) const { return silo_y; }
+  //! Return a constant reference to the z coordinates of the mesh in SILO format
+  const std::vector<float> &get_silo_z(void) const { return silo_z; }
 
   //! Return the total number of x divisions in the problem
   uint32_t get_n_x_divisions(void) const { return n_x_cells.size(); }
@@ -797,9 +794,12 @@ private:
   uint32_t n_global_z_cells; //!< Total number of z cells over all divisions
 
   // arrays for silo
-  float *silo_x; //!< x positions for SILO arrays (i + nx*j + nx*ny*k)
-  float *silo_y; //!< y positions for SILO arrays (i + nx*j + nx*ny*k)
-  float *silo_z; //!< z positions for SILO arrays (i + nx*j + nx*ny*k)
+  std::vector<float>
+      silo_x; //!< x positions for SILO arrays (i + nx*j + nx*ny*k)
+  std::vector<float>
+      silo_y; //!< y positions for SILO arrays (i + nx*j + nx*ny*k)
+  std::vector<float>
+      silo_z; //!< z positions for SILO arrays (i + nx*j + nx*ny*k)
 };
 
 #endif // input_h_

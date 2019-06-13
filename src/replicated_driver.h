@@ -35,6 +35,14 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
   vector<double> track_E(mesh.get_global_num_cells(), 0.0);
   vector<Photon> census_photons;
   int rank = mpi_info.get_rank();
+  constexpr double fake_mpi_runtime = 0.0;
+
+  if (imc_parameters.get_write_silo_flag()) {
+    // write SILO file
+    write_silo(mesh, imc_state.get_time(), imc_state.get_step(),
+               imc_state.get_rank_transport_runtime(), fake_mpi_runtime, rank,
+               mpi_info.get_n_rank());
+  }
 
   while (!imc_state.finished()) {
     if (rank == 0)
@@ -80,6 +88,15 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
     }
 
     imc_state.print_conservation();
+
+    if (imc_parameters.get_write_silo_flag() &&
+        !(imc_state.get_step() % imc_parameters.get_output_frequency())) {
+      // write SILO file
+      write_silo(mesh, imc_state.get_time(), imc_state.get_step(),
+                 imc_state.get_rank_transport_runtime(), fake_mpi_runtime, rank,
+                 mpi_info.get_n_rank());
+    }
+
     // update time for next step
     imc_state.next_time_step();
   }

@@ -29,7 +29,8 @@ public:
   //! constructor
   IMC_Parameters(const Input &input)
       : n_user_photon(input.get_number_photons()),
-        write_silo_flag(input.get_write_silo_bool()) {}
+        write_silo_flag(input.get_write_silo_bool()),
+        output_frequency(input.get_output_freq()) {}
 
   //! destructor
   ~IMC_Parameters() {}
@@ -44,13 +45,16 @@ public:
   //! Get SILO write flag
   bool get_write_silo_flag(void) const { return write_silo_flag; }
 
+  //! Get SILO output frequency
+  int32_t get_output_frequency(void) const { return output_frequency; }
+
   //--------------------------------------------------------------------------//
   // member data                                                              //
   //--------------------------------------------------------------------------//
 private:
-  uint64_t n_user_photon; //!< User requested number of photons per timestep
-
-  bool write_silo_flag; //!< Write SILO output files flag
+  uint64_t n_user_photon;   //!< User requested number of photons per timestep
+  int32_t output_frequency; //!< How often to write silo (every n cycles)
+  bool write_silo_flag;     //!< Write SILO output files flag
 };
 
 #endif // imc_parameters_h_

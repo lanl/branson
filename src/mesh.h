@@ -54,8 +54,8 @@ public:
       : ngx(input.get_global_n_x_cells()), ngy(input.get_global_n_y_cells()),
         ngz(input.get_global_n_z_cells()), n_global(ngx * ngy * ngz),
         rank(mpi_info.get_rank()), n_rank(mpi_info.get_n_rank()),
-        total_photon_E(0.0), off_rank_reads(0), silo_x(input.get_silo_x_ptr()),
-        silo_y(input.get_silo_y_ptr()), silo_z(input.get_silo_z_ptr()),
+        total_photon_E(0.0), off_rank_reads(0), silo_x(input.get_silo_x()),
+        silo_y(input.get_silo_y()), silo_z(input.get_silo_z()),
         regions(input.get_regions()) {
     using Constants::bc_type;
     using Constants::ELEMENT;
@@ -165,9 +165,9 @@ public:
   uint32_t get_global_n_y_faces(void) const { return ngy + 1; }
   uint32_t get_global_n_z_faces(void) const { return ngz + 1; }
 
-  float const *get_silo_x(void) const { return silo_x; }
-  float const *get_silo_y(void) const { return silo_y; }
-  float const *get_silo_z(void) const { return silo_z; }
+  const std::vector<float> &get_silo_x(void) const { return silo_x; }
+  const std::vector<float> &get_silo_y(void) const { return silo_y; }
+  const std::vector<float> &get_silo_z(void) const { return silo_z; }
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
@@ -307,9 +307,12 @@ private:
   double total_photon_E;   //!< Total photon energy on the mesh
   uint32_t off_rank_reads; //!< Number of off rank reads
 
-  float const *const silo_x; //!< Global array of x face locations for SILO
-  float const *const silo_y; //!< Global array of y face locations for SILO
-  float const *const silo_z; //!< Global array of z face locations for SILO
+  const std::vector<float>
+      &silo_x; //!< Global array of x face locations for SILO
+  const std::vector<float>
+      &silo_y; //!< Global array of y face locations for SILO
+  const std::vector<float>
+      &silo_z; //!< Global array of z face locations for SILO
 
   std::vector<Region> regions; //!< Vector of regions in the problem
 

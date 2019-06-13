@@ -49,8 +49,8 @@ public:
       : ngx(input.get_global_n_x_cells()), ngy(input.get_global_n_y_cells()),
         ngz(input.get_global_n_z_cells()), rank(mpi_info.get_rank()),
         n_rank(mpi_info.get_n_rank()), n_off_rank(n_rank - 1),
-        silo_x(input.get_silo_x_ptr()), silo_y(input.get_silo_y_ptr()),
-        silo_z(input.get_silo_z_ptr()) {
+        silo_x(input.get_silo_x()), silo_y(input.get_silo_y()),
+        silo_z(input.get_silo_z()) {
     using Constants::bc_type;
     using Constants::ELEMENT;
     using Constants::X_NEG;
@@ -283,9 +283,9 @@ public:
   uint32_t get_global_n_y(void) const { return ngy; }
   uint32_t get_global_n_z(void) const { return ngz; }
 
-  float const *get_silo_x(void) const { return silo_x; }
-  float const *get_silo_y(void) const { return silo_y; }
-  float const *get_silo_z(void) const { return silo_z; }
+  const std::vector<float> &get_silo_x(void) const { return silo_x; }
+  const std::vector<float> &get_silo_y(void) const { return silo_y; }
+  const std::vector<float> &get_silo_z(void) const { return silo_z; }
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
@@ -429,9 +429,9 @@ private:
   int32_t n_rank;     //!< Number of global ranks
   int32_t n_off_rank; //!< Number of other ranks
 
-  float const *const silo_x; //!< Global array of x face locations for SILO
-  float const *const silo_y; //!< Global array of y face locations for SILO
-  float const *const silo_z; //!< Global array of z face locations for SILO
+  const std::vector<float> &silo_x; //!< Global array x face locations for SILO
+  const std::vector<float> &silo_y; //!< Global array y face locations for SILO
+  const std::vector<float> &silo_z; //!< Global array z face locations for SILO
 
   uint32_t n_cell;   //!< Number of local cells
   uint32_t n_global; //!< Nuber of global cells

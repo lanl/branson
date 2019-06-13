@@ -90,12 +90,7 @@ endforeach()
 #------------------------------------------------------------------------------#
 # write_silo function test
 if (VIZ_LIBRARIES_FOUND)
-  # KT - comment out for now due to compile error:
-  #
-  # test/test_write_silo.cc(53): error #165: too few arguments in function call
-  #    decompose_mesh(mesh, mpi_types, mpi_info, grip_size);
-  #                                                       ^
-  # add_branson_test( SOURCE test_write_silo.cc "1")
+   add_branson_test( SOURCE test_write_silo.cc "1")
 endif()
 
 #------------------------------------------------------------------------------#

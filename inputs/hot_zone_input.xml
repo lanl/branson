@@ -2,16 +2,16 @@
   <common>
     <method>IMC</method>
     <t_start>0.0</t_start>
-    <t_stop>0.2</t_stop>
+    <t_stop>1.0</t_stop>
     <dt_start>0.01</dt_start>
     <t_mult>1.0</t_mult>
     <dt_max>1.0</dt_max>
-    <photons>1000000</photons>
+    <photons>10000000</photons>
     <seed>14706</seed>
     <tilt>FALSE</tilt>
     <stratified_sampling>FALSE</stratified_sampling>
     <use_combing>TRUE</use_combing>
-    <output_frequency>1</output_frequency>
+    <output_frequency>10</output_frequency>
     <write_silo>TRUE</write_silo>
   </common>
 
