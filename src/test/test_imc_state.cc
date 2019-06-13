@@ -124,7 +124,6 @@ int main(int argc, char *argv[]) {
     Input input(filename, mpi_types);
     IMC_State imc_state(input, rank);
 
-    uint64_t big_64_bit_number_1 = 7000000000;
     uint64_t big_64_bit_number_2 = 8000000000;
     uint64_t big_64_bit_number_3 = 9000000000;
 
@@ -153,9 +152,6 @@ int main(int argc, char *argv[]) {
     string filename("simple_input.xml");
     Input input(filename, mpi_types);
     IMC_State imc_state(input, rank);
-
-    uint32_t big_32_bit_number = 3500000000;
-    uint64_t combined_64_bit_number = 7000000000;
 
     imc_state.print_conservation();
 

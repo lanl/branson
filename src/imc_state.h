@@ -57,7 +57,6 @@ public:
     m_RNG->set_seed(input.get_rng_seed() + rank * 4106);
 
     rank_transport_runtime = 0.0;
-    rank_rebalance_time = 0.0;
   }
 
   //! Destructor
@@ -147,8 +146,6 @@ public:
     // timing values
     double max_transport_time = 0.0;
     double min_transport_time = 0.0;
-    double max_rebalance_time = 0.0;
-    double min_rebalance_time = 0.0;
     // 64 bit global integers
     uint64_t g_census_size = 0;
     uint64_t g_trans_particles = 0;
@@ -172,10 +169,6 @@ public:
     MPI_Allreduce(&rank_transport_runtime, &max_transport_time, 1, MPI_DOUBLE,
                   MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&rank_transport_runtime, &min_transport_time, 1, MPI_DOUBLE,
-                  MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(&rank_rebalance_time, &max_rebalance_time, 1, MPI_DOUBLE,
-                  MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&rank_rebalance_time, &min_rebalance_time, 1, MPI_DOUBLE,
                   MPI_MIN, MPI_COMM_WORLD);
 
     // reduce diagnostic values
@@ -256,11 +249,6 @@ public:
     rank_transport_runtime = _rank_transport_runtime;
   }
 
-  //! Set load balance time for this timestep
-  void set_rank_rebalance_time(double _rebalance_time) {
-    rank_rebalance_time = _rebalance_time;
-  }
-
   //--------------------------------------------------------------------------//
   // member data                                                              //
   //--------------------------------------------------------------------------//
@@ -289,7 +277,6 @@ private:
   uint64_t census_size;     //!< Number of particles in census
 
   double rank_transport_runtime; //!< Transport step runtime for this rank
-  double rank_rebalance_time;    //!< Time to rebalance census after transport
 
   RNG *m_RNG; //!< Rank specific RNG
 };

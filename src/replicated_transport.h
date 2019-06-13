@@ -27,7 +27,7 @@
 #include "sampling_functions.h"
 #include "source.h"
 
-Constants::event_type transport_photon_particle_pass(
+Constants::event_type transport_photon(
     Photon &phtn, const Mesh &mesh, RNG *rng, double &next_dt, double &exit_E,
     double &census_E, std::vector<double> &rank_abs_E,
     std::vector<double> &rank_track_E) {
@@ -177,7 +177,7 @@ std::vector<Photon> replicated_transport(Source &source, const Mesh &mesh,
     phtn = source.get_photon(rng, dt);
     n_local_sourced++;
 
-    event = transport_photon_particle_pass(phtn, mesh, rng, next_dt, exit_E,
+    event = transport_photon(phtn, mesh, rng, next_dt, exit_E,
                                            census_E, rank_abs_E, rank_track_E);
     switch (event) {
     // this case should never be reached

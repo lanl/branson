@@ -40,11 +40,11 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
     if (rank == 0)
       imc_state.print_timestep_header();
 
-    //set opacity, Fleck factor, all energy to source
+    // set opacity, Fleck factor, all energy to source
     mesh.calculate_photon_energy(imc_state);
 
-    //all reduce to get total source energy to make correct number of
-    //particles on each rank
+    // all reduce to get total source energy to make correct number of
+    // particles on each rank
     double global_source_energy = mesh.get_total_photon_E();
     MPI_Allreduce(MPI_IN_PLACE, &global_source_energy, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
@@ -60,6 +60,7 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
 
     imc_state.set_transported_particles(source.get_n_photon());
 
+    // transport photons, return the particles that reached census
     census_photons =
         replicated_transport(source, mesh, imc_state, abs_E, track_E);
 
@@ -71,7 +72,7 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
 
     mesh.update_temperature(abs_E, track_E, imc_state);
 
-    // for replicated, just let root do conservation
+    // for replicated let root do conservation checks, zero out your tallies
     if (rank) {
       imc_state.set_absorbed_E(0.0);
       imc_state.set_pre_mat_E(0.0);
