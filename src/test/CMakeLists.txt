@@ -1,22 +1,29 @@
 # Unit tests
 cmake_minimum_required (VERSION 3.11)
 
+#
 # force mpiexec to be srun in cray environments
+# can't run as root on a cray so don't try to match
+# mpirun's allow-run-as-root and oversubscribe
+#
 message( STATUS "Looking to see if we are building in a Cray Environment...")
 if( DEFINED ENV{CRAYPE_VERSION} )
   set(MPIEXEC_EXECUTABLE srun)
+set( MPIEXEC_POSTFLAGS "--cpu-bind=none" CACHE STRING
+  "extra mpirun flags (list)." FORCE)
   message("In Cray Environment, MPI executable is: ${MPIEXEC_EXECUTABLE}")
-endif()
-
+else()
 # allow run as root
 if( "$ENV{GITLAB_CI}" STREQUAL "true" OR "$ENV{TRAVIS}" STREQUAL "true")
   message("In CI mode, allow running mpiexec as root")
   set(runasroot "--allow-run-as-root --oversubscribe")
 endif()
-
 # set extra flags for mpiexec in testing
 set( MPIEXEC_POSTFLAGS "-bind-to none ${runasroot}" CACHE STRING
   "extra mpirun flags (list)." FORCE)
+endif()
+
+
 
 string( REPLACE " " ";" mpiexec_postflags_list "${MPIEXEC_POSTFLAGS}" )
 
