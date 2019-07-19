@@ -37,6 +37,12 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
   int rank = mpi_info.get_rank();
   constexpr double fake_mpi_runtime = 0.0;
 
+  // set the max census size to be 10% more than the user requested photons.
+  // Note that this does not need to be divided by the number of ranks
+  // because the comb get the global census energy with an MPI_Allreduce
+  uint64_t max_census_size =
+      static_cast<uint64_t>(1.1 * imc_parameters.get_n_user_photon());
+
   if (imc_parameters.get_write_silo_flag()) {
     // write SILO file
     write_silo(mesh, imc_state.get_time(), imc_state.get_step(),
@@ -69,8 +75,8 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
     imc_state.set_transported_particles(source.get_n_photon());
 
     // transport photons, return the particles that reached census
-    census_photons =
-        replicated_transport(source, mesh, imc_state, abs_E, track_E);
+    census_photons = replicated_transport(source, mesh, imc_state, abs_E,
+                                          track_E, max_census_size);
 
     // reduce the abs_E and the track weighted energy (for T_r)
     MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh.get_global_num_cells(),
