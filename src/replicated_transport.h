@@ -20,11 +20,11 @@
 #include <vector>
 
 #include "RNG.h"
+#include "comb_photons.h"
 #include "constants.h"
 #include "info.h"
 #include "mesh.h"
 #include "photon.h"
-#include "comb_photons.h"
 #include "sampling_functions.h"
 #include "source.h"
 
@@ -162,7 +162,6 @@ std::vector<Photon> replicated_transport(Source &source, const Mesh &mesh,
 
   // replicated transport does not require the global photon count
   uint64_t n_local = source.get_n_photon();
-
 
   //------------------------------------------------------------------------//
   // main transport loop

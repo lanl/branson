@@ -24,7 +24,7 @@ void comb_photons(std::vector<Photon> &census_photons,
   uint64_t n_global_census = census_photons.size();
   MPI_Allreduce(MPI_IN_PLACE, &n_global_census, 1, MPI_UNSIGNED_LONG, MPI_SUM,
                 MPI_COMM_WORLD);
-  if ( n_global_census > max_census_photons) {
+  if (n_global_census > max_census_photons) {
     std::vector<Photon> post_comb_photons;
 
     double census_total_E = get_photon_list_E(census_photons);
