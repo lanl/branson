@@ -24,6 +24,7 @@
 #include "info.h"
 #include "mesh.h"
 #include "photon.h"
+#include "comb_photons.h"
 #include "sampling_functions.h"
 #include "source.h"
 
@@ -137,7 +138,8 @@ Constants::event_type transport_photon(Photon &phtn, const Mesh &mesh, RNG *rng,
 std::vector<Photon> replicated_transport(Source &source, const Mesh &mesh,
                                          IMC_State &imc_state,
                                          std::vector<double> &rank_abs_E,
-                                         std::vector<double> &rank_track_E) {
+                                         std::vector<double> &rank_track_E,
+                                         const uint64_t max_census_photons) {
   using Constants::CENSUS;
   using Constants::event_type;
   using Constants::EXIT;
@@ -160,6 +162,7 @@ std::vector<Photon> replicated_transport(Source &source, const Mesh &mesh,
 
   // replicated transport does not require the global photon count
   uint64_t n_local = source.get_n_photon();
+
 
   //------------------------------------------------------------------------//
   // main transport loop
@@ -193,6 +196,11 @@ std::vector<Photon> replicated_transport(Source &source, const Mesh &mesh,
       break;
     }
   } // end while
+
+  // comb the photon population to keep it from growing unbounded. I hardcode
+  // the taget comb value to be 10% of the user requested photons divided
+  // by the number of replicated ranks
+  comb_photons(census_list, max_census_photons, rng);
 
   // record time of transport work for this rank
   t_transport.stop_timer("timestep transport");
