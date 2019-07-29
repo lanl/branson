@@ -264,9 +264,9 @@ public:
   uint32_t get_global_n_y_faces(void) const { return ngy + 1; }
   uint32_t get_global_n_z_faces(void) const { return ngz + 1; }
 
-  float const *get_silo_x(void) const { return silo_x; }
-  float const *get_silo_y(void) const { return silo_y; }
-  float const *get_silo_z(void) const { return silo_z; }
+  float *get_silo_x(void) const { return silo_x; }
+  float *get_silo_y(void) const { return silo_y; }
+  float *get_silo_z(void) const { return silo_z; }
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
@@ -479,9 +479,9 @@ private:
   double total_photon_E;   //!< Total photon energy on the mesh
   uint32_t off_rank_reads; //!< Number of off rank reads
 
-  float const *const silo_x; //!< Global array of x face locations for SILO
-  float const *const silo_y; //!< Global array of y face locations for SILO
-  float const *const silo_z; //!< Global array of z face locations for SILO
+  float *silo_x; //!< Global array of x face locations for SILO
+  float *silo_y; //!< Global array of y face locations for SILO
+  float *silo_z; //!< Global array of z face locations for SILO
 
   std::vector<Region> regions; //!< Vector of regions in the problem
 

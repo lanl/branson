@@ -13,6 +13,7 @@
 #define write_silo_h_
 
 #include <array>
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>

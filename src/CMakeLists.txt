@@ -53,7 +53,7 @@ set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
 set( CMAKE_C_STANDARD 11 )
 
 # C++14 support:
-set( CMAKE_CXX_STANDARD 11 )
+#set( CMAKE_CXX_STANDARD 14 )
 set( CXX_STANDARD_REQUIRED ON )
 
 # Do not enable extensions (e.g.: --std=gnu++11)
