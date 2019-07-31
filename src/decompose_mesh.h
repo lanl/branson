@@ -833,7 +833,12 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
     part = cube_partition(mesh, rank, n_rank);
     edgecut = 1;
   } else if (decomposition_type == METIS)
-    part = metis_partition(mesh, edgecut, rank, n_rank, mpi_types);
+    if (n_rank > 1)
+      part = metis_partition(mesh, edgecut, rank, n_rank, mpi_types);
+    else {
+      part = std::vector<int>(mesh.get_n_local_cells(), 0);
+      edgecut = 0;
+    }
   else {
     if (rank == 0) {
       std::cout << "Decomposition type not recognized.";

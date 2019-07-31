@@ -322,11 +322,11 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon> &census,
 /*
   // determine how many receives to post with an RMA call
   const int one = 1;
-  int num_recv(0); // return value
+  int n_recv(0); // return value
 
   // Create the RMA memory windows for each value
   MPI_Win win;
-  MPI_Win_create(&num_recv, 1 * sizeof(int), sizeof(int), MPI_INFO_NULL,
+  MPI_Win_create(&n_recv, 1 * sizeof(int), sizeof(int), MPI_INFO_NULL,
                  MPI_COMM_WORLD, &win);
 
   // Assertion value for fences.  Currently, we effectively don't set
@@ -344,7 +344,7 @@ std::vector<Photon> rebalance_raw_census(std::vector<Photon> &census,
   MPI_Win_free(&win);
 
   // make requests for non-blocking communication
-  MPI_Request* reqs = new MPI_Request[num_recv];
+  MPI_Request* reqs = new MPI_Request[n_recv];
 */
 
 #endif // decompose_photons_h

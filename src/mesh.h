@@ -165,7 +165,7 @@ public:
   uint32_t get_n_local_cells(void) const { return n_cell; }
   uint32_t get_my_rank(void) const { return rank; }
   uint32_t get_offset(void) const { return on_rank_start; }
-  uint32_t get_global_num_cells(void) const { return n_global; }
+  uint32_t get_n_global_cells(void) const { return n_global; }
   std::unordered_map<uint32_t, uint32_t> get_proc_adjacency_list(void) const {
     return adjacent_procs;
   }

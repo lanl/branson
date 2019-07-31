@@ -17,7 +17,6 @@
 #include "../mesh.h"
 #include "../mpi_types.h"
 #include "../write_silo.h"
-#include "config.h"
 #include "testing_functions.h"
 
 int main(int argc, char *argv[]) {
@@ -51,7 +50,7 @@ int main(int argc, char *argv[]) {
     bool silo_write_pass = true;
 
     // get fake vector of mesh requests
-    std::vector<uint32_t> n_requests(mesh.get_global_num_cells(), 0);
+    std::vector<uint32_t> n_requests(mesh.get_n_global_cells(), 0);
 
     double time = 0.0;
     int step = 0;
@@ -83,7 +82,7 @@ int main(int argc, char *argv[]) {
     bool three_reg_silo_write_pass = true;
 
     // get fake vector of mesh requests
-    std::vector<uint32_t> n_requests(mesh.get_global_num_cells(), 0);
+    std::vector<uint32_t> n_requests(mesh.get_n_global_cells(), 0);
 
     double time = 2.0;
     int step = 1;

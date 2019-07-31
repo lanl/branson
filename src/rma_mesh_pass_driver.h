@@ -116,11 +116,13 @@ void imc_rma_mesh_pass_driver(Mesh &mesh, IMC_State &imc_state,
     // invalid
     mesh.purge_working_mesh();
 
-    if (imc_parameters.get_write_silo_flag()) {
+    // write SILO file if it's enabled and it's the right cycle
+    if (imc_parameters.get_write_silo_flag() &&
+        !(imc_state.get_step() % imc_parameters.get_output_frequency())) {
       // write SILO file
       // don't plot the n_requests vector
       double fake_mpi_runtime = 0.0;
-      vector<uint32_t> n_requests(mesh.get_n_local_cells(), 0);
+      vector<uint32_t> n_requests(mesh.get_n_global_cells(), 0);
       write_silo(mesh, imc_state.get_time(), imc_state.get_step(),
                  imc_state.get_rank_transport_runtime(), fake_mpi_runtime, rank,
                  n_rank, n_requests);

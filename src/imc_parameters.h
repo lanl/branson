@@ -32,6 +32,7 @@ public:
         grip_size(input.get_grip_size()), map_size(input.get_map_size()),
         dd_mode(input.get_dd_mode()), batch_size(input.get_batch_size()),
         particle_message_size(input.get_particle_message_size()),
+        output_frequency(input.get_output_freq()),
         write_silo_flag(input.get_write_silo_bool()) {}
 
   //! destructor
@@ -64,6 +65,8 @@ public:
   //! Get SILO write flag
   bool get_write_silo_flag(void) const { return write_silo_flag; }
 
+  //! Get output frequency (print when cycle % frequency == 0)
+  uint32_t get_output_frequency(void) const { return output_frequency; }
   //--------------------------------------------------------------------------//
   // member data                                                              //
   //--------------------------------------------------------------------------//
@@ -79,6 +82,7 @@ private:
   uint32_t batch_size; //!< How often to check for MPI passed data
   uint32_t
       particle_message_size; //!< Preferred number of particles in MPI sends
+  uint32_t output_frequency; //!< Frequency to dump output files
   bool write_silo_flag;      //!< Write SILO output files flag
 };
 

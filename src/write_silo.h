@@ -85,8 +85,8 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
     n_xyz_cells = (nx - 1) * (ny - 1) * (nz - 1);
 
   // reduce rank requests based on global ID
-  MPI_Allreduce(MPI_IN_PLACE, &rank_requests[0], n_xyz_cells, MPI_INT, MPI_SUM,
-                MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, &rank_requests[0], n_xyz_cells, MPI_UNSIGNED,
+                MPI_SUM, MPI_COMM_WORLD);
 
   // make vectors of data for plotting
   vector<int> rank_data(n_xyz_cells, 0);

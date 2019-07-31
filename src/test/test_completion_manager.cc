@@ -16,7 +16,6 @@
 #include "../completion_manager_rma.h"
 #include "../constants.h"
 #include "../message_counter.h"
-#include "config.h"
 #include "testing_functions.h"
 
 using std::cout;
