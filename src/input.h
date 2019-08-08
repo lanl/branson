@@ -129,7 +129,13 @@ public:
       }
       n_photons = static_cast<uint64_t>(n_photons_long);
       seed = settings_node.child("seed").text().as_int();
-      grip_size = settings_node.child("grip_size").text().as_int();
+      // if grip size is not found, set it to very high so no overdecomposition
+      // is used
+      if (!(settings_node.child("grip_size")))
+        grip_size = 100000000;
+      else
+        grip_size = settings_node.child("grip_size").text().as_int();
+
       map_size = settings_node.child("map_size").text().as_int();
       output_freq = settings_node.child("output_frequency").text().as_int();
 
@@ -699,11 +705,11 @@ public:
   }
 
   //! Return a pointer to the x coordinates of the mesh in SILO format
-  const float *get_silo_x_ptr(void) const { return silo_x; }
+  float *get_silo_x_ptr(void) const { return silo_x; }
   //! Return a pointer to the y coordinates of the mesh in SILO format
-  const float *get_silo_y_ptr(void) const { return silo_y; }
+  float *get_silo_y_ptr(void) const { return silo_y; }
   //! Return a pointer to the z coordinates of the mesh in SILO format
-  const float *get_silo_z_ptr(void) const { return silo_z; }
+  float *get_silo_z_ptr(void) const { return silo_z; }
 
   //! Return the total number of x divisions in the problem
   uint32_t get_n_x_divisions(void) const { return n_x_cells.size(); }

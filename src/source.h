@@ -88,16 +88,16 @@ public:
       cell_ptr = mesh.get_cell_ptr(i);
       //emission
       if (E_cell_emission[i] > 0.0) {
-        uint32_t t_num_emission =
+        uint32_t t_n_emission =
             int(user_photons * E_cell_emission[i] / total_E);
         // make at least one photon to represent emission energy
-        if (t_num_emission == 0)
-          t_num_emission = 1;
-        n_photon += t_num_emission;
+        if (t_n_emission == 0)
+          t_n_emission = 1;
+        n_photon += t_n_emission;
         // make work packet and add to vector
         temp_cell_work.set_global_cell_ID(cell_ptr->get_ID());
         temp_cell_work.set_global_grip_ID(cell_ptr->get_grip_ID());
-        temp_cell_work.attach_creation_work(E_cell_emission[i], t_num_emission);
+        temp_cell_work.attach_creation_work(E_cell_emission[i], t_n_emission);
         temp_cell_work.set_coor(cell_ptr->get_node_array());
         temp_cell_work.set_source_type(Constants::EMISSION);
         work.push_back(temp_cell_work);
@@ -108,16 +108,16 @@ public:
           Work_Packet temp_cell_work;
           cell_ptr = mesh.get_cell_ptr(i);
           if (E_cell_census[i] > 0.0) {
-            uint32_t t_num_census =
+            uint32_t t_n_census =
                 int(user_photons * E_cell_census[i] / total_E);
             // make at least one photon to represent census energy
-            if (t_num_census == 0)
-              t_num_census = 1;
-            n_photon += t_num_census;
+            if (t_n_census == 0)
+              t_n_census = 1;
+            n_photon += t_n_census;
             // make work packet and add to vector
             temp_cell_work.set_global_cell_ID(cell_ptr->get_ID());
             temp_cell_work.set_global_grip_ID(cell_ptr->get_grip_ID());
-            temp_cell_work.attach_creation_work(E_cell_census[i], t_num_census);
+            temp_cell_work.attach_creation_work(E_cell_census[i], t_n_census);
             temp_cell_work.set_coor(cell_ptr->get_node_array());
             temp_cell_work.set_source_type(Constants::INITIAL_CENSUS);
             work.push_back(temp_cell_work);

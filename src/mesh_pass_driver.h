@@ -42,6 +42,7 @@ void imc_mesh_pass_driver(Mesh &mesh, IMC_State &imc_state,
   vector<uint32_t> needed_grip_ids; //! Grips needed after load balance
   Message_Counter mctr;
   int rank = mpi_info.get_rank();
+  int n_ranks = mpi_info.get_n_rank();
 
   // make object that handles requests for local and remote data
   Mesh_Request_Manager req_manager(
@@ -114,6 +115,15 @@ void imc_mesh_pass_driver(Mesh &mesh, IMC_State &imc_state,
     // purge the working mesh, it will be updated by other ranks and is now
     // invalid
     mesh.purge_working_mesh();
+
+    // write SILO file if it's enabled and it's the right cycle
+    if (imc_parameters.get_write_silo_flag() &&
+        !(imc_state.get_step() % imc_parameters.get_output_frequency())) {
+      double fake_mpi_runtime = 0.0;
+      write_silo(mesh, imc_state.get_time(), imc_state.get_step(),
+                 imc_state.get_rank_transport_runtime(), fake_mpi_runtime, rank,
+                 n_ranks);
+    }
 
     // reset counters and max indices in mesh request object and tally object
     req_manager.end_timestep();

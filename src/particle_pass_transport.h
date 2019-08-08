@@ -185,7 +185,7 @@ std::vector<Photon> particle_pass_transport(
   // get global photon count
   uint64_t n_local = source.get_n_photon();
   uint64_t n_global;
-  uint64_t last_global_complete_count;
+  uint64_t last_global_complete_count = 0;
 
   MPI_Allreduce(&n_local, &n_global, 1, MPI_UNSIGNED_LONG, MPI_SUM,
                 MPI_COMM_WORLD);
