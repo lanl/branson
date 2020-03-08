@@ -155,8 +155,15 @@ target_link_libraries( BRANSON PUBLIC ${branson_deps} )
 #------------------------------------------------------------------------------#
 # Testing
 
-enable_testing()
-add_subdirectory(test)
+set (BRANSON_BUILD_TESTS ${BUILD_TESTS})
+if(${BRANSON_BUILD_TESTS} STREQUAL "True" OR ${BRANSON_BUILD_TESTS} STREQUAL "TRUE")
+  enable_testing()
+  add_subdirectory(test)
+else()
+  message(STATUS
+    "Building tests disabled (default), set BUILD_TESTS=TRUE to enable test builds")
+endif()
+
 
 #------------------------------------------------------------------------------#
 # Targets for installation

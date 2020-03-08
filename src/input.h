@@ -55,6 +55,7 @@ public:
     using Constants::CELL_PASS_RMA;
     using Constants::CUBE;
     using Constants::METIS;
+    using Constants::NO_DECOMP;
     using Constants::PARTICLE_PASS;
     using Constants::REPLICATED;
     using std::cout;
@@ -186,17 +187,24 @@ public:
         dd_mode = PARTICLE_PASS;
       }
 
-      // domain decomposition method
+      // domain decomposition method, only do non-repliacted
       tempString = settings_node.child_value("mesh_decomposition");
       if (tempString == "METIS")
         decomp_mode = METIS;
       else if (tempString == "CUBE")
         decomp_mode = CUBE;
+      else if (dd_mode == REPLICATED) {
+        std::cout << "Replicated transport mode, mesh decomposition method";
+        std::cout << " ignored" << std::endl;
+        decomp_mode = NO_DECOMP;
+      }
       else {
-        cout << "WARNING: Mesh decomposition method not recognized... ";
+        cout << "WARNING: Mesh decomposition method is required but not ";
+        cout << "recognized... ";
         cout << "setting to METIS method" << endl;
         decomp_mode = METIS;
       }
+      // if replicated mode, let user know decomposition method is ignored
       if (dd_mode == REPLICATED) {
         std::cout << "Replicated transport mode, mesh decomposition method";
         std::cout << " ignored" << std::endl;
