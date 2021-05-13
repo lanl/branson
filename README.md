@@ -102,12 +102,15 @@ ctest -j 32
 - [Random123](http://www.deshawresearch.com/resources_random123.html)
   is by D. E. Shaw Research, Copyright 2010-2011
 - [PugiXML](https://github.com/zeux/pugixml)
-  is by zeux (Arseny Kapoulkine), MIT License
-- RNG.h uses code from [Draco](https://github.com/lanl/Draco)
+  is by zeux (Arseny Kapoulkine), [MIT License](https://github.com/zeux/pugixml/blob/master/LICENSE.md)
+- RNG.h uses code from [Draco](https://github.com/lanl/Draco), [BSD-3 Clause License](https://github.com/lanl/Draco/blob/develop/LICENSE.md)
 
 ## Release
 
-Branson is released under the BSD 3-Clause License. For more details see the
+- Branson is released under the BSD 3-Clause License. For more details see the
 [LICENSE.md file](https://github.com/lanl/branson/blob/develop/LICENSE.md).
 
-LANL code designation: `C17048`
+- Branson development follows the development model outlined in the CS-memo-2020-11-18.pdf file,
+  available in the top-level of this repo
+
+- LANL code designation: `C17048

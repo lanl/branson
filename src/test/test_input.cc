@@ -64,11 +64,7 @@ int main(int argc, char *argv[]) {
       if (input.get_dz(0) != 3.0)
         simple_input_pass = false;
 
-      if (input.get_tilt_bool() != true)
-        simple_input_pass = false;
       if (input.get_comb_bool() != true)
-        simple_input_pass = false;
-      if (input.get_stratified_bool() != false)
         simple_input_pass = false;
       if (input.get_verbose_print_bool() != true)
         simple_input_pass = false;
@@ -197,11 +193,7 @@ int main(int argc, char *argv[]) {
       if (input.get_z_division_cells(0) != 1)
         three_region_pass = false;
 
-      if (input.get_tilt_bool() != false)
-        three_region_pass = false;
       if (input.get_comb_bool() != true)
-        three_region_pass = false;
-      if (input.get_stratified_bool() != false)
         three_region_pass = false;
       if (input.get_verbose_print_bool() != false)
         three_region_pass = false;
