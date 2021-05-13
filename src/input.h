@@ -158,12 +158,6 @@ public:
       if (tempString == "TRUE")
         write_silo = true;
 
-      // use tilting (not currently used)
-      use_tilt = false;
-      tempString = settings_node.child_value("tilt");
-      if (tempString == "TRUE")
-        use_tilt = true;
-
       // number of particles to run between MPI message checks
       batch_size = settings_node.child("batch_size").text().as_int();
 
@@ -401,7 +395,7 @@ public:
         batch_size = 100000000;
     } // end xml parse
 
-    const int n_bools = 6;
+    const int n_bools = 4;
     const int n_uint = 16;
     const int n_doubles = 6;
     MPI_Datatype MPI_Region = mpi_types.get_region_type();
@@ -415,8 +409,8 @@ public:
       uint32_t n_z_div = n_z_cells.size();
 
       // bools
-      vector<int> all_bools = {write_silo, use_tilt,      use_comb,
-                               use_strat,  print_verbose, print_mesh_info};
+      vector<int> all_bools = {write_silo, use_comb,
+                               print_verbose, print_mesh_info};
       MPI_Bcast(&all_bools[0], n_bools, MPI_INT, 0, MPI_COMM_WORLD);
 
       // bcs
@@ -483,11 +477,9 @@ public:
 
       MPI_Bcast(&all_bools[0], n_bools, MPI_INT, 0, MPI_COMM_WORLD);
       write_silo = all_bools[0];
-      use_tilt = all_bools[1];
-      use_comb = all_bools[2];
-      use_strat = all_bools[3];
-      print_verbose = all_bools[4];
-      print_mesh_info = all_bools[5];
+      use_comb = all_bools[1];
+      print_verbose = all_bools[2];
+      print_mesh_info = all_bools[3];
 
       // set bcs
       vector<int> bcast_bcs(6);
@@ -605,16 +597,6 @@ public:
     cout << " time multiplier: " << tMult << " , max dt:" << dtMax;
     cout << " (sh), Random number seed: " << seed;
     cout << " , output frequency: " << output_freq << endl;
-
-    // cout<<"Sampling -- Emission Position: ";
-    // if (use_tilt) cout<<"source tilting (x only), ";
-    // else cout<<"uniform (default), ";
-    // cout<<" Angle: ";
-    cout << "Stratified sampling in angle: ";
-    if (use_strat)
-      cout << "TRUE" << endl;
-    else
-      cout << "FALSE" << endl;
 
     if (use_comb)
       cout << "Combing census enabled (default)" << endl;
@@ -746,12 +728,8 @@ public:
   //! Return the starting z position of a given z division
   double get_z_start(const uint32_t &div) const { return z_start[div]; }
 
-  //! Return the value of the use tilt option
-  bool get_tilt_bool(void) const { return use_tilt; }
   //! Return the value of the use comb option
   bool get_comb_bool(void) const { return use_comb; }
-  //! Return the value of the stratified option
-  bool get_stratified_bool(void) const { return use_strat; }
   //! Return the value of the write SILO option
   bool get_write_silo_bool(void) const { return write_silo; }
   //! Return the value of the verbose printing option
@@ -850,9 +828,7 @@ private:
   uint32_t seed;      //!< Random number seed
 
   // Method parameters
-  bool use_tilt;        //!< Use tilting for emission sampling
   bool use_comb;        //!< Comb census photons
-  bool use_strat;       //!< Use strafifed sampling
   uint32_t dd_mode;     //!< Mode of domain decomposed transport algorithm
   uint32_t decomp_mode; //!< Mode of decomposing mesh
 

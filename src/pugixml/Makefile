@@ -12,9 +12,9 @@ SOURCES=src/pugixml.cpp $(filter-out tests/fuzz_%,$(wildcard tests/*.cpp))
 EXECUTABLE=$(BUILD)/test
 
 VERSION=$(shell sed -n 's/.*version \(.*\).*/\1/p' src/pugiconfig.hpp)
-RELEASE=$(filter-out scripts/archive.py docs/%.adoc,$(shell git ls-files contrib docs scripts src CMakeLists.txt readme.txt))
+RELEASE=$(filter-out scripts/archive.py docs/%.adoc,$(shell git ls-files docs scripts src CMakeLists.txt LICENSE.md readme.txt))
 
-CXXFLAGS=-g -Wall -Wextra -Werror -pedantic -Wundef -Wshadow -Wcast-align -Wcast-qual -Wold-style-cast
+CXXFLAGS=-g -Wall -Wextra -Werror -pedantic -Wundef -Wshadow -Wcast-align -Wcast-qual -Wold-style-cast -Wdouble-promotion
 LDFLAGS=
 
 ifeq ($(config),release)
@@ -27,7 +27,7 @@ ifeq ($(config),coverage)
 endif
 
 ifeq ($(config),sanitize)
-	CXXFLAGS+=-fsanitize=address,undefined
+	CXXFLAGS+=-fsanitize=address,undefined -fno-sanitize=float-divide-by-zero,float-cast-overflow -fno-sanitize-recover=all
 	LDFLAGS+=-fsanitize=address,undefined
 endif
 
@@ -58,6 +58,7 @@ test: $(EXECUTABLE)
 	./$(EXECUTABLE)
 	@gcov -b -o $(BUILD)/src/ pugixml.cpp.gcda | sed -e '/./{H;$!d;}' -e 'x;/pugixml.cpp/!d;'
 	@find . -name '*.gcov' -and -not -name 'pugixml.cpp.gcov' -exec rm {} +
+	@sed -i -e "s/#####\(.*\)\(\/\/ unreachable.*\)/    1\1\2/" pugixml.cpp.gcov
 else
 test: $(EXECUTABLE)
 	./$(EXECUTABLE)
@@ -76,7 +77,7 @@ docs: docs/quickstart.html docs/manual.html
 
 build/pugixml-%: .FORCE | $(RELEASE)
 	@mkdir -p $(BUILD)
-	TIMESTAMP=`git show v$(VERSION) -s --format=%ct` && python scripts/archive.py $@ pugixml-$(VERSION) $$TIMESTAMP $|
+	TIMESTAMP=`git show v$(VERSION) -s --format=%ct` && python3 scripts/archive.py $@ pugixml-$(VERSION) $$TIMESTAMP $|
 
 $(EXECUTABLE): $(OBJECTS)
 	$(CXX) $(OBJECTS) $(LDFLAGS) -o $@
