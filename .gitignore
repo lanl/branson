@@ -1,0 +1,8 @@
+*.pyc
+*.elc
+*~
+TAGS
+GPATH
+GTAGS
+GRTAGS
+.nfs*
