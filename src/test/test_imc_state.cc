@@ -1,0 +1,162 @@
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   test_imc_state.cc
+ * \author Alex Long
+ * \date   February 11 2016
+ * \brief  Test IMC state get and set functions and 64 bit reductions
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
+ */
+//---------------------------------------------------------------------------//
+
+#include "../imc_state.h"
+#include "../input.h"
+#include "testing_functions.h"
+#include <iostream>
+#include <string>
+
+using std::cout;
+using std::endl;
+using std::string;
+
+int main(int argc, char *argv[]) {
+
+  int nfail = 0;
+
+  // test get functions
+  {
+    bool get_functions_pass = true;
+
+    //setup imc_state
+    string filename("simple_input.xml");
+    Input input(filename);
+    IMC_State imc_state(input);
+
+    if (imc_state.get_dt() != input.get_dt())
+      get_functions_pass = false;
+    // no time multiplier so next dt should be the same
+    if (imc_state.get_next_dt() != imc_state.get_dt())
+      get_functions_pass = false;
+    if (imc_state.get_step() != 1)
+      get_functions_pass = false;
+    if (imc_state.get_census_size() != 0)
+      get_functions_pass = false;
+    if (imc_state.get_pre_census_E() != 0.0)
+      get_functions_pass = false;
+    if (imc_state.get_emission_E() != 0.0)
+      get_functions_pass = false;
+    if (imc_state.finished())
+      get_functions_pass = false;
+
+    if (get_functions_pass)
+      cout << "TEST PASSED: IMC_State get functions " << endl;
+    else {
+      cout << "TEST FAILED: IMC_State get functions" << endl;
+      nfail++;
+    }
+  }
+
+  // test time increment functions
+  {
+    bool time_functions_pass = true;
+    double tolerance = 1.0e-8;
+
+    // setup imc_state
+    string large_filename("large_particle_input.xml");
+    Input input(large_filename);
+    IMC_State imc_state(input);
+
+    double init_dt = imc_state.get_dt();
+
+    if (imc_state.get_dt() != input.get_dt())
+      time_functions_pass = false;
+    if (imc_state.get_step() != 1)
+      time_functions_pass = false;
+    if (!soft_equiv(imc_state.get_time(), 0.0, tolerance))
+      time_functions_pass = false;
+    // time multiplier is 1.5 so next dt should be the 1.5 times larger
+    if (imc_state.get_next_dt() != (1.5 * imc_state.get_dt()))
+      time_functions_pass = false;
+    if (imc_state.get_next_dt() == input.get_dt())
+      time_functions_pass = false;
+
+    // increment step and check values
+    imc_state.next_time_step();
+    if (imc_state.get_step() != 2)
+      time_functions_pass = false;
+    if (!soft_equiv(imc_state.get_next_dt(), (1.5 * imc_state.get_dt()),
+                    tolerance))
+      time_functions_pass = false;
+    if (!soft_equiv(imc_state.get_time(), init_dt, tolerance))
+      time_functions_pass = false;
+
+    // increment many times to check that dt does not exceed maximum dt
+    for (uint32_t i = 0; i < 10; i++)
+      imc_state.next_time_step();
+
+    if (!soft_equiv(imc_state.get_next_dt(), input.get_dt_max(), tolerance))
+      time_functions_pass = false;
+    if (!soft_equiv(imc_state.get_dt(), input.get_dt_max(), tolerance))
+      time_functions_pass = false;
+
+    if (time_functions_pass)
+      cout << "TEST PASSED: IMC_State time increment functions" << endl;
+    else {
+      cout << "TEST FAILED: IMC_State time increment functions" << endl;
+      nfail++;
+    }
+  }
+
+  // test get and set of 64 bit quantities
+  {
+    bool large_quantity_pass = true;
+    // setup imc_state
+    string filename("simple_input.xml");
+    Input input(filename);
+    IMC_State imc_state(input);
+
+    uint64_t big_64_bit_number_2 = 8000000000;
+    uint64_t big_64_bit_number_3 = 9000000000;
+
+    imc_state.set_census_size(big_64_bit_number_2);
+    imc_state.set_transported_particles(big_64_bit_number_3);
+
+    if (imc_state.get_census_size() != big_64_bit_number_2)
+      large_quantity_pass = false;
+
+    if (imc_state.get_transported_particles() != big_64_bit_number_3)
+      large_quantity_pass = false;
+
+    if (large_quantity_pass)
+      cout << "TEST PASSED: IMC_State 64 bit value get and set" << endl;
+    else {
+      cout << "TEST FAILED: IMC_State 64 bit value get and set" << endl;
+      nfail++;
+    }
+  }
+
+  // test reduction of 64 bit diagnostic quantities
+  {
+    bool large_reduction_pass = true;
+    // setup imc_state
+    string filename("simple_input.xml");
+    Input input(filename);
+    IMC_State imc_state(input);
+
+    imc_state.print_conservation();
+
+    if (large_reduction_pass)
+      cout << "TEST PASSED: IMC_State 64 bit value reduction" << endl;
+    else {
+      cout << "TEST FAILED: IMC_State 64 bit value reduction" << endl;
+      nfail++;
+    }
+  }
+
+  MPI_Finalize();
+
+  return nfail;
+}
+//---------------------------------------------------------------------------//
+// end of test_imc_state.cc
+//---------------------------------------------------------------------------//

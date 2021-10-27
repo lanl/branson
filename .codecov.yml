@@ -1,0 +1,33 @@
+codecov:
+  token: 25f392e6-778f-4e54-90c4-50b8594f60f6
+  notify:
+    require_ci_to_pass: yes
+
+coverage:
+  precision: 1
+  round: down
+  range: "70...100"
+
+  status:
+    project: yes
+    patch: yes
+    changes: no
+
+  parsers:
+     gcov:
+       branch_detection:
+         conditional: yes
+         loop: yes
+         method: no
+         macro: no
+
+  ignore:
+    - "src/old/.*"
+    - "src/random123/.*"
+    - "src/test/.*"
+    - "src/test/sample.f90"
+
+comment:
+  layout: "header, diff"
+  behavior: default
+  require_changes: no

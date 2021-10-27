@@ -1,0 +1,341 @@
+//----------------------------------*-C++-*----------------------------------//
+/*!
+ * \file   mesh.h
+ * \author Alex Long
+ * \date   July 18 2014
+ * \brief  Object that holds mesh and manages decomposition and communication
+ * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
+ *         All rights reserved
+ */
+//---------------------------------------------------------------------------//
+
+#ifndef mesh_h_
+#define mesh_h_
+
+#include <algorithm>
+#include <iterator>
+#include <set>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+#include <iostream>
+#include <iomanip>
+
+#include "cell.h"
+#include "constants.h"
+#include "imc_parameters.h"
+#include "imc_state.h"
+#include "input.h"
+#include "proto_cell.h"
+#include "proto_mesh.h"
+#include "timer.h"
+
+//==============================================================================
+/*!
+ * \class Mesh
+ * \brief Manages data access, decomposition and parallel communication for mesh
+ *
+ * Using an Input class, make the mesh with the correct material properties
+ * for each region. The mesh numbering and mapping between global IDs and local
+ * indices are all determined with the aid of Metis in the decompose_mesh
+ * function. The mesh class also manages two-sided messaging in the mesh-
+ * passing method.
+ *
+ */
+//==============================================================================
+class Mesh {
+
+public:
+  //! constructor
+  Mesh(const Input &input,
+       const IMC_Parameters &imc_p)
+      : ngx(input.get_global_n_x_cells()), ngy(input.get_global_n_y_cells()),
+        ngz(input.get_global_n_z_cells()), n_global(ngx * ngy * ngz),
+        verbose_print(input.get_verbose_print_bool()),
+        total_photon_E(0.0),
+        regions(input.get_regions()) {
+    using Constants::bc_type;
+    using Constants::ELEMENT;
+    using Constants::X_NEG;
+    using Constants::X_POS;
+    using Constants::Y_NEG;
+    using Constants::Y_POS;
+    using Constants::Z_NEG;
+    using Constants::Z_POS;
+    using std::vector;
+
+    Proto_Mesh proto_mesh(input);
+
+    const std::vector<Proto_Cell> &proto_cell_list(proto_mesh.get_cell_list());
+
+    // this rank's cells
+    n_cell = proto_cell_list.size();
+    // size physics data
+    m_census_E.resize(n_cell);
+    m_emission_E.resize(n_cell);
+    m_source_E.resize(n_cell);
+    T_r.resize(n_cell);
+
+    // use the proto cells to contstruct the real cells
+    for (auto icell : proto_cell_list)
+      cells.push_back(Cell(icell));
+
+    // map region IDs to index in the region
+    for (uint32_t i = 0; i < regions.size(); i++)
+      region_ID_to_index[regions[i].get_ID()] = i;
+  }
+
+  // destructor
+  ~Mesh() {}
+
+  //--------------------------------------------------------------------------//
+  // const functions                                                          //
+  //--------------------------------------------------------------------------//
+  uint32_t get_n_local_cells(void) const { return n_cell; }
+  uint32_t get_global_num_cells(void) const { return n_global; }
+
+  double get_total_photon_E(void) const { return total_photon_E; }
+
+  void print(void) const {
+    for (uint32_t i = 0; i < n_cell; i++)
+      cells[i].print();
+  }
+
+  Cell get_cell(const uint32_t &local_ID) const { return cells[local_ID]; }
+
+  Cell &get_cell_ref(const uint32_t &local_ID) { return cells[local_ID]; }
+
+  const Cell *get_cell_ptr(const uint32_t &local_ID) const {
+    return &cells[local_ID];
+  }
+
+  const Cell *get_const_cells_ptr(void) const { return &cells[0]; }
+
+  uint32_t get_local_ID(const uint32_t &index) const {
+    return index ;
+  }
+
+  uint32_t get_global_ID(const uint32_t &local_index) const {
+    return local_index;
+  }
+
+  Cell get_on_rank_cell(const uint32_t index) const {
+    // this can only be called after with valid cell index (on rank or in stored
+    // cells vector
+    return cells[index];
+  }
+
+  std::vector<Cell> &get_cells() {
+    return cells;
+  }
+
+  std::vector<double> get_census_E(void) const { return m_census_E; }
+  std::vector<double> get_emission_E(void) const { return m_emission_E; }
+  std::vector<double> get_source_E(void) const { return m_source_E; }
+
+  //! Get the radiation temperature in a cell (for plotting/diagnostics)
+  double get_T_r(const uint32_t cell_index) const { return T_r[cell_index]; }
+
+  uint32_t get_global_n_x_faces(void) const { return ngx + 1; }
+  uint32_t get_global_n_y_faces(void) const { return ngy + 1; }
+  uint32_t get_global_n_z_faces(void) const { return ngz + 1; }
+
+  //--------------------------------------------------------------------------//
+  // non-const functions                                                      //
+  //--------------------------------------------------------------------------//
+
+  //! Calculate new physical properties and emission energy for each cell on
+  // the mesh
+  void calculate_photon_energy(IMC_State &imc_state) {
+    using Constants::a;
+    using Constants::c;
+    total_photon_E = 0.0;
+    double dt = imc_state.get_dt();
+    double op_a, op_s, f, cV, rho;
+    double vol;
+    double T, Tr, Ts;
+    uint32_t step = imc_state.get_step();
+    double tot_census_E = 0.0;
+    double tot_emission_E = 0.0;
+    double tot_source_E = 0.0;
+    double pre_mat_E = 0.0;
+
+    uint32_t region_ID;
+    Region region;
+    for (uint32_t i = 0; i < n_cell; ++i) {
+      Cell &e = cells[i];
+      vol = e.get_volume();
+      cV = e.get_cV();
+      T = e.get_T_e();
+      Tr = e.get_T_r();
+      Ts = e.get_T_s();
+      rho = e.get_rho();
+
+      region_ID = e.get_region_ID();
+      region = regions[region_ID_to_index[region_ID]];
+
+      op_a = region.get_absorption_opacity(T);
+      op_s = region.get_scattering_opacity();
+      f = 1.0 / (1.0 + dt * op_a * c * (4.0 * a * pow(T, 3) / (cV * rho)));
+      e.set_op_a(op_a);
+      e.set_op_s(op_s);
+      e.set_f(f);
+
+      m_emission_E[i] =
+           dt * vol * f * op_a * a * c * pow(T, 4);
+      if (step > 1)
+        m_census_E[i] = 0.0;
+      else
+        m_census_E[i] = vol * a * pow(Tr, 4);
+      m_source_E[i] = 0.25 * a * c *  e.get_source_area() * pow(Ts, 4) * dt;
+
+      pre_mat_E += T * cV * vol * rho;
+      tot_emission_E += m_emission_E[i];
+      tot_census_E += m_census_E[i];
+      tot_source_E += m_source_E[i];
+      total_photon_E += m_emission_E[i] + m_census_E[i] + m_source_E[i];
+    }
+
+    // set energy for conservation checks
+    imc_state.set_pre_mat_E(pre_mat_E);
+    imc_state.set_emission_E(tot_emission_E);
+    imc_state.set_source_E(tot_source_E);
+    if (imc_state.get_step() == 1)
+      imc_state.set_pre_census_E(tot_census_E);
+  }
+
+  //! Use the absorbed energy and update the material temperature of each
+  // cell on the mesh. Set diagnostic and conservation values.
+  void update_temperature(std::vector<double> &abs_E,
+                          std::vector<double> &track_E, IMC_State &imc_state) {
+    using Constants::a;
+    using Constants::c;
+    using std::setiosflags;
+    using std::ios;
+    using std::setw;
+    // abs E is a global vector
+    double total_abs_E = 0.0;
+    double total_post_mat_E = 0.0;
+    double vol, cV, rho, T, T_new;
+    uint32_t region_ID;
+    Region region;
+
+    if (verbose_print) {
+      std::cout.precision(8);
+      std::cout<<"-------- VERBOSE PRINT BLOCK: CELL TEMPERATURE --------"<<std::endl;
+      std::cout<<setiosflags(ios::right) << setw(12) << "cell"<<" ";
+      std::cout<<setiosflags(ios::right) << setw(12) << "T_e"<<" ";
+      std::cout<<setiosflags(ios::right) << setw(12) << "T_r"<<" ";
+      std::cout<<setiosflags(ios::right) << setw(12) << "abs_E"<<" ";
+      std::cout<<std::endl;
+    }
+    for (uint32_t i = 0; i < n_cell; ++i) {
+      region_ID = cells[i].get_region_ID();
+      region = regions[region_ID_to_index[region_ID]];
+      cV = region.get_cV();
+      rho = region.get_rho();
+      Cell &e = cells[i];
+      vol = e.get_volume();
+      T = e.get_T_e();
+      T_new = T + (abs_E[i] - m_emission_E[i] ) /
+                      (cV * vol * rho);
+      T_r[i] = std::pow(track_E[i] / (vol * imc_state.get_dt() * a * c), 0.25);
+      e.set_T_e(T_new);
+      total_abs_E += abs_E[i];
+      total_post_mat_E += T_new * cV * vol * rho;
+      if (verbose_print) {
+        std::cout<<setiosflags(ios::right) << setw(12) << i<<" ";
+        std::cout<<setiosflags(ios::right) << setw(12) << T_new<<" ";
+        std::cout<<setiosflags(ios::right) << setw(12) << T_r[i]<<" ";
+        std::cout<<setiosflags(ios::right) << setw(12) << abs_E[i]<<" ";;
+        std::cout<<std::endl;
+      }
+    }
+    if (verbose_print)
+      std::cout<<"-------------------------------------------------------"<<std::endl;
+    // zero out absorption tallies for all cells (global)
+    abs_E.assign(abs_E.size(), 0.0);
+    track_E.assign(track_E.size(), 0.0);
+    imc_state.set_absorbed_E(total_abs_E);
+    imc_state.set_post_mat_E(total_post_mat_E);
+  }
+
+  //! Set the physical data for the cells on your rank
+  void initialize_physical_properties(const Input &input) {
+    for (uint32_t i = 0; i < n_cell; ++i) {
+      int region_ID = cells[i].get_region_ID();
+      // find the region for this cell
+      Region region = input.get_region(region_ID);
+      // set cell physical properties using region
+      cells[i].set_cV(region.get_cV());
+      cells[i].set_T_e(region.get_T_e());
+      cells[i].set_T_r(region.get_T_r());
+      cells[i].set_rho(region.get_rho());
+      if (cells[i].get_source_face() != -1)
+        cells[i].set_T_s(input.get_source_T());
+    }
+  }
+
+
+  std::array<int,3> get_xyz_index(int index) {
+    int z = index/ngz;
+    int y = (index - z*ngz)/ngy;
+    int x = (index - z*ngz - y*ngy)/ngx;
+    return std::array<int,3> { x,y,z};
+  }
+
+  // this is related to how APEs and cells are stored, with 1 ape per cell in 2D, this will be 1
+  // in 3D this has some other relationship
+  int get_max_distance_between_cells() {
+    return 1;
+  }
+
+  //! Get census energy vector needed to source particles
+  std::vector<double> &get_census_E_ref(void) { return m_census_E; }
+
+  //! Get emission energy vector needed to source particles
+  std::vector<double> &get_emission_E_ref(void) { return m_emission_E; }
+
+  //! Get external source energy vector needed to source particles
+  std::vector<double> &get_source_E_ref(void) { return m_source_E; }
+
+  std::vector<Cell>::iterator begin() {return cells.begin();}
+  std::vector<Cell>::iterator end() {return cells.end();}
+  std::vector<Cell>::const_iterator begin() const {return cells.cbegin();}
+  std::vector<Cell>::const_iterator end() const {return cells.cend();}
+
+  //--------------------------------------------------------------------------//
+  // member variables
+  //--------------------------------------------------------------------------//
+private:
+  uint32_t ngx;      //!< Number of global x sizes
+  uint32_t ngy;      //!< Number of global y sizes
+  uint32_t ngz;      //!< Number of global z sizes
+  uint32_t n_global; //!< Nuber of global cells
+
+  bool verbose_print;
+
+  double total_photon_E;   //!< Total photon energy on the mesh
+
+  std::vector<Region> regions; //!< Vector of regions in the problem
+
+  uint32_t n_cell; //!< Number of local cells
+
+  std::vector<double> m_census_E;   //!< Census energy vector
+  std::vector<double> m_emission_E; //!< Emission energy vector
+  std::vector<double> m_source_E;   //!< Source energy vector
+  std::vector<double> T_r;          //!< Diagnostic quantity
+
+  std::vector<Cell> cells; //!< Cell data allocated with MPI_Alloc
+
+  std::unordered_map<uint32_t, uint32_t>
+      region_ID_to_index; //!< Maps region ID to index
+
+  Cell current_cell; //!< Off rank cell found in search
+};
+
+#endif // mesh_h_
+//---------------------------------------------------------------------------//
+// end of mesh.h
+//---------------------------------------------------------------------------//
