@@ -78,14 +78,16 @@ endif ()
 # add compiler flags
 if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0")
+  set( CMAKE_CXX_FLAGS_RELEASE "-march=native  -O3 -funroll-loops -fno-var-tracking-assignments")
   # optionally add sanitize flags
   #set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${GCC_SANITIZE_COMPILE_FLAGS}")
   #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0")
+  set( CMAKE_CXX_FLAGS_RELEASE "-O3 -fp-speculation=fast -fp-model=precise -qno-opt-dynamic-align")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
-  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -DR123_USE_GNU_UINT128=0")
-  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DR123_USE_GNU_UINT128=0")
+  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -g -DR123_USE_GNU_UINT128=0")
+  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -DR123_USE_GNU_UINT128=0")
 endif()
 
 #------------------------------------------------------------------------------#
@@ -155,6 +157,7 @@ target_link_libraries( BRANSON PUBLIC ${branson_deps} )
 #------------------------------------------------------------------------------#
 # Testing
 
+set (BUILD_TESTS FALSE)
 set (BRANSON_BUILD_TESTS ${BUILD_TESTS})
 if(${BRANSON_BUILD_TESTS} STREQUAL "True" OR ${BRANSON_BUILD_TESTS} STREQUAL "TRUE")
   enable_testing()

@@ -90,6 +90,7 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
   vector<double> transport_time(n_xyz_cells, 0.0);
   vector<double> mpi_time(n_xyz_cells, 0.0);
   vector<int> grip_ID(n_xyz_cells, 0);
+  vector<int> material(n_xyz_cells, 0);
 
   // get rank data, map values from from global ID to SILO ID
   uint32_t n_local = mesh.get_n_local_cells();
@@ -106,6 +107,7 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
     transport_time[silo_index] = r_transport_time;
     mpi_time[silo_index] = r_mpi_time;
     grip_ID[silo_index] = cell.get_grip_ID();
+    material[silo_index] = cell.get_region_ID();
   }
 
   // reduce to get rank of each cell across all ranks
@@ -132,6 +134,10 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
   MPI_Allreduce(MPI_IN_PLACE, &grip_ID[0], n_xyz_cells, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
 
+  // reduce to get grip_ID across all ranks
+  MPI_Allreduce(MPI_IN_PLACE, &material[0], n_xyz_cells, MPI_INT, MPI_SUM,
+                MPI_COMM_WORLD);
+
   // First rank writes the SILO file
   if (rank == 0) {
 
@@ -143,7 +149,6 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
     int *dims;
     float **coords;
     int *cell_dims;
-    uint32_t n_xyz_cells;
 
     // do 2D write
     if (ndims == 2) {
@@ -204,8 +209,19 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
     for (uint32_t i = 0; i < n_rank; i++)
       rank_ids[i] = i;
 
+    // get unique materials
+    auto unique_mats = material;
+    std::sort(unique_mats.begin(), unique_mats.end());
+    auto last = std::unique(unique_mats.begin(), unique_mats.end());
+    unique_mats.erase(last, unique_mats.end());
+    std::cout<<"n unique materials: "<<unique_mats.size()<<std::endl;
+    for(auto imat : unique_mats) std::cout<<"mat: "<<imat<<std::endl;
+
     DBPutMaterial(dbfile, "Rank_ID", "quadmesh", n_rank, rank_ids,
                   &rank_data[0], cell_dims, ndims, 0, 0, 0, 0, 0, DB_INT, NULL);
+
+    DBPutMaterial(dbfile, "material", "quadmesh", unique_mats.size(), unique_mats.data(),
+                  &material[0], cell_dims, ndims, 0, 0, 0, 0, 0, DB_INT, NULL);
 
     // write the material temperature scalar field
     DBoptlist *Te_optlist = DBMakeOptlist(2);
