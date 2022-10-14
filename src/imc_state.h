@@ -149,17 +149,12 @@ public:
 
   //! Print end of timestep information
   void print_simulation_footer(uint32_t dd_type) const {
-    using Constants::CELL_PASS;
     using Constants::PARTICLE_PASS;
     using std::cout;
     using std::endl;
     if (dd_type == PARTICLE_PASS) {
       cout << "Total particles sent: " << total_particles_sent << endl;
       cout << "Total particle messages: " << total_particle_messages << endl;
-    } else {
-      cout << "Total cells requested: " << total_cells_requested << endl;
-      cout << "Total cells sent: " << total_cells_sent << endl;
-      cout << "Total cell messages: " << total_cell_messages << endl;
     }
     cout << "****************************************";
     cout << "****************************************" << endl;
@@ -174,7 +169,6 @@ public:
 
   //! Perform reduction on diagnostic and conservation quantities and print
   void print_conservation(uint32_t dd_type) {
-    using Constants::CELL_PASS;
     using Constants::PARTICLE_PASS;
     using Constants::REPLICATED;
     using std::cout;

@@ -15,6 +15,7 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include <array>
 
 #include "constants.h"
 
@@ -44,20 +45,19 @@ public:
     return (m_E / m_E0 < cutoff_fraction);
   }
 
+  inline double get_fraction() const {return m_E/ m_E0;}
+
   //! Return global cell ID
   inline uint32_t get_cell(void) const { return m_cell_ID; }
-
-  //! Return global grip ID
-  inline uint32_t get_grip(void) const { return m_grip_ID; }
 
   //! Return photon group
   inline uint32_t get_group(void) const { return group; }
 
   //! Return a constant pointer to the start of the particle position array
-  inline const double *get_position(void) const { return m_pos; }
+  inline std::array<double,3> get_position(void) const { return m_pos; }
 
   //! Return a constant pointer to the start of the particle direction array
-  inline const double *get_angle(void) const { return m_angle; }
+  inline std::array<double,3> get_angle(void) const { return m_angle; }
 
   //! Get the particle's energy-weight
   inline double get_E(void) const { return m_E; }
@@ -78,7 +78,7 @@ public:
     cout << "angle: " << m_angle[0] << " " << m_angle[1] << " " << m_angle[2]
          << endl;
     cout << "Energy: " << m_E << " , Initial energy: " << m_E0 << endl;
-    cout << "Cell ID: " << m_cell_ID << " , Grip ID: " << m_grip_ID << endl;
+    cout << "Cell ID: " << m_cell_ID << endl;
   }
 
   //! Override great than operator to sort
@@ -90,19 +90,22 @@ public:
   // non-const functions                                                      //
   //--------------------------------------------------------------------------//
 
-  //! Update particle position by moving it some distance
+  //! Update particle position by moving it a distance
   inline void move(const double distance) {
     m_pos[0] += m_angle[0] * distance;
     m_pos[1] += m_angle[1] * distance;
     m_pos[2] += m_angle[2] * distance;
+  }
+
+  inline void reduce_distance_remaining(const double distance) {
     m_life_dx -= distance;
   }
 
+  inline uint32_t get_source_type() const {return source_type;}
+  inline void set_source_type(uint32_t source_type_in) {source_type = source_type_in;}
+
   //! Set the global cell ID
   inline void set_cell(const uint32_t new_cell) { m_cell_ID = new_cell; }
-
-  //! Set the global grip ID
-  inline void set_grip(const uint32_t new_grip) { m_grip_ID = new_grip; }
 
   //! Set the group of the photon
   inline void set_group(const uint32_t new_group) { group = new_group; }
@@ -122,18 +125,10 @@ public:
   }
 
   //! Set the angle of the photon
-  inline void set_angle(double const *const angle) {
-    m_angle[0] = angle[0];
-    m_angle[1] = angle[1];
-    m_angle[2] = angle[2];
-  }
+  inline void set_angle(const std::array<double,3> &new_angle) { m_angle = new_angle;}
 
   //! Set the spatial position of the photon
-  inline void set_position(double const *const pos) {
-    m_pos[0] = pos[0];
-    m_pos[1] = pos[1];
-    m_pos[2] = pos[2];
-  }
+  inline void set_position(const std::array<double, 3> &new_pos) { m_pos = new_pos;}
 
   //! Reflect a photon about a plane aligned with the X, Y, or Z axes
   inline void reflect(const uint32_t surface_cross) {
@@ -141,7 +136,7 @@ public:
     using Constants::X_POS;
     using Constants::Y_NEG;
     using Constants::Y_POS;
-    //reflect the photon over the surface it was crossing
+    // reflect the photon over the surface it was crossing
     if (surface_cross == X_POS || surface_cross == X_NEG)
       m_angle[0] = -m_angle[0];
     else if (surface_cross == Y_POS || surface_cross == Y_NEG)
@@ -155,10 +150,10 @@ public:
   //--------------------------------------------------------------------------//
 private:
   uint32_t m_cell_ID; //!< Cell ID
-  uint32_t m_grip_ID; //!< Grip ID of current cell
   uint32_t group;     //!< Group of photon
-  double m_pos[3];    //!< photon position
-  double m_angle[3];  //!< photon angle array
+  uint32_t source_type; //!< CENSUS, EMISSION, or SOURCE
+  std::array<double,3> m_pos;    //!< photon position
+  std::array<double,3> m_angle;  //!< photon angle array
   double m_E;         //!< current photon energy
   double m_E0;        //!< photon energy at creation
   double m_life_dx;   //!< Distance remaining this time step

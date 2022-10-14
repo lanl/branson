@@ -51,8 +51,6 @@ public:
     using Constants::Z_NEG;
     using Constants::Z_POS;
     // DD methods
-    using Constants::CELL_PASS;
-    using Constants::CELL_PASS_RMA;
     using Constants::CUBE;
     using Constants::METIS;
     using Constants::NO_DECOMP;
@@ -167,11 +165,7 @@ public:
 
       // domain decomposed transport aglorithm
       tempString = settings_node.child_value("dd_transport_type");
-      if (tempString == "CELL_PASS")
-        dd_mode = CELL_PASS;
-      else if (tempString == "CELL_PASS_RMA")
-        dd_mode = CELL_PASS_RMA;
-      else if (tempString == "PARTICLE_PASS")
+      if (tempString == "PARTICLE_PASS")
         dd_mode = PARTICLE_PASS;
       else if (tempString == "REPLICATED")
         dd_mode = REPLICATED;
@@ -580,8 +574,6 @@ public:
     using std::cout;
     using std::endl;
     // DD methods
-    using Constants::CELL_PASS;
-    using Constants::CELL_PASS_RMA;
     using Constants::PARTICLE_PASS;
     using Constants::REPLICATED;
     // mesh decomposition
@@ -631,20 +623,7 @@ public:
 
     cout << "--Parallel Information--" << endl;
     cout << "DD algorithm: ";
-    if (dd_mode == CELL_PASS) {
-      cout << "CELL PASSING" << endl;
-      cout << "grip size: " << grip_size;
-      cout << ", map size: " << map_size;
-      cout << ", batch size: " << batch_size;
-      cout << endl;
-    } else if (dd_mode == CELL_PASS_RMA) {
-      cout << "CELL PASSING (with RMA on MPI windows)" << endl;
-      cout << "COMPILE PARAMETER: maximum number of RMA requests" << endl;
-      cout << "grip size: " << grip_size;
-      cout << ", map size: " << map_size;
-      cout << ", batch size: " << batch_size;
-      cout << endl;
-    } else if (dd_mode == PARTICLE_PASS) {
+    if (dd_mode == PARTICLE_PASS) {
       cout << "PARTICLE PASSING" << endl;
       cout << "Batch size: " << batch_size;
       cout << ", particle message size: " << particle_message_size;

@@ -89,7 +89,6 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
   vector<double> T_r(n_xyz_cells, 0.0);
   vector<double> transport_time(n_xyz_cells, 0.0);
   vector<double> mpi_time(n_xyz_cells, 0.0);
-  vector<int> grip_ID(n_xyz_cells, 0);
   vector<int> material(n_xyz_cells, 0);
 
   // get rank data, map values from from global ID to SILO ID
@@ -106,7 +105,6 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
     T_r[silo_index] = mesh.get_T_r(i);
     transport_time[silo_index] = r_transport_time;
     mpi_time[silo_index] = r_mpi_time;
-    grip_ID[silo_index] = cell.get_grip_ID();
     material[silo_index] = cell.get_region_ID();
   }
 
@@ -130,11 +128,7 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
   MPI_Allreduce(MPI_IN_PLACE, &mpi_time[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
 
-  // reduce to get grip_ID across all ranks
-  MPI_Allreduce(MPI_IN_PLACE, &grip_ID[0], n_xyz_cells, MPI_INT, MPI_SUM,
-                MPI_COMM_WORLD);
-
-  // reduce to get grip_ID across all ranks
+  // reduce to get material ID across all ranks
   MPI_Allreduce(MPI_IN_PLACE, &material[0], n_xyz_cells, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
 
@@ -252,20 +246,12 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
     DBPutQuadvar1(dbfile, "mpi_time", "quadmesh", &mpi_time[0], cell_dims,
                   ndims, NULL, 0, DB_DOUBLE, DB_ZONECENT, mpi_time_optlist);
 
-    // write the grip_ID scalar field
-    DBoptlist *grip_id_optlist = DBMakeOptlist(2);
-    DBAddOption(grip_id_optlist, DBOPT_UNITS, (void *)"grip_ID");
-    DBAddOption(grip_id_optlist, DBOPT_DTIME, &time);
-    DBPutQuadvar1(dbfile, "grip_ID", "quadmesh", &grip_ID[0], cell_dims, ndims,
-                  NULL, 0, DB_INT, DB_ZONECENT, grip_id_optlist);
-
     // free option lists
     DBFreeOptlist(optlist);
     DBFreeOptlist(Te_optlist);
     DBFreeOptlist(Tr_optlist);
     DBFreeOptlist(t_time_optlist);
     DBFreeOptlist(mpi_time_optlist);
-    DBFreeOptlist(grip_id_optlist);
 
     // free data
     delete[] rank_ids;

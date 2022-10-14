@@ -34,10 +34,8 @@
 
 
 std::vector<Photon> particle_pass_transport(
-    Source &source, const Mesh &mesh, IMC_State &imc_state,
-    const IMC_Parameters &imc_parameters, const MPI_Types &mpi_types,
-    Message_Counter &mctr, std::vector<double> &rank_abs_E,
-    std::vector<double> &rank_track_E, const Info &mpi_info) {
+    const Mesh &mesh, const IMC_Parameters &imc_parameters, const Info &mpi_info, const MPI_Types &mpi_types,
+    IMC_State &imc_state, Message_Counter &mctr, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> all_photons) {
   using Constants::CENSUS;
   using Constants::event_type;
   using Constants::EXIT;
@@ -71,7 +69,7 @@ std::vector<Photon> particle_pass_transport(
   MPI_Datatype MPI_Particle = mpi_types.get_particle_type();
 
   // get global photon count
-  uint64_t n_local = source.get_n_photon();
+  uint64_t n_local = all_photons.size();
   uint64_t n_global;
   uint64_t last_global_complete_count = 0;
 
@@ -148,7 +146,7 @@ std::vector<Photon> particle_pass_transport(
         phtn = phtn_recv_stack.top();
         from_receive_stack = true;
       } else {
-        phtn = source.get_photon(rng, dt);
+        phtn = all_photons[n_local_sourced];
         n_local_sourced++;
         from_receive_stack = false;
       }

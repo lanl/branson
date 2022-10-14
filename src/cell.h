@@ -46,9 +46,8 @@ public:
 
   explicit Cell(const Proto_Cell &proto_cell)
    : g_ID(proto_cell.get_ID()), region_ID(proto_cell.get_region_ID()),
-    grip_ID(proto_cell.get_grip_ID()), silo_index(proto_cell.get_silo_index()),
+    silo_index(proto_cell.get_silo_index()),
     e_next(proto_cell.get_e_next()),
-    grip_next(proto_cell.get_grip_next()),
     nodes(proto_cell.get_nodes()),
     bc(proto_cell.get_bc()),
     abs_groups(),
@@ -64,6 +63,39 @@ public:
   //--------------------------------------------------------------------------//
   // const functions                                                          //
   //--------------------------------------------------------------------------//
+  int get_source_face() const {
+    using Constants::SOURCE;
+    for (int i=0; i<6;++i) {
+      if (bc[i] == SOURCE)
+        return i;
+    }
+    return -1;
+  }
+
+  double get_source_area() const {
+    int face = get_source_face();
+    return get_face_area(face);
+  }
+
+  double get_face_area(const int face) const {
+    double face_area = 0.0;
+    if (face==0 || face==1) {
+      // dy * dz
+      face_area = (nodes[3]- nodes[2]) *  (nodes[5]-nodes[4]);
+    }
+    else if (face == 2 || face ==3) {
+      // dx * dz
+      face_area = (nodes[1] - nodes[0])*(nodes[5] - nodes[4]);
+    }
+    else if (face ==4 || face==5) {
+      // dx * dy
+      face_area = (nodes[1] - nodes[0]) * (nodes[3] - nodes[2]);
+    }
+    else
+      face_area = -1.0;
+    return face_area;
+  }
+
   //! Get boundary condition type in this direction
   inline Constants::bc_type get_bc(const uint32_t &dir) const {
     return bc[dir];
@@ -74,14 +106,9 @@ public:
     return e_next[dir];
   }
 
-  //! Get grip ID of cell in next direction
-  inline uint32_t get_next_grip(const uint32_t &dir) const {
-    return grip_next[dir];
-  }
-
   //! Return a distance to boundary and set surface crossing given
   // position and angle
-  inline double get_distance_to_boundary(const double *pos, const double *angle,
+  inline double get_distance_to_boundary(const std::array<double,3> &pos, const std::array<double,3> &angle,
                                          uint32_t &surface_cross) const {
     double min_dist = 1.0e16;
     double dist = 0.0;
@@ -162,9 +189,6 @@ public:
   // Return global ID
   inline uint32_t get_ID(void) const { return g_ID; }
 
-  // Return global grip ID
-  inline uint32_t get_grip_ID(void) const { return grip_ID; }
-
   // Return region ID
   inline uint32_t get_region_ID(void) const { return region_ID; }
 
@@ -204,20 +228,9 @@ public:
   // non-const functions                                                      //
   //--------------------------------------------------------------------------//
 
-  //! Provide static function for sorting based on grip ID
-  static bool sort_grip_ID(const Cell &compare_1, const Cell &compare_2) {
-    return compare_1.get_grip_ID() < compare_2.get_grip_ID();
-  }
-
   //! Set neighbor in a given direction by global cell ID
   void set_neighbor(Constants::dir_type neighbor_dir, uint32_t nbr_g_ID) {
     e_next[neighbor_dir] = nbr_g_ID;
-  }
-
-  //! Set grip neighbor in a given direction by global grip ID
-  void set_grip_neighbor(Constants::dir_type neighbor_dir,
-                         uint32_t nbr_grip_ID) {
-    grip_next[neighbor_dir] = nbr_grip_ID;
   }
 
   //! Set boundary conditions for cell in a given direction
@@ -264,9 +277,6 @@ public:
   //! Set global ID
   void set_ID(uint32_t _id) { g_ID = _id; }
 
-  //! Set global grip ID
-  void set_grip_ID(uint32_t _grip_id) { grip_ID = _grip_id; }
-
   //! Set region ID
   void set_region_ID(uint32_t _region_ID) { region_ID = _region_ID; }
 
@@ -290,13 +300,9 @@ public:
 private:
   uint32_t g_ID; //!< Global ID, valid across all ranks
 
-  //! Global ID of cell at the center of grip, valid across all ranks
-  uint32_t grip_ID;
-
   uint32_t region_ID; //!< region cell is in (for setting physical properties)
   uint32_t silo_index;      //!< Global index not remappaed, for SILO plotting
   std::array<uint32_t, 6> e_next; //!< Bordering cell, given as global ID
-  std::array<uint32_t, 6> grip_next;    //!< Bordering grip, given as global cell ID
   std::array<Constants::bc_type, 6>  bc; //!< Boundary conditions for each face
   std::array<double, 6> nodes;          //!< x_low, x_high, y_low, y_high, z_low, z_high
   std::array<double, BRANSON_N_GROUPS> abs_groups; //!< Absorption groups

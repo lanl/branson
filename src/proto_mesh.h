@@ -226,7 +226,6 @@ public:
   //--------------------------------------------------------------------------//
   // const functions                                                          //
   //--------------------------------------------------------------------------//
-  uint32_t get_max_grip_size(void) const { return max_grip_size; }
   uint32_t get_n_local_cells(void) const { return n_cell; }
   uint32_t get_my_rank(void) const { return rank; }
   uint32_t get_offset(void) const { return on_rank_start; }
@@ -251,17 +250,6 @@ public:
       local_map[g_ID] = i + on_rank_start;
     }
     return local_map;
-  }
-
-  //! returns a mapping of old cell indices to new simple global indices
-  std::unordered_map<uint32_t, uint32_t> get_grip_map(void) const {
-    std::unordered_map<uint32_t, uint32_t> local_grip_map;
-    uint32_t g_ID;
-    for (uint32_t i = 0; i < n_cell; i++) {
-      g_ID = cell_list[i].get_ID();
-      local_grip_map[g_ID] = cell_list[i].get_grip_ID();
-    }
-    return local_grip_map;
   }
 
   //! returns a set of boundary indices
@@ -300,25 +288,6 @@ public:
       }
     }
     return boundary_nodes;
-  }
-
-  //! returns a map of boundary cells with old to new grip indices
-  std::unordered_map<uint32_t, uint32_t> get_boundary_grips(void) const {
-    std::unordered_set<uint32_t> local_nodes;
-    std::unordered_map<uint32_t, uint32_t> boundary_grips;
-
-    // first, make a set of on processor indices
-    for (uint32_t i = 0; i < n_cell; ++i)
-      local_nodes.insert(cell_list[i].get_ID());
-
-    for (uint32_t i = 0; i < n_cell; ++i) {
-      const Proto_Cell &cell = cell_list[i];
-      for (uint32_t d = 0; d < 6; ++d) {
-        if (local_nodes.find(cell.get_next_cell(d)) == local_nodes.end())
-          boundary_grips[cell.get_ID()] = cell.get_grip_ID();
-      }
-    }
-    return boundary_grips;
   }
 
   //! Gets cell from vector list of cells before it's deleted
@@ -385,59 +354,6 @@ public:
   // non-const functions                                                      //
   //--------------------------------------------------------------------------//
 
-  //! set the grip ID to be the global index of the cell at the center of the
-  // grip
-  void set_grip_ID_using_cell_index(void) {
-    using std::max;
-    using std::unordered_map;
-
-    uint32_t new_grip_ID, grip_end_index;
-    // start by looking at the first grip
-    uint32_t current_grip_ID = cell_list.front().get_grip_ID();
-    uint32_t grip_start_index = 0;
-    uint32_t grip_count = 0;
-    // start with max_grip_size at zero
-    max_grip_size = 0;
-
-    unordered_map<uint32_t, uint32_t> start_index_to_count;
-
-    // map the starting index of cells with the same grip to the number in
-    // that grip
-    for (uint32_t i = 0; i < n_cell; ++i) {
-      Proto_Cell &cell = cell_list[i];
-      if (cell.get_grip_ID() != current_grip_ID) {
-        grip_start_index = i;
-        current_grip_ID = cell.get_grip_ID();
-      }
-
-      // if in grip, incerement count...
-      if (start_index_to_count.find(grip_start_index) !=
-          start_index_to_count.end()) {
-        start_index_to_count[grip_start_index]++;
-      }
-      // otherwise initialize count to 1
-      else {
-        start_index_to_count[grip_start_index] = 1;
-      }
-    }
-
-    // set grip ID using the map of start indices and number of cells
-    for (auto const &map_i : start_index_to_count) {
-      grip_start_index = map_i.first;
-      grip_count = map_i.second;
-      // set the new grip ID to be the index of the cell at the center of
-      // this grip for odd grip sizes and one above center for even grip
-      // sizes (for convenience in parallel comm)
-      new_grip_ID = on_rank_start + grip_start_index + grip_count / 2;
-      // update max grip size
-      max_grip_size = max(max_grip_size, grip_count);
-      // loop over cells in grip and set new ID
-      grip_end_index = grip_start_index + grip_count;
-      for (uint32_t j = grip_start_index; j < grip_end_index; ++j)
-        cell_list[j].set_grip_ID(new_grip_ID);
-    }
-  }
-
   //! set the global ID of the start and end cell on this rank
   void set_global_bound(uint32_t _on_rank_start, uint32_t _on_rank_end) {
     on_rank_start = _on_rank_start;
@@ -457,8 +373,7 @@ public:
   //! Renumber the local cell IDs and connectivity of local cells after
   // decomposition using simple global numbering
   void renumber_local_cell_indices(
-      std::unordered_map<uint32_t, uint32_t> local_map,
-      std::unordered_map<uint32_t, uint32_t> local_grip_map) {
+      std::unordered_map<uint32_t, uint32_t> local_map) {
 
     using Constants::dir_type;
     using Constants::PROCESSOR;
@@ -467,9 +382,7 @@ public:
     std::unordered_set<uint32_t> boundary_ids(get_boundary_neighbors());
 
     uint32_t next_index;
-    // grip index is already set for cells, neighbors are not set!
-    // renumber global cell index,  adjacent cells and adjacent
-    // grips, also mark processor boundaries
+    // renumber global cell index, adjacent cells andvalso mark processor boundaries
     for (uint32_t i = 0; i < n_cell; ++i) {
       Proto_Cell &cell = cell_list[i];
       cell.set_ID(i + on_rank_start);
@@ -478,9 +391,7 @@ public:
         next_index = cell.get_next_cell(d);
         // remap it
         cell.set_neighbor(dir_type(d), local_map[next_index]);
-        cell.set_grip_neighbor(dir_type(d), local_grip_map[next_index]);
-        if (local_map[next_index] > off_rank_bounds.back() ||
-            local_grip_map[next_index] > off_rank_bounds.back())
+        if (local_map[next_index] > off_rank_bounds.back())
           std::cout << "this is bad, g > global bounds!" << std::endl;
         // if this index is a processor boundary, mark boundary condition
         if (boundary_ids.find(next_index) != boundary_ids.end()) {
@@ -518,18 +429,6 @@ public:
 
     // sort based on global cell ID
     sort(cell_list.begin(), cell_list.end());
-  }
-
-  //! sort pre-winodw allocation cell vector based on the grip ID of each cell
-  void sort_cells_by_grip_ID(void) {
-    using std::sort;
-    // sort based on global cell ID
-    sort(cell_list.begin(), cell_list.end(), Proto_Cell::sort_grip_ID);
-  }
-
-  //! Set maximum grip size
-  void set_max_grip_size(const uint32_t &new_max_grip_size) {
-    max_grip_size = new_max_grip_size;
   }
 
   //! Add mesh cell (used during decomposition, not parallel communication)
@@ -573,8 +472,6 @@ private:
   std::vector<Region> regions; //!< Vector of regions in the problem
   std::unordered_map<uint32_t, uint32_t>
       region_ID_to_index; //!< Maps region ID to index
-
-  uint32_t max_grip_size; //!< Size of largest grip on this rank
 };
 
 #endif // proto_mesh_h_

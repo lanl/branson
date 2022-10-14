@@ -365,149 +365,6 @@ void exchange_cells_post_partitioning(const int rank,
 //----------------------------------------------------------------------------//
 
 //----------------------------------------------------------------------------//
-//! Use metis to decompose on-rank mesh into chunks for better prefetching
-void overdecompose_mesh(Proto_Mesh &mesh, const uint32_t grip_size) {
-  using Constants::X_NEG;
-  using Constants::X_POS;
-  using Constants::Y_NEG;
-  using Constants::Y_POS;
-  using Constants::Z_NEG;
-  using Constants::Z_POS;
-  using std::unordered_map;
-  using std::vector;
-  // get post-decomposition number of cells on this rank
-  uint32_t n_cell_on_rank = mesh.get_n_local_cells();
-
-  // make map of global IDs to local indices
-  unordered_map<uint32_t, uint32_t> mesh_cell_ids;
-  for (uint32_t i = 0; i < n_cell_on_rank; ++i) {
-    mesh_cell_ids[mesh.get_pre_window_allocation_cell(i).get_ID()] = i;
-  }
-  unordered_map<uint32_t, uint32_t>::const_iterator end = mesh_cell_ids.end();
-
-  vector<int> xadj;
-  vector<int> adjncy;
-  int adjncy_ctr = 0;
-  Proto_Cell cell;
-  uint32_t g_ID; // global ID
-  for (uint32_t i = 0; i < mesh.get_n_local_cells(); ++i) {
-    cell = mesh.get_pre_window_allocation_cell(i);
-    g_ID = cell.get_ID();
-    uint32_t xm_neighbor = cell.get_next_cell(X_NEG);
-    uint32_t xp_neighbor = cell.get_next_cell(X_POS);
-    uint32_t ym_neighbor = cell.get_next_cell(Y_NEG);
-    uint32_t yp_neighbor = cell.get_next_cell(Y_POS);
-    uint32_t zm_neighbor = cell.get_next_cell(Z_NEG);
-    uint32_t zp_neighbor = cell.get_next_cell(Z_POS);
-
-    // starting index in xadj for this cell's nodes
-    xadj.push_back(adjncy_ctr);
-    // use local indices for the CSV to pass to METIS
-    if (xm_neighbor != g_ID && mesh_cell_ids.find(xm_neighbor) != end) {
-      adjncy.push_back(mesh_cell_ids[xm_neighbor]);
-      adjncy_ctr++;
-    }
-    if (xp_neighbor != g_ID && mesh_cell_ids.find(xp_neighbor) != end) {
-      adjncy.push_back(mesh_cell_ids[xp_neighbor]);
-      adjncy_ctr++;
-    }
-    if (ym_neighbor != g_ID && mesh_cell_ids.find(ym_neighbor) != end) {
-      adjncy.push_back(mesh_cell_ids[ym_neighbor]);
-      adjncy_ctr++;
-    }
-    if (yp_neighbor != g_ID && mesh_cell_ids.find(yp_neighbor) != end) {
-      adjncy.push_back(mesh_cell_ids[yp_neighbor]);
-      adjncy_ctr++;
-    }
-    if (zm_neighbor != g_ID && mesh_cell_ids.find(zm_neighbor) != end) {
-      adjncy.push_back(mesh_cell_ids[zm_neighbor]);
-      adjncy_ctr++;
-    }
-    if (zp_neighbor != g_ID && mesh_cell_ids.find(zp_neighbor) != end) {
-      adjncy.push_back(mesh_cell_ids[zp_neighbor]);
-      adjncy_ctr++;
-    }
-  } // end loop over cells
-
-  xadj.push_back(adjncy_ctr);
-
-  int ncon = 1;
-
-  // get the desired number of grips on a mesh, round down
-  int n_grips = n_cell_on_rank / grip_size;
-  if (!n_grips)
-    n_grips = 1;
-
-  int rank_options[METIS_NOPTIONS];
-
-  METIS_SetDefaultOptions(rank_options);
-  rank_options[METIS_OPTION_NUMBERING] = 0; // C-style numbering
-
-  int objval;
-  int *grip_index = new int[n_cell_on_rank];
-  int metis_return;
-
-  // make a signed version of this for METIS call
-  int signed_n_cell_on_rank = int(n_cell_on_rank);
-
-  // Metis does not seem to like partitioning with one part, so skip in
-  // that case
-  if (n_grips > 1 && grip_size > 1) {
-
-    metis_return = METIS_PartGraphKway(
-        &signed_n_cell_on_rank, // number of on-rank vertices
-        &ncon,                  // weights per vertex
-        &xadj[0],               // how cells are stored locally
-        &adjncy[0],             // how cells are stored loccaly
-        NULL,                   // weight of vertices
-        NULL,                   // size of vertices for comm volume
-        NULL,                   // weight of the edges
-        &n_grips,               // number of mesh grips on this mesh
-        NULL,                   // tpwgts (NULL = equal weight domains)
-        NULL,                   // unbalance in v-weight (NULL=1.001)
-        rank_options,           // options array
-        &objval,                // OUTPUT: Number of edgecuts
-        grip_index);            // OUTPUT: grip ID of each vertex
-
-    if (metis_return == METIS_ERROR_INPUT)
-      std::cout << "METIS: Input error" << std::endl;
-    else if (metis_return == METIS_ERROR_MEMORY)
-      std::cout << "METIS: Memory error" << std::endl;
-    else if (metis_return == METIS_ERROR)
-      std::cout << "METIS: Input error" << std::endl;
-
-    // set the grip index for each cell
-    for (uint32_t i = 0; i < uint32_t(signed_n_cell_on_rank); ++i) {
-      Proto_Cell &cell = mesh.get_pre_window_allocation_cell_ref(i);
-      cell.set_grip_ID(grip_index[i]);
-    }
-    // sort cells by grip ID
-    mesh.sort_cells_by_grip_ID();
-
-    // delete dynamically allocated data
-    delete[] grip_index;
-  } // end if n_grips > 1
-
-  else if (n_grips == 1) {
-    // one grip on this rank, all cells have the same grip index
-    // set the grip index for each cell
-    for (uint32_t i = 0; i < uint32_t(signed_n_cell_on_rank); ++i) {
-      Proto_Cell &cell = mesh.get_pre_window_allocation_cell_ref(i);
-      cell.set_grip_ID(0);
-    }
-  }
-
-  else if (grip_size == 1) {
-    for (uint32_t i = 0; i < uint32_t(signed_n_cell_on_rank); ++i) {
-      Proto_Cell &cell = mesh.get_pre_window_allocation_cell_ref(i);
-      cell.set_grip_ID(i);
-    }
-    mesh.sort_cells_by_grip_ID();
-  }
-}
-//----------------------------------------------------------------------------//
-
-//----------------------------------------------------------------------------//
 //! Use one-sided communication to share new cell indices in mesh connectivity
 void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
                                      const int n_rank) {
@@ -534,25 +391,6 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
   uint32_t g_end = prefix_cells_proc[rank] - 1;
   mesh.set_global_bound(g_start, g_end);
 
-  // set the grip ID to be the cells at the center of grips using global cell
-  // indices
-  mesh.set_grip_ID_using_cell_index();
-
-  // get the maximum grip size for correct parallel operations
-  uint32_t max_grip_size = mesh.get_max_grip_size();
-  uint32_t global_max_grip_size = 0;
-  uint32_t global_min_grip_size = 10000000;
-  MPI_Allreduce(&max_grip_size, &global_max_grip_size, 1, MPI_UNSIGNED, MPI_MAX,
-                MPI_COMM_WORLD);
-  MPI_Allreduce(&max_grip_size, &global_min_grip_size, 1, MPI_UNSIGNED, MPI_MIN,
-                MPI_COMM_WORLD);
-  mesh.set_max_grip_size(global_max_grip_size);
-
-  if (rank == 0) {
-    std::cout << "Minimum/Maximum grip size: " << global_min_grip_size;
-    std::cout << " / " << global_max_grip_size << std::endl;
-  }
-
   // prepend zero to the prefix array to make it a standard bounds array
   prefix_cells_proc.insert(prefix_cells_proc.begin(), 0);
   mesh.set_off_rank_bounds(prefix_cells_proc);
@@ -561,40 +399,31 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
   // this involves sending maps to each processor to get new indicies
   unordered_map<uint32_t, uint32_t> local_boundary_map =
       mesh.get_boundary_nodes();
-  unordered_map<uint32_t, uint32_t> local_boundary_grip_map =
-      mesh.get_boundary_grips();
   unordered_map<uint32_t, uint32_t> local_map = mesh.get_new_global_index_map();
-  unordered_map<uint32_t, uint32_t> local_grip_map = mesh.get_grip_map();
   unordered_set<uint32_t> boundary_indices = mesh.get_boundary_neighbors();
   unordered_map<uint32_t, uint32_t> boundary_map;
-  unordered_map<uint32_t, uint32_t> boundary_grip_map;
 
   // create the RMA memory windows to allow all ranks to write the new index
   // of a cell at window[old_index]
-  MPI_Win index_win, grip_win;
+  MPI_Win index_win;
   uint32_t *new_index;
-  uint32_t *new_grip;
   MPI_Info decomp_info;
   MPI_Info_create(&decomp_info);
   MPI_Info_set(decomp_info, "same_disp_unit", "true");
   MPI_Win_allocate(n_cell_post_decomp * sizeof(uint32_t), sizeof(uint32_t),
                    decomp_info, MPI_COMM_WORLD, &new_index, &index_win);
-  MPI_Win_allocate(n_cell_post_decomp * sizeof(uint32_t), sizeof(uint32_t),
-                   decomp_info, MPI_COMM_WORLD, &new_grip, &grip_win);
 
   // initialize to max uint32_t to check for any errors
   for (uint32_t i = 0; i < n_cell_post_decomp; ++i) {
     new_index[i] = UINT32_MAX;
-    new_grip[i] = UINT32_MAX;
   }
 
   MPI_Barrier(MPI_COMM_WORLD);
   int assert = MPI_MODE_NOCHECK; // no conflicting locks on this window
   //int assert = 0;
   MPI_Win_lock_all(assert, index_win);
-  MPI_Win_lock_all(assert, grip_win);
 
-  uint32_t remapped_index, remapped_grip, local_index;
+  uint32_t remapped_index, local_index;
   int target_rank;
   for (auto &imap : local_boundary_map) {
     remapped_index = imap.second;
@@ -604,25 +433,14 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
             MPI_UNSIGNED, index_win);
   }
 
-  for (auto &imap : local_boundary_grip_map) {
-    remapped_grip = imap.second;
-    target_rank = mesh.get_rank(imap.first);
-    local_index = imap.first - prefix_cells_proc[target_rank];
-    MPI_Put(&remapped_grip, 1, MPI_UNSIGNED, target_rank, local_index, 1,
-            MPI_UNSIGNED, grip_win);
-  }
-
   MPI_Barrier(MPI_COMM_WORLD);
   // make the memory visible to all ranks
   MPI_Win_flush_all(index_win);
-  MPI_Win_flush_all(grip_win);
   MPI_Barrier(MPI_COMM_WORLD);
   MPI_Win_sync(index_win);
-  MPI_Win_sync(grip_win);
   MPI_Barrier(MPI_COMM_WORLD);
 
   std::vector<uint32_t> new_boundary_indices(boundary_indices.size());
-  std::vector<uint32_t> new_boundary_grips(boundary_indices.size());
   std::vector<MPI_Request> i_reqs(boundary_indices.size());
   std::vector<MPI_Request> g_reqs(boundary_indices.size());
 
@@ -632,24 +450,15 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
     local_index = iset - prefix_cells_proc[target_rank];
     MPI_Rget(&new_boundary_indices[ib], 1, MPI_UNSIGNED, target_rank,
              local_index, 1, MPI_UNSIGNED, index_win, &i_reqs[ib]);
-    MPI_Rget(&new_boundary_grips[ib], 1, MPI_UNSIGNED, target_rank, local_index,
-             1, MPI_UNSIGNED, grip_win, &g_reqs[ib]);
     ib++;
   }
 
   MPI_Waitall(i_reqs.size(), &i_reqs[0], MPI_STATUS_IGNORE);
   MPI_Waitall(g_reqs.size(), &g_reqs[0], MPI_STATUS_IGNORE);
 
-  // make sure that all new boundary indices and new grip indices were set
+  // make sure that all new boundary indices were set
   // correctly (not equal to the dummy initial value of UINT32_MAX)
   for (auto &iset : new_boundary_indices) {
-    if (iset == UINT32_MAX) {
-      std::cout << "This is bad, RMA remapping failed" << std::endl;
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  for (auto &iset : new_boundary_grips) {
     if (iset == UINT32_MAX) {
       std::cout << "This is bad, RMA remapping failed" << std::endl;
       exit(EXIT_FAILURE);
@@ -659,21 +468,17 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
   ib = 0;
   for (auto &iset : boundary_indices) {
     boundary_map[iset] = new_boundary_indices[ib];
-    boundary_grip_map[iset] = new_boundary_grips[ib];
     ib++;
   }
 
   MPI_Win_unlock_all(index_win);
-  MPI_Win_unlock_all(grip_win);
   MPI_Win_free(&index_win);
-  MPI_Win_free(&grip_win);
 
   // combine local index map with boundary map from communication
   local_map.insert(boundary_map.begin(), boundary_map.end());
-  local_grip_map.insert(boundary_grip_map.begin(), boundary_grip_map.end());
 
   // now update the indices of local IDs
-  mesh.renumber_local_cell_indices(local_map, local_grip_map);
+  mesh.renumber_local_cell_indices(local_map);
 }
 //----------------------------------------------------------------------------//
 
@@ -706,25 +511,6 @@ void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
   uint32_t g_end = prefix_cells_proc[rank] - 1;
   mesh.set_global_bound(g_start, g_end);
 
-  // set the grip ID to be the cells at the center of grips using global cell
-  // indices
-  mesh.set_grip_ID_using_cell_index();
-
-  // get the maximum grip size for correct parallel operations
-  uint32_t max_grip_size = mesh.get_max_grip_size();
-  uint32_t global_max_grip_size = 0;
-  uint32_t global_min_grip_size = 10000000;
-  MPI_Allreduce(&max_grip_size, &global_max_grip_size, 1, MPI_UNSIGNED, MPI_MAX,
-                MPI_COMM_WORLD);
-  MPI_Allreduce(&max_grip_size, &global_min_grip_size, 1, MPI_UNSIGNED, MPI_MIN,
-                MPI_COMM_WORLD);
-  mesh.set_max_grip_size(global_max_grip_size);
-
-  if (rank == 0) {
-    std::cout << "Minimum/Maximum grip size: " << global_min_grip_size;
-    std::cout << " / " << global_max_grip_size << std::endl;
-  }
-
   // prepend zero to the prefix array to make it a standard bounds array
   prefix_cells_proc.insert(prefix_cells_proc.begin(), 0);
   mesh.set_off_rank_bounds(prefix_cells_proc);
@@ -732,8 +518,6 @@ void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
   // change global indices to match a simple number system for easy sorting,
   unordered_map<uint32_t, uint32_t> local_boundary_map =
       mesh.get_boundary_nodes();
-  unordered_map<uint32_t, uint32_t> local_boundary_grip_map =
-      mesh.get_boundary_grips();
 
   uint32_t n_boundary = local_boundary_map.size();
   // get the size of boundary cells on each rank, use a prefix sum to get this
@@ -780,27 +564,11 @@ void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
   for (auto &imap : b_indices)
     id_old_to_new[imap.second] = original_b_indices[imap.first];
 
-  // now fill the global array with the real new grip indices (in the same
-  // location as the old index)
-  start = prefix_bcells_proc[rank];
-  std::fill(original_b_indices.begin(), original_b_indices.end(), 0);
-  for (auto &imap : local_boundary_grip_map)
-    original_b_indices[start++] = imap.second;
-  MPI_Allreduce(MPI_IN_PLACE, &original_b_indices[0], n_global_bcells,
-                MPI_UNSIGNED, MPI_SUM, MPI_COMM_WORLD);
-
-  // iterate through the indices required by your rank
-  std::unordered_map<uint32_t, uint32_t> grip_old_to_new;
-  for (auto &imap : b_indices)
-    grip_old_to_new[imap.second] = original_b_indices[imap.first];
-
   unordered_map<uint32_t, uint32_t> local_map = mesh.get_new_global_index_map();
-  unordered_map<uint32_t, uint32_t> local_grip_map = mesh.get_grip_map();
   local_map.insert(id_old_to_new.begin(), id_old_to_new.end());
-  local_grip_map.insert(grip_old_to_new.begin(), grip_old_to_new.end());
 
   // now update the indices of local IDs
-  mesh.renumber_local_cell_indices(local_map, local_grip_map);
+  mesh.renumber_local_cell_indices(local_map);
 }
 
 //----------------------------------------------------------------------------//
@@ -856,13 +624,6 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   // update the cell list on each processor
   mesh.set_post_decomposition_mesh_cells(part);
 
-  if (rank == 0)
-    std::cout << "overdecomposing..." << std::endl;
-  t_overdecomp.start_timer("overdecomp");
-  // if using grips of cell data, overdecompose mesh on rank to smaller chunks
-  overdecompose_mesh(mesh, grip_size);
-  t_overdecomp.stop_timer("overdecomp");
-
   t_remap.start_timer("remap");
   remap_cell_and_grip_indices_allreduce(mesh, rank, n_rank);
   t_remap.stop_timer("remap");
@@ -875,7 +636,6 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
     std::cout << "Remap: " << t_remap.get_time("remap") << std::endl;
   }
 }
-//----------------------------------------------------------------------------//
 
 //! Create replicated mesh by giving all cells to all other processors, renumber
 // mesh and communicate renumbering
@@ -970,21 +730,10 @@ void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   std::vector<int> part(ncell_on_rank, rank);
   mesh.set_post_decomposition_mesh_cells(part);
 
-  // if using grips of cell data, overdecompose mesh on rank to smaller chunks
-  overdecompose_mesh(mesh, grip_size);
-
   // gather the number of cells on each processor
   uint32_t n_cell_post_decomp = mesh.get_n_local_cells();
 
   mesh.set_global_bound(0, n_cell_post_decomp);
-
-  // set the grip ID to be the cells at the center of grips using global cell
-  // indices
-  mesh.set_grip_ID_using_cell_index();
-
-  // get the maximum grip size (should not be used in replicated mode)
-  uint32_t max_grip_size = mesh.get_max_grip_size();
-  mesh.set_max_grip_size(max_grip_size);
 
   // prepend zero to the prefix array to make it a standard bounds array
   vector<uint32_t> prefix_cells_proc;
@@ -993,11 +742,10 @@ void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   mesh.set_off_rank_bounds(prefix_cells_proc);
 
   // change global indices to match a simple number system for easy sorting
-  unordered_map<uint32_t, uint32_t> local_grip_map = mesh.get_grip_map();
   unordered_map<uint32_t, uint32_t> local_map = mesh.get_new_global_index_map();
 
   // now update the indices of local IDs
-  mesh.renumber_local_cell_indices(local_map, local_grip_map);
+  mesh.renumber_local_cell_indices(local_map);
 
   // clean up dynamically allocated memory
   delete[] reqs;

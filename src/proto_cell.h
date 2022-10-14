@@ -59,11 +59,6 @@ public:
     return e_next[dir];
   }
 
-  //! Get grip ID of cell in next direction
-  inline uint32_t get_next_grip(const uint32_t &dir) const {
-    return grip_next[dir];
-  }
-
   //! Return node array (for setting up work packets)
   inline const double *get_node_array(void) const { return nodes.data(); }
 
@@ -78,9 +73,6 @@ public:
 
   // Return global ID
   inline uint32_t get_ID(void) const { return g_ID; }
-
-  // Return global grip ID
-  inline uint32_t get_grip_ID(void) const { return grip_ID; }
 
   // Return region ID
   inline uint32_t get_region_ID(void) const { return region_ID; }
@@ -114,21 +106,9 @@ public:
   // non-const functions                                                      //
   //--------------------------------------------------------------------------//
 
-  //! Provide static function for sorting based on grip ID
-  static bool sort_grip_ID(const Proto_Cell &compare_1,
-                           const Proto_Cell &compare_2) {
-    return compare_1.get_grip_ID() < compare_2.get_grip_ID();
-  }
-
   //! Set neighbor in a given direction by global cell ID
   void set_neighbor(Constants::dir_type neighbor_dir, uint32_t nbr_g_ID) {
     e_next[neighbor_dir] = nbr_g_ID;
-  }
-
-  //! Set grip neighbor in a given direction by global grip ID
-  void set_grip_neighbor(Constants::dir_type neighbor_dir,
-                         uint32_t nbr_grip_ID) {
-    grip_next[neighbor_dir] = nbr_grip_ID;
   }
 
   //! Set boundary conditions for cell in a given direction
@@ -138,9 +118,6 @@ public:
 
   //! Set global ID
   void set_ID(uint32_t _id) { g_ID = _id; }
-
-  //! Set global grip ID
-  void set_grip_ID(uint32_t _grip_id) { grip_ID = _grip_id; }
 
   //! Set region ID
   void set_region_ID(uint32_t _region_ID) { region_ID = _region_ID; }
@@ -161,7 +138,6 @@ public:
 
   std::array<Constants::bc_type, 6> get_bc() const {return bc;}
   std::array<uint32_t, 6> get_e_next() const {return e_next;}
-  std::array<uint32_t, 6> get_grip_next() const {return grip_next;}
   std::array<double, 6> get_nodes() const {return nodes;}
 
   //--------------------------------------------------------------------------//
@@ -170,13 +146,11 @@ public:
 private:
 
   uint32_t g_ID; //!< Global ID, valid across all ranks
-  uint32_t grip_ID; //! Global ID of cell at the center of grip, valid across all ranks
   uint32_t region_ID; //!< region cell is in (for setting physical properties)
   uint32_t silo_index;      //!< Global index not remappaed, for SILO plotting
 
   std::array<Constants::bc_type, 6> bc; //!< Boundary conditions for each face
   std::array<uint32_t, 6> e_next; //!< Bordering cell, given as global ID
-  std::array<uint32_t, 6> grip_next;    //!< Bordering grip, given as global cell ID
   std::array<double, 6> nodes;          //!< x_low, x_high, y_low, y_high, z_low, z_high
 };
 

@@ -22,15 +22,11 @@
 #include "info.h"
 #include "input.h"
 #include "mesh.h"
-#include "mesh_pass_driver.h"
 #include "mpi_types.h"
 #include "particle_pass_driver.h"
 #include "replicated_driver.h"
-#include "rma_mesh_pass_driver.h"
 #include "timer.h"
 
-using Constants::CELL_PASS;
-using Constants::CELL_PASS_RMA;
 using Constants::PARTICLE_PASS;
 using Constants::REPLICATED;
 using std::cout;
@@ -102,10 +98,6 @@ int main(int argc, char **argv) {
 
     if (input.get_dd_mode() == PARTICLE_PASS)
       imc_particle_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
-    else if (input.get_dd_mode() == CELL_PASS)
-      imc_mesh_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
-    else if (input.get_dd_mode() == CELL_PASS_RMA)
-      imc_rma_mesh_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
     else if (input.get_dd_mode() == REPLICATED)
       imc_replicated_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
     else {
