@@ -44,21 +44,19 @@ public:
     g_ID = 0; // won't show up in finds
   }
 
-  explicit Cell(const Proto_Cell &proto_cell) {
-    g_ID = proto_cell.get_ID();
-    grip_ID = proto_cell.get_grip_ID();
-    region_ID = proto_cell.get_region_ID();
-    silo_index = proto_cell.get_silo_index();
-    const double *proto_nodes = proto_cell.get_node_array();
-    for (int idir = 0; idir < 6; ++idir) {
-      e_next[idir] = proto_cell.get_next_cell(idir);
-      grip_next[idir] = proto_cell.get_next_grip(idir);
-      nodes[idir] = proto_nodes[idir];
-      bc[idir] = proto_cell.get_bc(idir);
-    }
-    op_a = 0.0;
-    op_s = 0.0;
-    f = 0.0;
+  explicit Cell(const Proto_Cell &proto_cell)
+   : g_ID(proto_cell.get_ID()), region_ID(proto_cell.get_region_ID()),
+    grip_ID(proto_cell.get_grip_ID()), silo_index(proto_cell.get_silo_index()),
+    e_next(proto_cell.get_e_next()),
+    grip_next(proto_cell.get_grip_next()),
+    nodes(proto_cell.get_nodes()),
+    bc(proto_cell.get_bc()),
+    abs_groups(),
+    sct_groups(),
+    op_a(0.0), op_s(0.0), f(0.0), rho(0.0), T_e(0.0), T_r(0.0), T_s(0.0)
+  {
+    abs_groups.fill(0.0);
+    sct_groups.fill(0.0);
   }
 
   ~Cell(void) {}
@@ -120,7 +118,7 @@ public:
   }
 
   //! Return node array (for setting up work packets)
-  inline const double *get_node_array(void) const { return nodes; }
+  inline const double *get_node_array(void) const { return nodes.data(); }
 
   //! Return SILO index (for plotting only)
   inline uint32_t get_silo_index(void) const { return silo_index; }
@@ -193,14 +191,13 @@ public:
         boundary = true;
     }
 
-    // cout<<g_ID<<" "<<boundary;
-    // cout<<nodes[0]<<" "<<nodes[2]<<" "<<nodes[4]<<endl;
+    cout<<"rank: "<<my_rank<<" global index: "<<g_ID<<" boundary cell: "<<boundary<<std::endl;
+    cout<<nodes[0]<<" "<<nodes[1]<<" "<<nodes[2]<<" "<<nodes[3]<<" "<<nodes[4]<<" "<<nodes[5]<<endl;
 
-    cout << "Rank: " << my_rank << " Global ID: " << g_ID << endl;
-    cout << nodes[0] << " " << nodes[2] << " " << nodes[4];
-    cout << " Processor bound: " << boundary << endl;
-    // cout<<"Temperatures: "<<T_e<<" "<<T_r<<" "<<T_s<<endl;
-    // cout<<"Density: "<<rho<<" cV: "<<cV<<" f: "<<f<<endl;
+    cout<<"Temperatures: "<<T_e<<" "<<T_r<<" "<<T_s<<endl;
+    cout<<"Density: "<<rho<<" cV: "<<cV<<" f: "<<f<<endl;
+    for(int i=0;i<BRANSON_N_GROUPS;++i)
+      cout<<"group: "<<i<<"/"<<BRANSON_N_GROUPS<<" abs: "<<abs_groups[i]<<" sct: "<<sct_groups[i]<<std::endl;
   }
 
   //--------------------------------------------------------------------------//
@@ -297,13 +294,13 @@ private:
   uint32_t grip_ID;
 
   uint32_t region_ID; //!< region cell is in (for setting physical properties)
-  uint32_t e_next[6]; //!< Bordering cell, given as global ID
-  uint32_t grip_next[6];    //!< Bordering grip, given as global cell ID
   uint32_t silo_index;      //!< Global index not remappaed, for SILO plotting
-  Constants::bc_type bc[6]; //!< Boundary conditions for each face
-  double nodes[6];          //!< x_low, x_high, y_low, y_high, z_low, z_high
-  double abs_groups[BRANSON_N_GROUPS]; //!< Absorption groups
-  double sct_groups[BRANSON_N_GROUPS]; //!< Scattering groups
+  std::array<uint32_t, 6> e_next; //!< Bordering cell, given as global ID
+  std::array<uint32_t, 6> grip_next;    //!< Bordering grip, given as global cell ID
+  std::array<Constants::bc_type, 6>  bc; //!< Boundary conditions for each face
+  std::array<double, 6> nodes;          //!< x_low, x_high, y_low, y_high, z_low, z_high
+  std::array<double, BRANSON_N_GROUPS> abs_groups; //!< Absorption groups
+  std::array<double, BRANSON_N_GROUPS> sct_groups; //!< Scattering groups
 
   double cV;   //!< Heat capacity  GJ/g/KeV
   double op_a; //!< Absorption opacity  (1/cm)

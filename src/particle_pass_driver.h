@@ -34,8 +34,8 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
                               const MPI_Types &mpi_types,
                               const Info &mpi_info) {
   using std::vector;
-  vector<double> abs_E(mesh.get_n_global_cells(), 0.0);
-  vector<double> track_E(mesh.get_n_global_cells(), 0.0);
+  vector<double> abs_E(mesh.get_n_local_cells(), 0.0);
+  vector<double> track_E(mesh.get_n_local_cells(), 0.0);
   vector<Photon> census_photons;
   Message_Counter mctr;
   int rank = mpi_info.get_rank();
@@ -50,8 +50,8 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
     //set opacity, Fleck factor, all energy to source
     mesh.calculate_photon_energy(imc_state);
 
-    //all reduce to get total source energy to make correct number of
-    //particles on each rank
+    // all reduce to get total source energy to make correct number of
+    // particles on each rank
     double global_source_energy = mesh.get_total_photon_E();
     MPI_Allreduce(MPI_IN_PLACE, &global_source_energy, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);

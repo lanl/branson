@@ -60,7 +60,7 @@ std::vector<Photon> particle_pass_transport(
 
   // timing
   Timer t_transport;
-  t_transport.start_timer("timestep transport");
+  t_transport.start_timer("timestep_transport");
 
   // Number of particles to run between MPI communication
   const uint32_t batch_size = imc_parameters.get_batch_size();
@@ -309,7 +309,7 @@ std::vector<Photon> particle_pass_transport(
   } // end while
 
   // record time of transport work for this rank
-  t_transport.stop_timer("timestep transport");
+  t_transport.stop_timer("timestep_transport");
 
   // wait for all ranks to finish then send empty photon messages
   // do this because it's possible for a rank to receive the empty message
@@ -352,13 +352,13 @@ std::vector<Photon> particle_pass_transport(
   delete[] phtn_recv_request;
   delete[] phtn_send_request;
 
+
   // set diagnostic quantities
   imc_state.set_exit_E(exit_E);
   imc_state.set_post_census_E(census_E);
   imc_state.set_census_size(census_list.size());
   imc_state.set_network_message_counts(mctr);
-  imc_state.set_rank_transport_runtime(
-      t_transport.get_time("timestep transport"));
+  imc_state.set_rank_transport_runtime(t_transport.get_time("timestep_transport"));
 
   return census_list;
 }

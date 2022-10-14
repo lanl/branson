@@ -65,7 +65,7 @@ public:
   }
 
   //! Return node array (for setting up work packets)
-  inline const double *get_node_array(void) const { return nodes; }
+  inline const double *get_node_array(void) const { return nodes.data(); }
 
   //! Return SILO index (for plotting only)
   inline uint32_t get_silo_index(void) const { return silo_index; }
@@ -104,13 +104,10 @@ public:
     }
 
     // cout<<g_ID<<" "<<boundary;
-    // cout<<nodes[0]<<" "<<nodes[2]<<" "<<nodes[4]<<endl;
-
+    cout<<nodes[0]<<" "<<nodes[1]<<" "<<nodes[2]<<" "<<nodes[3]<<" "<<nodes[4]<<" "<<nodes[5]<<std::endl;
     cout << "Rank: " << my_rank << " Global ID: " << g_ID << endl;
     cout << nodes[0] << " " << nodes[2] << " " << nodes[4];
     cout << " Processor bound: " << boundary << endl;
-    // cout<<"Temperatures: "<<T_e<<" "<<T_r<<" "<<T_s<<endl;
-    // cout<<"Density: "<<rho<<" cV: "<<cV<<" f: "<<f<<endl;
   }
 
   //--------------------------------------------------------------------------//
@@ -162,21 +159,25 @@ public:
   //! Set SILO index (for plotting)
   void set_silo_index(uint32_t _silo_index) { silo_index = _silo_index; }
 
+  std::array<Constants::bc_type, 6> get_bc() const {return bc;}
+  std::array<uint32_t, 6> get_e_next() const {return e_next;}
+  std::array<uint32_t, 6> get_grip_next() const {return grip_next;}
+  std::array<double, 6> get_nodes() const {return nodes;}
+
   //--------------------------------------------------------------------------//
   // member data                                                              //
   //--------------------------------------------------------------------------//
 private:
+
   uint32_t g_ID; //!< Global ID, valid across all ranks
-
-  //! Global ID of cell at the center of grip, valid across all ranks
-  uint32_t grip_ID;
-
+  uint32_t grip_ID; //! Global ID of cell at the center of grip, valid across all ranks
   uint32_t region_ID; //!< region cell is in (for setting physical properties)
-  uint32_t e_next[6]; //!< Bordering cell, given as global ID
-  uint32_t grip_next[6];    //!< Bordering grip, given as global cell ID
   uint32_t silo_index;      //!< Global index not remappaed, for SILO plotting
-  Constants::bc_type bc[6]; //!< Boundary conditions for each face
-  double nodes[6];          //!< x_low, x_high, y_low, y_high, z_low, z_high
+
+  std::array<Constants::bc_type, 6> bc; //!< Boundary conditions for each face
+  std::array<uint32_t, 6> e_next; //!< Bordering cell, given as global ID
+  std::array<uint32_t, 6> grip_next;    //!< Bordering grip, given as global cell ID
+  std::array<double, 6> nodes;          //!< x_low, x_high, y_low, y_high, z_low, z_high
 };
 
 #endif // cell_h_

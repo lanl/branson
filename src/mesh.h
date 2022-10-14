@@ -112,10 +112,7 @@ public:
 
     // for replicated mode, set the factor that reduces the emission
     // energy and initial census energy
-    if (input.get_dd_mode() == Constants::REPLICATED)
-      replicated_factor = 1.0 / n_rank;
-    else
-      replicated_factor = 1.0;
+    replicated_factor = (input.get_dd_mode() == Constants::REPLICATED) ? 1.0/n_rank : 1.0;
 
     // if replicated don't bother with the MPI window
     if (input.get_dd_mode() == Constants::REPLICATED) {
@@ -126,7 +123,17 @@ public:
         cells[i] = Cell(icell);
         i++;
       }
-    } else {
+    } else if(input.get_dd_mode() == Constants::PARTICLE_PASS){
+      // use the proto cells to construct the real cells
+      int i = 0;
+      cells = new Cell[proto_cell_list.size()];
+      for (auto icell : proto_cell_list) {
+        cells[i] = Cell(icell);
+        i++;
+      }
+    }
+    else {
+      // this else should capture CELL_PASSING and CELL_PASSING_RMA
       // make the MPI window with the sorted cell list
       MPI_Aint n_bytes(n_cell * mpi_cell_size);
       // MPI_Alloc_mem(n_bytes, MPI_INFO_NULL, &cells);
@@ -156,6 +163,8 @@ public:
     // free MPI window (also frees associated memory)
     if (mpi_window_set)
       MPI_Win_free(&mesh_window);
+    else
+      delete[] cells;
   }
 
   //--------------------------------------------------------------------------//
@@ -185,7 +194,12 @@ public:
 
   Cell get_cell(const uint32_t &local_ID) const { return cells[local_ID]; }
 
-  const Cell *get_cell_ptr(const uint32_t &local_ID) const {
+  const Cell *get_cell_ptr(const uint32_t local_ID) const {
+    return &cells[local_ID];
+  }
+
+  const Cell *get_cell_ptr_global(const uint32_t global_ID) const {
+    auto local_ID = get_local_ID(global_ID);
     return &cells[local_ID];
   }
 
@@ -360,8 +374,8 @@ public:
       total_post_mat_E += T_new * cV * vol * rho;
     }
     // zero out absorption tallies for all cells (global)
-    abs_E.assign(abs_E.size(), 0.0);
-    track_E.assign(track_E.size(), 0.0);
+    std::fill(abs_E.begin(), abs_E.end(), 0.0);
+    std::fill(track_E.begin(), track_E.end(), 0.0);
     imc_state.set_absorbed_E(total_abs_E);
     imc_state.set_post_mat_E(total_post_mat_E);
     imc_state.set_step_cells_requested(off_rank_reads);
