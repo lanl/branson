@@ -39,14 +39,14 @@ int main(void) {
 
   // test the check_in_cell function
   {
-    double true_pos_1[3] = {0.5, 0.5, 0.5};
-    double true_pos_2[3] = {0.9, 0.9, 0.9};
-    double true_pos_3[3] = {0.1, 0.1, 0.1};
-    double true_pos_4[3] = {0.1, 0.9, 0.1};
-    double false_pos_1[3] = {-1.0, -1.0, -1.0};
-    double false_pos_2[3] = {1.0, -1.0, -1.0};
-    double false_pos_3[3] = {1.0, 1.0, -1.0};
-    double false_pos_4[3] = {-1.0, 1.0, -1.0};
+    std::array<double,3> true_pos_1{0.5, 0.5, 0.5};
+    std::array<double,3> true_pos_2{0.9, 0.9, 0.9};
+    std::array<double,3> true_pos_3{0.1, 0.1, 0.1};
+    std::array<double,3> true_pos_4{0.1, 0.9, 0.1};
+    std::array<double,3> false_pos_1{-1.0, -1.0, -1.0};
+    std::array<double,3> false_pos_2{1.0, -1.0, -1.0};
+    std::array<double,3> false_pos_3{1.0, 1.0, -1.0};
+    std::array<double,3> false_pos_4{-1.0, 1.0, -1.0};
 
     bool check_in_cell_pass = true;
     //positions in cell
@@ -80,15 +80,15 @@ int main(void) {
   {
     double tolerance = 1.0e-8;
 
-    double pos[3] = {0.5, 0.5, 0.5};
+    std::array<double,3> pos{0.5, 0.5, 0.5};
 
-    double angle_1[3] = {0.999, 0.031614, 0.031614};
-    double angle_2[3] = {0.031614, 0.999, 0.031614};
-    double angle_3[3] = {0.031614, 0.31614, 0.999};
+    std::array<double,3> angle_1{0.999, 0.031614, 0.031614};
+    std::array<double,3> angle_2{0.031614, 0.999, 0.031614};
+    std::array<double,3> angle_3{0.031614, 0.31614, 0.999};
 
-    double angle_4[3] = {-0.999, 0.031614, 0.031614};
-    double angle_5[3] = {0.031614, -0.999, 0.031614};
-    double angle_6[3] = {0.031614, 0.31614, -0.999};
+    std::array<double,3> angle_4{-0.999, 0.031614, 0.031614};
+    std::array<double,3> angle_5{0.031614, -0.999, 0.031614};
+    std::array<double,3> angle_6{0.031614, 0.31614, -0.999};
 
     unsigned int surface_cross;
     bool distance_to_bound_pass = true;
@@ -168,7 +168,6 @@ int main(void) {
     Proto_Cell proto_cell;
 
     uint32_t cell_ID = 3271733928; // 64-bit cell ID
-    uint32_t grip_ID = 3271733920; // 64-bit cell ID
     uint32_t region_ID = 12;
     uint32_t silo_index = 1231;
 
@@ -177,8 +176,6 @@ int main(void) {
                                    Constants::ELEMENT, Constants::VACUUM};
     vector<uint32_t> neighbors{3500000000, 3500000001, 3500000002,
                                3500000003, 3500000004, 3500000005};
-    vector<uint32_t> grip_neighbors{2500000000, 2500000001, 2500000002,
-                                    2500000003, 2500000004, 2500000005};
 
     // simple cube of size 1.0
     double x_low = 0.0;
@@ -192,13 +189,11 @@ int main(void) {
     // set values
     proto_cell.set_coor(x_low, x_high, y_low, y_high, z_low, z_high);
     proto_cell.set_ID(cell_ID);
-    proto_cell.set_grip_ID(grip_ID);
     proto_cell.set_region_ID(region_ID);
     proto_cell.set_silo_index(silo_index);
     for (auto i : dirs) {
       proto_cell.set_bc(i, bcs[i]);
       proto_cell.set_neighbor(i, neighbors[i]);
-      proto_cell.set_grip_neighbor(i, grip_neighbors[i]);
     }
 
     Cell from_proto = Cell(proto_cell);
@@ -207,16 +202,12 @@ int main(void) {
     const double *cell_coords = from_proto.get_node_array();
     if (from_proto.get_ID() != cell_ID)
       proto_construction_pass = false;
-    if (from_proto.get_grip_ID() != grip_ID)
-      proto_construction_pass = false;
     if (from_proto.get_region_ID() != region_ID)
       proto_construction_pass = false;
     if (from_proto.get_silo_index() != silo_index)
       proto_construction_pass = false;
     for (int i = 0; i < 6; ++i) {
       if (from_proto.get_next_cell(i) != neighbors[i])
-        proto_construction_pass = false;
-      if (from_proto.get_next_grip(i) != grip_neighbors[i])
         proto_construction_pass = false;
       if (from_proto.get_bc(i) != bcs[i])
         proto_construction_pass = false;

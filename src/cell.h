@@ -133,7 +133,7 @@ public:
   }
 
   //! Determine if position is inside a cell (diagnostic only)
-  bool check_in_cell(const double *pos) const {
+  bool check_in_cell(const std::array<double,3> &pos) const {
     bool in_cell = true;
     if (pos[0] < nodes[0] || pos[0] > nodes[1])
       in_cell = false;

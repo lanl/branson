@@ -60,16 +60,23 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
 
     // setup source
-    if (imc_state.get_step() == 1)
+    std::cout<<" about to soutce!"<<std::endl;
+    if (imc_state.get_step() == 1) {
+      std::cout<<" census initial: n_user: "<<n_user_photons<<std::endl;
       census_photons = make_initial_census_photons(imc_state.get_dt(), mesh, n_user_photons, global_source_energy, imc_state.get_rng());
+    }
+
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
+    MPI_Barrier(MPI_COMM_WORLD);
     // make emission and source photons
+    std::cout<<" all other sources"<<std::endl;
     auto all_photons = make_photons(imc_state.get_dt(), mesh, n_user_photons, global_source_energy, imc_state.get_rng());
     // add the census photons
     all_photons.insert(all_photons.end(), census_photons.begin(), census_photons.end());
 
     imc_state.set_transported_particles(all_photons.size());
 
+    std::cout<<" about to transport!"<<std::endl;
     particle_pass_transport(mesh, imc_parameters, mpi_info, mpi_types, imc_state, mctr, abs_E, track_E, all_photons);
 
     mesh.update_temperature(abs_E, track_E, imc_state);

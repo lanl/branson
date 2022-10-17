@@ -89,9 +89,9 @@ std::vector<int> metis_partition(Proto_Mesh &mesh, int &edgecut, const int rank,
   if (rank != 0) {
     const std::vector<Proto_Cell> send_cells =
         mesh.get_pre_window_allocation_cells();
-    MPI_Send(&send_cells[0], ncell_on_rank, MPI_Proto_Cell, 0, cell_tag,
+    MPI_Send(send_cells.data(), ncell_on_rank, MPI_Proto_Cell, 0, cell_tag,
              MPI_COMM_WORLD);
-    MPI_Recv(&part[0], ncell_on_rank, MPI_INT, 0, part_tag, MPI_COMM_WORLD,
+    MPI_Recv(part.data(), ncell_on_rank, MPI_INT, 0, part_tag, MPI_COMM_WORLD,
              MPI_STATUS_IGNORE);
     edgecut = 1;
   }
@@ -582,7 +582,6 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   using std::unordered_map;
   using std::unordered_set;
   Timer t_partition;
-  Timer t_overdecomp;
   Timer t_remap;
 
   int rank = mpi_info.get_rank();
@@ -629,11 +628,9 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   t_remap.stop_timer("remap");
 
   if (rank == 0) {
-    std::cout << "Partition: " << t_partition.get_time("partition")
+    std::cout << "Partition: " << t_partition.get_time("partition")<<" seconds"
               << std::endl;
-    std::cout << "Overdecomp: " << t_overdecomp.get_time("overdecomp")
-              << std::endl;
-    std::cout << "Remap: " << t_remap.get_time("remap") << std::endl;
+    std::cout << "Remap: " << t_remap.get_time("remap") <<" seconds"<<std::endl;
   }
 }
 

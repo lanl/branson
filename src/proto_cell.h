@@ -13,6 +13,7 @@
 #define proto_cell_h_
 
 #include <iostream>
+#include <array>
 #include <mpi.h>
 
 #include "RNG.h"
@@ -31,8 +32,6 @@
 //==============================================================================
 
 class Proto_Cell {
-
-  template <typename T> int sgn(T val) { return (T(0) < val); }
 
 public:
   Proto_Cell(void) {}
@@ -148,9 +147,9 @@ private:
   uint32_t g_ID; //!< Global ID, valid across all ranks
   uint32_t region_ID; //!< region cell is in (for setting physical properties)
   uint32_t silo_index;      //!< Global index not remappaed, for SILO plotting
+  std::array<uint32_t, 6> e_next; //!< Bordering cell, given as global ID
 
   std::array<Constants::bc_type, 6> bc; //!< Boundary conditions for each face
-  std::array<uint32_t, 6> e_next; //!< Bordering cell, given as global ID
   std::array<double, 6> nodes;          //!< x_low, x_high, y_low, y_high, z_low, z_high
 };
 

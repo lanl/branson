@@ -157,14 +157,15 @@ target_link_libraries( BRANSON PUBLIC ${branson_deps} )
 #------------------------------------------------------------------------------#
 # Testing
 
-set (BUILD_TESTS FALSE)
-set (BRANSON_BUILD_TESTS ${BUILD_TESTS})
-if(${BRANSON_BUILD_TESTS} STREQUAL "True" OR ${BRANSON_BUILD_TESTS} STREQUAL "TRUE")
+option( BUILD_TESTING "Should we compile the tests?" ON )
+if(BUILD_TESTING)
   enable_testing()
   add_subdirectory(test)
+  message(STATUS
+    "Building tests enabled (default), disable tests with BUILD_TESTING=FALSE")
 else()
   message(STATUS
-    "Building tests disabled (default), set BUILD_TESTS=TRUE to enable test builds")
+    "Building tests disabled, set BUILD_TESTING=TRUE or don't set BUILD_TESTING to enable test builds")
 endif()
 
 

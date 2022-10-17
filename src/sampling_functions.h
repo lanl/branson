@@ -12,7 +12,7 @@
 #ifndef sampling_functions_h_
 #define sampling_functions_h_
 
-#include <stdlib.h>
+#include <cmath>
 
 #include "RNG.h"
 #include "constants.h"

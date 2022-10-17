@@ -84,6 +84,7 @@ std::vector<Photon> make_initial_census_photons(const double dt, const Mesh &mes
         initial_census_photons.push_back(get_initial_census_photon(cell, photon_census_E, dt, rng));
     }
   }
+  MPI_Barrier(MPI_COMM_WORLD);
   return initial_census_photons;
 }
 
