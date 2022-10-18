@@ -111,9 +111,9 @@ std::vector<int> metis_partition(Proto_Mesh &mesh, int &edgecut, const int rank,
     vector<int> xadj;
     vector<int> adjncy;
     int adjncy_ctr = 0;
-    uint32_t g_ID; //! Global ID
+    uint32_t global_index;
     for (auto &icell : all_cells) {
-      g_ID = icell.get_ID();
+      global_index = icell.get_global_index();
       uint32_t xm_neighbor = icell.get_next_cell(X_NEG);
       uint32_t xp_neighbor = icell.get_next_cell(X_POS);
       uint32_t ym_neighbor = icell.get_next_cell(Y_NEG);
@@ -123,27 +123,27 @@ std::vector<int> metis_partition(Proto_Mesh &mesh, int &edgecut, const int rank,
 
       xadj.push_back(
           adjncy_ctr); // starting index in xadj for this cell's nodes
-      if (xm_neighbor != g_ID) {
+      if (xm_neighbor != global_index) {
         adjncy.push_back(xm_neighbor);
         adjncy_ctr++;
       }
-      if (xp_neighbor != g_ID) {
+      if (xp_neighbor != global_index) {
         adjncy.push_back(xp_neighbor);
         adjncy_ctr++;
       }
-      if (ym_neighbor != g_ID) {
+      if (ym_neighbor != global_index) {
         adjncy.push_back(ym_neighbor);
         adjncy_ctr++;
       }
-      if (yp_neighbor != g_ID) {
+      if (yp_neighbor != global_index) {
         adjncy.push_back(yp_neighbor);
         adjncy_ctr++;
       }
-      if (zm_neighbor != g_ID) {
+      if (zm_neighbor != global_index) {
         adjncy.push_back(zm_neighbor);
         adjncy_ctr++;
       }
-      if (zp_neighbor != g_ID) {
+      if (zp_neighbor != global_index) {
         adjncy.push_back(zp_neighbor);
         adjncy_ctr++;
       }
@@ -241,8 +241,8 @@ std::vector<int> cube_partition(Proto_Mesh &mesh, const int rank,
 
   for (uint32_t i = 0; i < ncell_on_rank; ++i) {
     const Proto_Cell &cell = mesh.get_pre_window_allocation_cell(i);
-    // get the correct rank given the cell ID
-    uint32_t index = cell.get_ID();
+    // get the correct rank given the cell global_index
+    uint32_t index = cell.get_global_index();
     uint32_t z = index / (nx * ny);
     uint32_t y = (index - z * (nx * ny)) / nx;
     uint32_t x = index - z * (nx * ny) - y * nx;
@@ -477,7 +477,7 @@ void remap_cell_and_grip_indices_rma(Proto_Mesh &mesh, const int rank,
   // combine local index map with boundary map from communication
   local_map.insert(boundary_map.begin(), boundary_map.end());
 
-  // now update the indices of local IDs
+  // now update local indices
   mesh.renumber_local_cell_indices(local_map);
 }
 //----------------------------------------------------------------------------//
@@ -544,7 +544,7 @@ void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
 
   // find the indices in this global array for your boundary cells
   auto b_nodes = mesh.get_boundary_neighbors();
-  std::map<uint32_t, uint32_t> b_indices; // map indices to original IDs
+  std::map<uint32_t, uint32_t> b_indices; // map indices to original indices
   for (uint32_t i = 0; i < n_global_bcells; ++i) {
     if (b_nodes.count(original_b_indices[i]))
       b_indices[i] = original_b_indices[i];
@@ -567,7 +567,7 @@ void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
   unordered_map<uint32_t, uint32_t> local_map = mesh.get_new_global_index_map();
   local_map.insert(id_old_to_new.begin(), id_old_to_new.end());
 
-  // now update the indices of local IDs
+  // now update local indices
   mesh.renumber_local_cell_indices(local_map);
 }
 
@@ -741,7 +741,7 @@ void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   // change global indices to match a simple number system for easy sorting
   unordered_map<uint32_t, uint32_t> local_map = mesh.get_new_global_index_map();
 
-  // now update the indices of local IDs
+  // now update local indices
   mesh.renumber_local_cell_indices(local_map);
 
   // clean up dynamically allocated memory

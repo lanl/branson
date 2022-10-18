@@ -167,7 +167,7 @@ int main(void) {
     //setup cell
     Proto_Cell proto_cell;
 
-    uint32_t cell_ID = 3271733928; // 64-bit cell ID
+    uint32_t global_index = 3271733928; // 64-bit cell global_index
     uint32_t region_ID = 12;
     uint32_t silo_index = 1231;
 
@@ -188,7 +188,7 @@ int main(void) {
 
     // set values
     proto_cell.set_coor(x_low, x_high, y_low, y_high, z_low, z_high);
-    proto_cell.set_ID(cell_ID);
+    proto_cell.set_global_index(global_index);
     proto_cell.set_region_ID(region_ID);
     proto_cell.set_silo_index(silo_index);
     for (auto i : dirs) {
@@ -200,7 +200,7 @@ int main(void) {
 
     // test the get methods
     const double *cell_coords = from_proto.get_node_array();
-    if (from_proto.get_ID() != cell_ID)
+    if (from_proto.get_global_index() != global_index)
       proto_construction_pass = false;
     if (from_proto.get_region_ID() != region_ID)
       proto_construction_pass = false;

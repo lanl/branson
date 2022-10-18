@@ -93,11 +93,9 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
 
   // get rank data, map values from from global ID to SILO ID
   uint32_t n_local = mesh.get_n_local_cells();
-  Cell cell;
-  uint32_t g_index, silo_index;
+  uint32_t silo_index;
   for (uint32_t i = 0; i < n_local; i++) {
-    cell = mesh.get_cell(i);
-    g_index = cell.get_ID();
+    const auto &cell = mesh.get_cell_ref(i);
     silo_index = cell.get_silo_index();
     rank_data[silo_index] = rank;
     // set silo plot variables

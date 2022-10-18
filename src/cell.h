@@ -41,11 +41,11 @@ public:
     op_a = 0.0;
     op_s = 0.0;
     f = 0.0;
-    g_ID = 0; // won't show up in finds
+    global_index = 0; // won't show up in finds
   }
 
   explicit Cell(const Proto_Cell &proto_cell)
-   : g_ID(proto_cell.get_ID()), region_ID(proto_cell.get_region_ID()),
+   : global_index(proto_cell.get_global_index()), region_ID(proto_cell.get_region_ID()),
     silo_index(proto_cell.get_silo_index()),
     e_next(proto_cell.get_e_next()),
     nodes(proto_cell.get_nodes()),
@@ -101,7 +101,7 @@ public:
     return bc[dir];
   }
 
-  //! Get global ID of cell in next direction
+  //! Get global index of cell in next direction
   inline uint32_t get_next_cell(const uint32_t &dir) const {
     return e_next[dir];
   }
@@ -186,8 +186,8 @@ public:
   //! Return source temperature
   inline double get_T_s(void) const { return T_s; }
 
-  // Return global ID
-  inline uint32_t get_ID(void) const { return g_ID; }
+  // Return global cell index
+  inline uint32_t get_global_index(void) const { return global_index; }
 
   // Return region ID
   inline uint32_t get_region_ID(void) const { return region_ID; }
@@ -200,7 +200,7 @@ public:
   }
 
   //! Override great than operator to sort
-  bool operator<(const Cell &compare) const { return g_ID < compare.get_ID(); }
+  bool operator<(const Cell &compare) const { return global_index < compare.get_global_index(); }
 
   //! Print cell data (diagnostic only)
   void print(void) const {
@@ -215,7 +215,7 @@ public:
         boundary = true;
     }
 
-    cout<<"rank: "<<my_rank<<" global index: "<<g_ID<<" boundary cell: "<<boundary<<std::endl;
+    cout<<"rank: "<<my_rank<<" global index: "<<global_index<<" boundary cell: "<<boundary<<std::endl;
     cout<<nodes[0]<<" "<<nodes[1]<<" "<<nodes[2]<<" "<<nodes[3]<<" "<<nodes[4]<<" "<<nodes[5]<<endl;
 
     cout<<"Temperatures: "<<T_e<<" "<<T_r<<" "<<T_s<<endl;
@@ -228,9 +228,9 @@ public:
   // non-const functions                                                      //
   //--------------------------------------------------------------------------//
 
-  //! Set neighbor in a given direction by global cell ID
-  void set_neighbor(Constants::dir_type neighbor_dir, uint32_t nbr_g_ID) {
-    e_next[neighbor_dir] = nbr_g_ID;
+  //! Set neighbor in a given direction by global cell index
+  void set_neighbor(Constants::dir_type neighbor_dir, uint32_t nbr_global_index) {
+    e_next[neighbor_dir] = nbr_global_index;
   }
 
   //! Set boundary conditions for cell in a given direction
@@ -274,8 +274,8 @@ public:
   //! Set source temperature
   void set_T_s(double _T_s) { T_s = _T_s; }
 
-  //! Set global ID
-  void set_ID(uint32_t _id) { g_ID = _id; }
+  //! Set global cell index
+  void set_global_index(uint32_t _global_index) { global_index = _global_index; }
 
   //! Set region ID
   void set_region_ID(uint32_t _region_ID) { region_ID = _region_ID; }
@@ -298,7 +298,7 @@ public:
   // member data                                                              //
   //--------------------------------------------------------------------------//
 private:
-  uint32_t g_ID; //!< Global ID, valid across all ranks
+  uint32_t global_index; //!< global cell index, valid across all ranks
 
   uint32_t region_ID; //!< region cell is in (for setting physical properties)
   uint32_t silo_index;      //!< Global index not remappaed, for SILO plotting

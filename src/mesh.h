@@ -40,7 +40,7 @@
  * \brief Manages data access, decomposition and parallel communication for mesh
  *
  * Using an Input class, make the mesh with the correct material properties
- * for each region. The mesh numbering and mapping between global IDs and local
+ * for each region. The mesh numbering and mapping between global indices and local
  * indices are all determined with the aid of Metis in the decompose_mesh
  * function. The mesh class also manages two-sided messaging in the mesh-
  * passing method.
@@ -148,13 +148,7 @@ public:
       cells[i].print();
   }
 
-  Cell get_cell(const uint32_t &local_ID) const { return cells[local_ID]; }
-
-  Cell &get_cell_ref(const uint32_t &local_ID) { return cells[local_ID]; }
-
-  const Cell *get_cell_ptr(const uint32_t &local_ID) const {
-    return &cells[local_ID];
-  }
+  const Cell &get_cell_ref(const uint32_t local_index) const { return cells[local_index]; }
 
   uint32_t get_off_rank_id(const uint32_t &index) const {
     // find rank of index
@@ -187,7 +181,7 @@ public:
   }
   const Cell *get_const_cells_ptr(void) const { return &cells[0]; }
 
-  uint32_t get_local_ID(const uint32_t &global_index) const {
+  uint32_t get_local_index(const uint32_t &global_index) const {
     if (on_processor(global_index))
       return global_index - on_rank_start;
     else {
@@ -196,14 +190,14 @@ public:
     }
   }
 
-   Cell get_on_rank_cell(const uint32_t index) const {
+   Cell get_on_rank_cell(const uint32_t global_index) const {
      // this can only be called after with valid cell index (on rank or in stored
      // cells vector
-    if (on_processor(index))
-      return cells[index - on_rank_start];
+    if (on_processor(global_index))
+      return cells[global_index - on_rank_start];
     else {
       std::cout<<"about to seg fault probably"<<std::endl;
-      return cells[index];
+      return cells[global_index];
     }
    }
 

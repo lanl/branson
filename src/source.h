@@ -32,7 +32,7 @@ inline Photon get_emission_photon(const Cell &cell, const double &phtn_E, const 
   emission_photon.set_angle(get_uniform_angle(rng));
   emission_photon.set_E0(phtn_E);
   emission_photon.set_distance_to_census(rng->generate_random_number() * c * dt);
-  emission_photon.set_cell(cell.get_ID());
+  emission_photon.set_cell(cell.get_global_index());
   emission_photon.set_group(std::floor(rng->generate_random_number() * double(BRANSON_N_GROUPS)));
   return emission_photon;
 }
@@ -47,7 +47,7 @@ inline Photon get_boundary_source_photon(const Cell &cell, const double &phtn_E,
   source_photon.set_angle(get_source_angle_on_face(rng, face));
   source_photon.set_E0(phtn_E);
   source_photon.set_distance_to_census(rng->generate_random_number() * c * dt);
-  source_photon.set_cell(cell.get_ID());
+  source_photon.set_cell(cell.get_global_index());
   source_photon.set_group(std::floor(rng->generate_random_number() * double(BRANSON_N_GROUPS)));
   return source_photon;
 }
@@ -62,7 +62,7 @@ inline Photon get_initial_census_photon(const Cell &cell, const double &phtn_E, 
   census_photon.set_E0(phtn_E);
   // initial census particles born at the beginning of timestep
   census_photon.set_distance_to_census(c * dt);
-  census_photon.set_cell(cell.get_ID());
+  census_photon.set_cell(cell.get_global_index());
   census_photon.set_group(std::floor(rng->generate_random_number() * double(BRANSON_N_GROUPS)));
   return census_photon;
 }
@@ -73,7 +73,7 @@ std::vector<Photon> make_initial_census_photons(const double dt, const Mesh &mes
   std::vector<Photon> initial_census_photons;
   auto E_cell_census = mesh.get_census_E();
   for (auto const &cell : mesh) {
-    int i = mesh.get_local_ID(cell.get_ID());
+    int i = mesh.get_local_index(cell.get_global_index());
     if (E_cell_census[i] > 0.0) {
       uint32_t t_num_census = int(user_photons * E_cell_census[i] / total_E);
       // make at least one photon to represent census energy
@@ -97,7 +97,7 @@ std::vector<Photon> make_photons(const double dt, const Mesh &mesh, const uint64
 
   std::vector<Photon> all_photons;
   for (auto const &cell : mesh) {
-    int i = mesh.get_local_ID(cell.get_ID());
+    int i = mesh.get_local_index(cell.get_global_index());
     // emission
     if (E_cell_emission[i] > 0.0) {
       uint32_t t_num_emission =

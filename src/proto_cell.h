@@ -53,7 +53,7 @@ public:
     return bc[dir];
   }
 
-  //! Get global ID of cell in next direction
+  //! Get global index of cell in next direction
   inline uint32_t get_next_cell(const uint32_t &dir) const {
     return e_next[dir];
   }
@@ -70,15 +70,15 @@ public:
            (nodes[5] - nodes[4]);
   }
 
-  // Return global ID
-  inline uint32_t get_ID(void) const { return g_ID; }
+  // Return global cell index
+  inline uint32_t get_global_index(void) const { return global_index; }
 
   // Return region ID
   inline uint32_t get_region_ID(void) const { return region_ID; }
 
   //! Override great than operator to sort
   bool operator<(const Proto_Cell &compare) const {
-    return g_ID < compare.get_ID();
+    return global_index < compare.get_global_index();
   }
 
   //! Print cell data (diagnostic only)
@@ -94,9 +94,8 @@ public:
         boundary = true;
     }
 
-    // cout<<g_ID<<" "<<boundary;
     cout<<nodes[0]<<" "<<nodes[1]<<" "<<nodes[2]<<" "<<nodes[3]<<" "<<nodes[4]<<" "<<nodes[5]<<std::endl;
-    cout << "Rank: " << my_rank << " Global ID: " << g_ID << endl;
+    cout << "Rank: " << my_rank << " global index: " << global_index << endl;
     cout << nodes[0] << " " << nodes[2] << " " << nodes[4];
     cout << " Processor bound: " << boundary << endl;
   }
@@ -105,9 +104,9 @@ public:
   // non-const functions                                                      //
   //--------------------------------------------------------------------------//
 
-  //! Set neighbor in a given direction by global cell ID
-  void set_neighbor(Constants::dir_type neighbor_dir, uint32_t nbr_g_ID) {
-    e_next[neighbor_dir] = nbr_g_ID;
+  //! Set neighbor in a given direction by global cell index
+  void set_neighbor(Constants::dir_type neighbor_dir, uint32_t nbr_global_index) {
+    e_next[neighbor_dir] = nbr_global_index;
   }
 
   //! Set boundary conditions for cell in a given direction
@@ -115,8 +114,8 @@ public:
     bc[direction] = _bc;
   }
 
-  //! Set global ID
-  void set_ID(uint32_t _id) { g_ID = _id; }
+  //! Set global index
+  void set_global_index(uint32_t _global_index) { global_index = _global_index; }
 
   //! Set region ID
   void set_region_ID(uint32_t _region_ID) { region_ID = _region_ID; }
@@ -144,10 +143,10 @@ public:
   //--------------------------------------------------------------------------//
 private:
 
-  uint32_t g_ID; //!< Global ID, valid across all ranks
+  uint32_t global_index; //!< global cell index, valid across all ranks
   uint32_t region_ID; //!< region cell is in (for setting physical properties)
   uint32_t silo_index;      //!< Global index not remappaed, for SILO plotting
-  std::array<uint32_t, 6> e_next; //!< Bordering cell, given as global ID
+  std::array<uint32_t, 6> e_next; //!< Bordering cell, given as global index
 
   std::array<Constants::bc_type, 6> bc; //!< Boundary conditions for each face
   std::array<double, 6> nodes;          //!< x_low, x_high, y_low, y_high, z_low, z_high

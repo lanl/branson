@@ -34,7 +34,7 @@
  * \brief Manages data access and decomposition for primitive mesh
  *
  * Using an Input class, make the mesh with the correct material properties
- * for each region. The mesh numbering and mapping between global IDs and local
+ * for each region. The mesh numbering and mapping between global indices and local
  * indices are all determined with the aid of Metis in the decompose_mesh
  * function. The Proto_Mesh does not hold any physical data (i.e. opacity, heat
  * capacity, temperature).
@@ -146,7 +146,7 @@ public:
 
                   e.set_coor(x_start + i * dx, x_cell_end, y_start + j * dy,
                              y_cell_end, z_start + k * dz, z_cell_end);
-                  e.set_ID(global_count);
+                  e.set_global_index(global_count);
                   e.set_region_ID(region.get_ID());
 
                   // set the global index for SILO plotting--this will always
@@ -244,10 +244,10 @@ public:
   //! returns a mapping of old cell indices to new simple global indices
   std::unordered_map<uint32_t, uint32_t> get_new_global_index_map(void) const {
     std::unordered_map<uint32_t, uint32_t> local_map;
-    uint32_t g_ID;
+    uint32_t global_index;
     for (uint32_t i = 0; i < n_cell; i++) {
-      g_ID = cell_list[i].get_ID();
-      local_map[g_ID] = i + on_rank_start;
+      global_index = cell_list[i].get_global_index();
+      local_map[global_index] = i + on_rank_start;
     }
     return local_map;
   }
@@ -259,7 +259,7 @@ public:
 
     // first, make a set of on processor indices
     for (uint32_t i = 0; i < n_cell; ++i)
-      local_nodes.insert(cell_list[i].get_ID());
+      local_nodes.insert(cell_list[i].get_global_index());
 
     for (uint32_t i = 0; i < n_cell; ++i) {
       const Proto_Cell &cell = cell_list[i];
@@ -278,21 +278,21 @@ public:
 
     // first, make a set of on processor indices
     for (uint32_t i = 0; i < n_cell; ++i)
-      local_nodes.insert(cell_list[i].get_ID());
+      local_nodes.insert(cell_list[i].get_global_index());
 
     for (uint32_t i = 0; i < n_cell; ++i) {
       const Proto_Cell &cell = cell_list[i];
       for (uint32_t d = 0; d < 6; ++d) {
         if (local_nodes.find(cell.get_next_cell(d)) == local_nodes.end())
-          boundary_nodes[cell.get_ID()] = i + on_rank_start;
+          boundary_nodes[cell.get_global_index()] = i + on_rank_start;
       }
     }
     return boundary_nodes;
   }
 
   //! Gets cell from vector list of cells before it's deleted
-  Proto_Cell get_pre_window_allocation_cell(const uint32_t &local_ID) const {
-    return cell_list[local_ID];
+  Proto_Cell get_pre_window_allocation_cell(const uint32_t &local_index) const {
+    return cell_list[local_index];
   }
 
   //! Gets contant reference to cell vector before it's deleted
@@ -327,16 +327,16 @@ public:
     return r_rank;
   }
 
-  uint32_t get_local_ID(const uint32_t &index) const {
-    return index - on_rank_start;
+  uint32_t get_local_index(const uint32_t global_index) const {
+    return global_index - on_rank_start;
   }
 
-  uint32_t get_global_ID(const uint32_t &local_index) const {
+  uint32_t get_global_index(const uint32_t local_index) const {
     return on_rank_start + local_index;
   }
 
-  bool on_processor(const uint32_t &index) const {
-    return (index >= on_rank_start) && (index <= on_rank_end);
+  bool on_processor(const uint32_t global_index) const {
+    return (global_index >= on_rank_start) && (global_index <= on_rank_end);
   }
 
   uint32_t get_global_n_x_faces(void) const { return ngx + 1; }
@@ -354,23 +354,23 @@ public:
   // non-const functions                                                      //
   //--------------------------------------------------------------------------//
 
-  //! set the global ID of the start and end cell on this rank
+  //! set the global index of the start and end cell on this rank
   void set_global_bound(uint32_t _on_rank_start, uint32_t _on_rank_end) {
     on_rank_start = _on_rank_start;
     on_rank_end = _on_rank_end;
   }
 
-  //! set the global ID starting indices for all ranks
+  //! set the global starting indices for all ranks
   void set_off_rank_bounds(std::vector<uint32_t> _off_rank_bounds) {
     off_rank_bounds = _off_rank_bounds;
   }
 
   //! Gets cell reference from vector list of cells before it's deleted
-  Proto_Cell &get_pre_window_allocation_cell_ref(const uint32_t &local_ID) {
-    return cell_list[local_ID];
+  Proto_Cell &get_pre_window_allocation_cell_ref(const uint32_t local_index) {
+    return cell_list[local_index];
   }
 
-  //! Renumber the local cell IDs and connectivity of local cells after
+  //! Renumber the local cell indices and connectivity of local cells after
   // decomposition using simple global numbering
   void renumber_local_cell_indices(
       std::unordered_map<uint32_t, uint32_t> local_map) {
@@ -385,7 +385,7 @@ public:
     // renumber global cell index, adjacent cells andvalso mark processor boundaries
     for (uint32_t i = 0; i < n_cell; ++i) {
       Proto_Cell &cell = cell_list[i];
-      cell.set_ID(i + on_rank_start);
+      cell.set_global_index(i + on_rank_start);
       for (uint32_t d = 0; d < 6; ++d) {
         // get the un-remapped next index
         next_index = cell.get_next_cell(d);
@@ -427,7 +427,7 @@ public:
     new_cell_list.clear();
     remove_cell_list.clear();
 
-    // sort based on global cell ID
+    // sort based on global cell indices
     sort(cell_list.begin(), cell_list.end());
   }
 
@@ -464,7 +464,7 @@ private:
   std::vector<Proto_Cell> new_cell_list;  //!< New received proto-cells
   std::vector<uint32_t> remove_cell_list; //!< Cells to be removed
   std::vector<uint32_t>
-      off_rank_bounds; //!< Ending value of global ID for each rank
+      off_rank_bounds; //!< Ending value of global indices for each rank
 
   std::unordered_map<uint32_t, uint32_t>
       adjacent_procs; //!< List of adjacent processors

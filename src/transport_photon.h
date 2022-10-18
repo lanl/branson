@@ -44,7 +44,7 @@ Constants::event_type transport_photon_particle_pass(
   using Constants::PASS;
   using std::min;
 
-  uint32_t cell_id, local_cell_id, next_cell;
+  uint32_t global_cell_index, local_cell_index, next_cell;
   bc_type boundary_event;
   event_type event;
   double dist_to_scatter, dist_to_boundary, dist_to_census, dist_to_event;
@@ -55,9 +55,9 @@ Constants::event_type transport_photon_particle_pass(
   uint32_t surface_cross = 0;
   double cutoff_fraction = 0.01; // note: get this from IMC_state
 
-  cell_id = phtn.get_cell();
-  local_cell_id = mesh.get_local_ID(cell_id);
-  cell = mesh.get_cell_ptr_global(cell_id); // note: only for on rank mesh data
+  global_cell_index = phtn.get_cell();
+  local_cell_index = mesh.get_local_index(global_cell_index);
+  cell = mesh.get_cell_ptr_global(global_cell_index);
   bool active = true;
 
   // transport this photon
@@ -84,8 +84,8 @@ Constants::event_type transport_photon_particle_pass(
     ew_factor = exp(-sigma_a * f * dist_to_event);
     absorbed_E = phtn.get_E() * (1.0 - ew_factor);
 
-    rank_track_E[local_cell_id] += absorbed_E / (sigma_a * f);
-    rank_abs_E[local_cell_id] += absorbed_E;
+    rank_track_E[local_cell_index] += absorbed_E / (sigma_a * f);
+    rank_abs_E[local_cell_index] += absorbed_E;
 
     phtn.set_E(phtn.get_E() - absorbed_E);
 
@@ -94,7 +94,7 @@ Constants::event_type transport_photon_particle_pass(
 
     // apply variance/runtime reduction
     if (phtn.below_cutoff(cutoff_fraction)) {
-      rank_abs_E[local_cell_id] += phtn.get_E();
+      rank_abs_E[local_cell_index] += phtn.get_E();
       active = false;
       event = KILL;
     }
@@ -114,9 +114,9 @@ Constants::event_type transport_photon_particle_pass(
         if (boundary_event == ELEMENT) {
           next_cell = cell->get_next_cell(surface_cross);
           phtn.set_cell(next_cell);
-          cell_id = next_cell;
-          local_cell_id = mesh.get_local_ID(cell_id);
-          cell = mesh.get_cell_ptr_global(cell_id); // note: only for on rank mesh data
+          global_cell_index = next_cell;
+          local_cell_index = mesh.get_local_index(global_cell_index);
+          cell = mesh.get_cell_ptr_global(global_cell_index); // note: only for on rank mesh data
         } else if (boundary_event == PROCESSOR) {
           active = false;
           // set correct cell index with global cell ID

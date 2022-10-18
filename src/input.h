@@ -159,9 +159,6 @@ public:
       // number of particles to run between MPI message checks
       batch_size = settings_node.child("batch_size").text().as_int();
 
-      // preferred number of particles per MPI send
-      particle_message_size =
-          settings_node.child("particle_message_size").text().as_double();
 
       // domain decomposed transport aglorithm
       tempString = settings_node.child_value("dd_transport_type");
@@ -181,9 +178,12 @@ public:
         decomp_mode = METIS;
       else if (tempString == "CUBE")
         decomp_mode = CUBE;
-      else if (dd_mode == REPLICATED) {
+      else if (tempString != "" && dd_mode == REPLICATED) {
         std::cout << "Replicated transport mode, mesh decomposition method";
         std::cout << " ignored" << std::endl;
+        decomp_mode = NO_DECOMP;
+      }
+      else if (dd_mode == REPLICATED) {
         decomp_mode = NO_DECOMP;
       }
       else {
@@ -192,10 +192,16 @@ public:
         cout << "setting to METIS method" << endl;
         decomp_mode = METIS;
       }
-      // if replicated mode, let user know decomposition method is ignored
-      if (dd_mode == REPLICATED) {
-        std::cout << "Replicated transport mode, mesh decomposition method";
-        std::cout << " ignored" << std::endl;
+
+      // preferred number of particles per MPI send
+      tempString = settings_node.child_value("particle_message_size");
+      if (tempString == "" && dd_mode == PARTICLE_PASS) {
+        std::cout<<"particle_message_size not found in settings, defaulting to 10000"<<std::endl;
+        particle_message_size = 10000;
+      }
+      else {
+        particle_message_size =
+            settings_node.child("particle_message_size").text().as_double();
       }
 
       // debug options
