@@ -49,6 +49,9 @@ std::vector<Photon> particle_pass_transport(
   using std::unordered_map;
   using std::vector;
 
+  int rank = mpi_info.get_rank();
+  int n_rank = mpi_info.get_n_rank();
+
   double census_E = 0.0;
   double exit_E = 0.0;
   double next_dt = imc_state.get_next_dt(); //! Set for census photons
@@ -65,7 +68,6 @@ std::vector<Photon> particle_pass_transport(
 
   // Preferred size of MPI message
   const uint32_t max_buffer_size = imc_parameters.get_particle_message_size();
-
   MPI_Datatype MPI_Particle = mpi_types.get_particle_type();
 
   // get global photon count
@@ -202,6 +204,7 @@ std::vector<Photon> particle_pass_transport(
         }
         break;
       }
+      // decrement batch count
       n--;
       if (from_receive_stack)
         phtn_recv_stack.pop();

@@ -73,7 +73,7 @@ std::vector<Photon> make_initial_census_photons(const double dt, const Mesh &mes
   std::vector<Photon> initial_census_photons;
   auto E_cell_census = mesh.get_census_E();
   for (auto const &cell : mesh) {
-    int i = cell.get_ID();
+    int i = mesh.get_local_ID(cell.get_ID());
     if (E_cell_census[i] > 0.0) {
       uint32_t t_num_census = int(user_photons * E_cell_census[i] / total_E);
       // make at least one photon to represent census energy
@@ -95,11 +95,9 @@ std::vector<Photon> make_photons(const double dt, const Mesh &mesh, const uint64
 
   double total_census_E = 0.0;
 
-  // make work packets
-  // current cell pointer
   std::vector<Photon> all_photons;
   for (auto const &cell : mesh) {
-    int i = cell.get_ID();
+    int i = mesh.get_local_ID(cell.get_ID());
     // emission
     if (E_cell_emission[i] > 0.0) {
       uint32_t t_num_emission =

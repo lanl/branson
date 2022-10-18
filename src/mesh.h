@@ -187,12 +187,13 @@ public:
   }
   const Cell *get_const_cells_ptr(void) const { return &cells[0]; }
 
-  uint32_t get_local_ID(const uint32_t &index) const {
-    return index ;
-  }
-
-  uint32_t get_global_ID(const uint32_t &local_index) const {
-    return local_index;
+  uint32_t get_local_ID(const uint32_t &global_index) const {
+    if (on_processor(global_index))
+      return global_index - on_rank_start;
+    else {
+      std::cout<<"about to seg fault probably"<<std::endl;
+      return -1;
+    }
   }
 
    Cell get_on_rank_cell(const uint32_t index) const {

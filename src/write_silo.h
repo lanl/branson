@@ -208,8 +208,6 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
     std::sort(unique_mats.begin(), unique_mats.end());
     auto last = std::unique(unique_mats.begin(), unique_mats.end());
     unique_mats.erase(last, unique_mats.end());
-    std::cout<<"n unique materials: "<<unique_mats.size()<<std::endl;
-    for(auto imat : unique_mats) std::cout<<"mat: "<<imat<<std::endl;
 
     DBPutMaterial(dbfile, "Rank_ID", "quadmesh", n_rank, rank_ids,
                   &rank_data[0], cell_dims, ndims, 0, 0, 0, 0, 0, DB_INT, NULL);
