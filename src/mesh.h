@@ -83,6 +83,7 @@ public:
       off_rank_bounds = proto_mesh.get_off_rank_bounds();
       on_rank_start = off_rank_bounds.front();
       on_rank_end = off_rank_bounds.back() - 1;
+      replicated_factor = 1.0 / n_rank;
     } else if (input.get_decomposition_mode() == METIS) {
       decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(),
                      METIS);
@@ -113,7 +114,6 @@ public:
 
     // for replicated mode, set the factor that reduces the emission energy and initial census
     // energy
-    replicated_factor = 1.0 / n_rank;
 
     // get adjacent bounds from proto mesh
     adjacent_procs = proto_mesh.get_proc_adjacency_list();
@@ -266,12 +266,12 @@ public:
       e.set_f(f);
 
       m_emission_E[i] =
-           dt * vol * f * op_a * a * c * pow(T, 4);
+           replicated_factor * dt * vol * f * op_a * a * c * pow(T, 4);
       if (step > 1)
         m_census_E[i] = 0.0;
       else
-        m_census_E[i] = vol * a * pow(Tr, 4);
-      m_source_E[i] = 0.25 * a * c *  e.get_source_area() * pow(Ts, 4) * dt;
+        m_census_E[i] = replicated_factor * vol * a * pow(Tr, 4);
+      m_source_E[i] = replicated_factor * 0.25 * a * c *  e.get_source_area() * pow(Ts, 4) * dt;
 
       pre_mat_E += T * cV * vol * rho;
       tot_emission_E += m_emission_E[i];
@@ -304,7 +304,7 @@ public:
     uint32_t region_ID;
     Region region;
 
-    if (verbose_print) {
+    if (verbose_print && rank==0) {
       std::cout.precision(8);
       std::cout<<"-------- VERBOSE PRINT BLOCK: CELL TEMPERATURE --------"<<std::endl;
       std::cout<<setiosflags(ios::right) << setw(12) << "cell"<<" ";
@@ -321,13 +321,13 @@ public:
       Cell &e = cells[i];
       vol = e.get_volume();
       T = e.get_T_e();
-      T_new = T + (abs_E[i] - m_emission_E[i] ) /
+      T_new = T + (abs_E[i] - m_emission_E[i]/replicated_factor ) /
                       (cV * vol * rho);
       T_r[i] = std::pow(track_E[i] / (vol * imc_state.get_dt() * a * c), 0.25);
       e.set_T_e(T_new);
       total_abs_E += abs_E[i];
       total_post_mat_E += T_new * cV * vol * rho;
-      if (verbose_print) {
+      if (verbose_print && rank == 0) {
         std::cout<<setiosflags(ios::right) << setw(12) << i<<" ";
         std::cout<<setiosflags(ios::right) << setw(12) << T_new<<" ";
         std::cout<<setiosflags(ios::right) << setw(12) << T_r[i]<<" ";
@@ -335,7 +335,7 @@ public:
         std::cout<<std::endl;
       }
     }
-    if (verbose_print)
+    if (verbose_print && rank == 0)
       std::cout<<"-------------------------------------------------------"<<std::endl;
     // zero out absorption tallies for all cells (global)
     abs_E.assign(abs_E.size(), 0.0);
