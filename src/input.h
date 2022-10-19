@@ -44,6 +44,7 @@ public:
     using Constants::ELEMENT;
     using Constants::REFLECT;
     using Constants::VACUUM;
+    using Constants::SOURCE;
     using Constants::X_NEG;
     using Constants::X_POS;
     using Constants::Y_NEG;
@@ -156,10 +157,6 @@ public:
       if (tempString == "TRUE")
         write_silo = true;
 
-      // number of particles to run between MPI message checks
-      batch_size = settings_node.child("batch_size").text().as_int();
-
-
       // domain decomposed transport aglorithm
       tempString = settings_node.child_value("dd_transport_type");
       if (tempString == "PARTICLE_PASS")
@@ -202,6 +199,17 @@ public:
       else {
         particle_message_size =
             settings_node.child("particle_message_size").text().as_double();
+      }
+
+      // number of particles to run between MPI message checks
+      tempString = settings_node.child_value("batch_size");
+      if (tempString == "" && dd_mode == PARTICLE_PASS) {
+        std::cout<<"batch_size not found in settings, defaulting to 10000"<<std::endl;
+        batch_size = 10000;
+      }
+      else {
+        batch_size =
+            settings_node.child("batch_size").text().as_double();
       }
 
       // debug options
@@ -277,11 +285,17 @@ public:
 
       // read in boundary conditions
       bool b_error = false;
+      bool source_on = false;
+
       tempString = bc_node.child_value("bc_right");
       if (tempString == "REFLECT")
         bc[X_POS] = REFLECT;
       else if (tempString == "VACUUM")
         bc[X_POS] = VACUUM;
+      else if (tempString == "SOURCE") {
+        bc[X_POS] = SOURCE;
+        source_on = true;
+      }
       else
         b_error = true;
 
@@ -290,6 +304,10 @@ public:
         bc[X_NEG] = REFLECT;
       else if (tempString == "VACUUM")
         bc[X_NEG] = VACUUM;
+      else if (tempString == "SOURCE") {
+        bc[X_NEG] = SOURCE;
+        source_on = true;
+      }
       else
         b_error = true;
 
@@ -298,6 +316,10 @@ public:
         bc[Y_POS] = REFLECT;
       else if (tempString == "VACUUM")
         bc[Y_POS] = VACUUM;
+      else if (tempString == "SOURCE") {
+        bc[Y_POS] = SOURCE;
+        source_on = true;
+      }
       else
         b_error = true;
 
@@ -306,6 +328,10 @@ public:
         bc[Y_NEG] = REFLECT;
       else if (tempString == "VACUUM")
         bc[Y_NEG] = VACUUM;
+      else if (tempString == "SOURCE") {
+        bc[Y_NEG] = SOURCE;
+        source_on = true;
+      }
       else
         b_error = true;
 
@@ -314,6 +340,10 @@ public:
         bc[Z_POS] = REFLECT;
       else if (tempString == "VACUUM")
         bc[Z_POS] = VACUUM;
+      else if (tempString == "SOURCE") {
+        bc[Z_POS] = SOURCE;
+        source_on = true;
+      }
       else
         b_error = true;
 
@@ -322,6 +352,10 @@ public:
         bc[Z_NEG] = REFLECT;
       else if (tempString == "VACUUM")
         bc[Z_NEG] = VACUUM;
+      else if (tempString == "SOURCE") {
+        bc[Z_NEG] = SOURCE;
+        source_on = true;
+      }
       else
         b_error = true;
 
@@ -330,6 +364,11 @@ public:
         exit(EXIT_FAILURE);
       }
       // end boundary node
+
+      // if source was turned on read in source temperature
+      if(source_on) {
+        T_source = bc_node.child("T_source").text().as_double();
+      }
 
       // read in region data
       for (pugi::xml_node_iterator it = region_node.begin();
@@ -577,6 +616,7 @@ public:
   void print_problem_info(void) const {
     using Constants::a;
     using Constants::c;
+    using Constants::SOURCE;
     using std::cout;
     using std::endl;
     // DD methods
@@ -600,6 +640,9 @@ public:
       cout << "Combing census enabled (default)" << endl;
     else
       cout << "No combing" << endl;
+
+    if(bc[0] == SOURCE || bc[1] == SOURCE || bc[2] == SOURCE || bc[3] == SOURCE || bc[4] == SOURCE || bc[5] == SOURCE)
+      std::cout<<"Source boundary on, T_source: "<<T_source<<std::endl;
 
     if (print_verbose)
       cout << "Verbose printing mode enabled" << endl;
