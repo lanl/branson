@@ -89,15 +89,13 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
   vector<double> T_r(n_xyz_cells, 0.0);
   vector<double> transport_time(n_xyz_cells, 0.0);
   vector<double> mpi_time(n_xyz_cells, 0.0);
-  vector<int> grip_ID(n_xyz_cells, 0);
+  vector<int> material(n_xyz_cells, 0);
 
   // get rank data, map values from from global ID to SILO ID
   uint32_t n_local = mesh.get_n_local_cells();
-  Cell cell;
-  uint32_t g_index, silo_index;
+  uint32_t silo_index;
   for (uint32_t i = 0; i < n_local; i++) {
-    cell = mesh.get_cell(i);
-    g_index = cell.get_ID();
+    const auto &cell = mesh.get_cell_ref(i);
     silo_index = cell.get_silo_index();
     rank_data[silo_index] = rank;
     // set silo plot variables
@@ -105,7 +103,7 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
     T_r[silo_index] = mesh.get_T_r(i);
     transport_time[silo_index] = r_transport_time;
     mpi_time[silo_index] = r_mpi_time;
-    grip_ID[silo_index] = cell.get_grip_ID();
+    material[silo_index] = cell.get_region_ID();
   }
 
   // reduce to get rank of each cell across all ranks
@@ -128,8 +126,8 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
   MPI_Allreduce(MPI_IN_PLACE, &mpi_time[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
 
-  // reduce to get grip_ID across all ranks
-  MPI_Allreduce(MPI_IN_PLACE, &grip_ID[0], n_xyz_cells, MPI_INT, MPI_SUM,
+  // reduce to get material ID across all ranks
+  MPI_Allreduce(MPI_IN_PLACE, &material[0], n_xyz_cells, MPI_INT, MPI_SUM,
                 MPI_COMM_WORLD);
 
   // First rank writes the SILO file
@@ -143,7 +141,6 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
     int *dims;
     float **coords;
     int *cell_dims;
-    uint32_t n_xyz_cells;
 
     // do 2D write
     if (ndims == 2) {
@@ -204,8 +201,17 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
     for (uint32_t i = 0; i < n_rank; i++)
       rank_ids[i] = i;
 
+    // get unique materials
+    auto unique_mats = material;
+    std::sort(unique_mats.begin(), unique_mats.end());
+    auto last = std::unique(unique_mats.begin(), unique_mats.end());
+    unique_mats.erase(last, unique_mats.end());
+
     DBPutMaterial(dbfile, "Rank_ID", "quadmesh", n_rank, rank_ids,
                   &rank_data[0], cell_dims, ndims, 0, 0, 0, 0, 0, DB_INT, NULL);
+
+    DBPutMaterial(dbfile, "material", "quadmesh", unique_mats.size(), unique_mats.data(),
+                  &material[0], cell_dims, ndims, 0, 0, 0, 0, 0, DB_INT, NULL);
 
     // write the material temperature scalar field
     DBoptlist *Te_optlist = DBMakeOptlist(2);
@@ -236,20 +242,12 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
     DBPutQuadvar1(dbfile, "mpi_time", "quadmesh", &mpi_time[0], cell_dims,
                   ndims, NULL, 0, DB_DOUBLE, DB_ZONECENT, mpi_time_optlist);
 
-    // write the grip_ID scalar field
-    DBoptlist *grip_id_optlist = DBMakeOptlist(2);
-    DBAddOption(grip_id_optlist, DBOPT_UNITS, (void *)"grip_ID");
-    DBAddOption(grip_id_optlist, DBOPT_DTIME, &time);
-    DBPutQuadvar1(dbfile, "grip_ID", "quadmesh", &grip_ID[0], cell_dims, ndims,
-                  NULL, 0, DB_INT, DB_ZONECENT, grip_id_optlist);
-
     // free option lists
     DBFreeOptlist(optlist);
     DBFreeOptlist(Te_optlist);
     DBFreeOptlist(Tr_optlist);
     DBFreeOptlist(t_time_optlist);
     DBFreeOptlist(mpi_time_optlist);
-    DBFreeOptlist(grip_id_optlist);
 
     // free data
     delete[] rank_ids;

@@ -22,7 +22,6 @@ int main(int argc, char *argv[]) {
 
   MPI_Init(&argc, &argv);
 
-  using Constants::CELL_PASS;
   using Constants::PARTICLE_PASS;
   using Constants::REFLECT;
   using Constants::VACUUM;

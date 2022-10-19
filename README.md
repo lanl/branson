@@ -15,14 +15,10 @@ Here are some things to know:
 
 - Branson is not an acronym.
 - The point of Branson is to study different algorithms for parallel Monte Carlo
-  transport. Currently it contains particle passing and mesh passing methods for
-  domain decomposition.
-- Many of the parameters that impact parallel performance can be set in the
-  input file.
-- The input file format is ugly right now and I don't have a good list of
-  parameters and what they do. Sorry.
-- Input files are in XML, which makes them easy to generate and change in
-  python.
+  transport. Currently it contains a particle passing method for domain decomposition (two mesh
+  passing methods for domain decomposition are available in older versions)
+- Many of the parameters that impact parallel performance can be set in the input file.
+- Input files are in XML, which makes them easy to generate and change in python.
 - Input files are complicated when you want to have multiple spatial regions but
   are pretty simple otherwise.
 
@@ -80,6 +76,19 @@ cd $build_dir
 ctest -j 32
 ```
 
+## Parameters ##
+
+- In the `common` block of the XML input file you can set several parameters related to parallel
+ performance:
+  - `batch_size`: how many particles are processed by an MPI rank before it stops to process
+    particle messages (small means more processing of MPI messages and possibly more interleaving
+    of off rank and on rank work)
+  - `particle_message_size`: the size of the communication buffer for particle data (small means
+     more message but possibly more interleaving of on rank and off rank work)
+  - `mesh_decomposition`: Can be `METIS` or `CUBE`, generally use Metis unless you're trying to run
+    a very large problem (Metis is serial and ParMetis can't be used due to licensing restrictions).
+    For a cube decomposition, the number of ranks must be perfect cubes (x^(1/3) is an interger)
+
 ## Special builds
 
 ### Fake Multigrop Branson:
@@ -95,6 +104,24 @@ ctest -j 32
   the same and it's still set via the input deck.
 - This branch samples a group with a uniform PDF (it does not weight the opacity
   with a Planckian spectrum).
+
+## Running Branson on performance problems
+
+- There are two performance problems of interest in the `inputs` folder, they are both simplified
+ 3D hohlraums and should be run with a 30 group build of Branson (see Special builds section above).
+- The `3D_hohlaum_single_node.xml` problem is meant to be run on a full node. It is in replicated
+ mode which means there is very little MPI communication (end of cycle reductions). It is run with:
+```
+mpirun -n <procs_on_node> <path/to/branson> 3D_hohlaum_single_node.xml
+```
+- The `3D_hohlaum_multi_node.xml` problem is meant to be run on many nodes. It is in domain
+  decomposed mode which means particles must be communicated between spatial domains. It is run
+  with:
+```
+mpirun -n <n_ranks> <path/to/branson> 3D_hohlaum_multi_node.xml
+```
+ Note that Branson does not currently have any threading capability so `n_ranks` should usually be
+ `n_nodes*n_ranks_per_node`. This problem is meant to consume about 30\% of a 128 GB node.
 
 ## Authors
 

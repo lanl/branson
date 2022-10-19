@@ -13,7 +13,7 @@
 #ifndef testing_functions_h_
 #define testing_functions_h_
 
-bool soft_equiv(const double& a, const double& b, double tolerance ) {
+bool soft_equiv(const double& a, const double& b, double tolerance=1.0e-8 ) {
   double diff = a-b;
   return  std::fabs(diff) < tolerance;
 }

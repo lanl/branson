@@ -51,8 +51,6 @@ public:
     using Constants::Z_NEG;
     using Constants::Z_POS;
     // DD methods
-    using Constants::CELL_PASS;
-    using Constants::CELL_PASS_RMA;
     using Constants::CUBE;
     using Constants::METIS;
     using Constants::NO_DECOMP;
@@ -161,17 +159,10 @@ public:
       // number of particles to run between MPI message checks
       batch_size = settings_node.child("batch_size").text().as_int();
 
-      // preferred number of particles per MPI send
-      particle_message_size =
-          settings_node.child("particle_message_size").text().as_double();
 
       // domain decomposed transport aglorithm
       tempString = settings_node.child_value("dd_transport_type");
-      if (tempString == "CELL_PASS")
-        dd_mode = CELL_PASS;
-      else if (tempString == "CELL_PASS_RMA")
-        dd_mode = CELL_PASS_RMA;
-      else if (tempString == "PARTICLE_PASS")
+      if (tempString == "PARTICLE_PASS")
         dd_mode = PARTICLE_PASS;
       else if (tempString == "REPLICATED")
         dd_mode = REPLICATED;
@@ -187,9 +178,12 @@ public:
         decomp_mode = METIS;
       else if (tempString == "CUBE")
         decomp_mode = CUBE;
-      else if (dd_mode == REPLICATED) {
+      else if (tempString != "" && dd_mode == REPLICATED) {
         std::cout << "Replicated transport mode, mesh decomposition method";
         std::cout << " ignored" << std::endl;
+        decomp_mode = NO_DECOMP;
+      }
+      else if (dd_mode == REPLICATED) {
         decomp_mode = NO_DECOMP;
       }
       else {
@@ -198,10 +192,16 @@ public:
         cout << "setting to METIS method" << endl;
         decomp_mode = METIS;
       }
-      // if replicated mode, let user know decomposition method is ignored
-      if (dd_mode == REPLICATED) {
-        std::cout << "Replicated transport mode, mesh decomposition method";
-        std::cout << " ignored" << std::endl;
+
+      // preferred number of particles per MPI send
+      tempString = settings_node.child_value("particle_message_size");
+      if (tempString == "" && dd_mode == PARTICLE_PASS) {
+        std::cout<<"particle_message_size not found in settings, defaulting to 10000"<<std::endl;
+        particle_message_size = 10000;
+      }
+      else {
+        particle_message_size =
+            settings_node.child("particle_message_size").text().as_double();
       }
 
       // debug options
@@ -580,8 +580,6 @@ public:
     using std::cout;
     using std::endl;
     // DD methods
-    using Constants::CELL_PASS;
-    using Constants::CELL_PASS_RMA;
     using Constants::PARTICLE_PASS;
     using Constants::REPLICATED;
     // mesh decomposition
@@ -631,20 +629,7 @@ public:
 
     cout << "--Parallel Information--" << endl;
     cout << "DD algorithm: ";
-    if (dd_mode == CELL_PASS) {
-      cout << "CELL PASSING" << endl;
-      cout << "grip size: " << grip_size;
-      cout << ", map size: " << map_size;
-      cout << ", batch size: " << batch_size;
-      cout << endl;
-    } else if (dd_mode == CELL_PASS_RMA) {
-      cout << "CELL PASSING (with RMA on MPI windows)" << endl;
-      cout << "COMPILE PARAMETER: maximum number of RMA requests" << endl;
-      cout << "grip size: " << grip_size;
-      cout << ", map size: " << map_size;
-      cout << ", batch size: " << batch_size;
-      cout << endl;
-    } else if (dd_mode == PARTICLE_PASS) {
+    if (dd_mode == PARTICLE_PASS) {
       cout << "PARTICLE PASSING" << endl;
       cout << "Batch size: " << batch_size;
       cout << ", particle message size: " << particle_message_size;

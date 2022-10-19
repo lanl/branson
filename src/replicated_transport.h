@@ -28,10 +28,8 @@
 #include "photon.h"
 #include "sampling_functions.h"
 
-std::vector<Photon> replicated_transport(Source &source, const Mesh &mesh,
-                                         IMC_State &imc_state,
-                                         std::vector<double> &rank_abs_E,
-                                         std::vector<double> &rank_track_E) {
+std::vector<Photon> replicated_transport(
+    const Mesh &mesh, IMC_State &imc_state, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> all_photons) {
   using Constants::CENSUS;
   using Constants::event_type;
   using Constants::EXIT;
@@ -54,25 +52,19 @@ std::vector<Photon> replicated_transport(Source &source, const Mesh &mesh,
   t_transport.start_timer("timestep transport");
 
   // replicated transport does not require the global photon count
-  uint64_t n_local = source.get_n_photon();
+  uint64_t n_local = all_photons.size();
 
   //------------------------------------------------------------------------//
   // main transport loop
   //------------------------------------------------------------------------//
 
   vector<Photon> census_list;   //! End of timestep census list
-  uint64_t n_local_sourced = 0; //! Photons pulled from source object
-  Photon phtn;
   event_type event;
 
   //------------------------------------------------------------------------//
   // Transport photons from source
   //------------------------------------------------------------------------//
-  while (n_local_sourced < n_local) {
-
-    phtn = source.get_photon(rng, dt);
-    n_local_sourced++;
-
+  for ( auto & phtn : all_photons) {
     event = transport_photon_particle_pass(phtn, mesh, rng, next_dt, exit_E,
                                            census_E, rank_abs_E, rank_track_E);
     switch (event) {

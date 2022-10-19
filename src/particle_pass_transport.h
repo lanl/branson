@@ -34,10 +34,8 @@
 
 
 std::vector<Photon> particle_pass_transport(
-    Source &source, const Mesh &mesh, IMC_State &imc_state,
-    const IMC_Parameters &imc_parameters, const MPI_Types &mpi_types,
-    Message_Counter &mctr, std::vector<double> &rank_abs_E,
-    std::vector<double> &rank_track_E, const Info &mpi_info) {
+    const Mesh &mesh, const IMC_Parameters &imc_parameters, const Info &mpi_info, const MPI_Types &mpi_types,
+    IMC_State &imc_state, Message_Counter &mctr, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> all_photons) {
   using Constants::CENSUS;
   using Constants::event_type;
   using Constants::EXIT;
@@ -51,6 +49,9 @@ std::vector<Photon> particle_pass_transport(
   using std::unordered_map;
   using std::vector;
 
+  int rank = mpi_info.get_rank();
+  int n_rank = mpi_info.get_n_rank();
+
   double census_E = 0.0;
   double exit_E = 0.0;
   double next_dt = imc_state.get_next_dt(); //! Set for census photons
@@ -60,18 +61,17 @@ std::vector<Photon> particle_pass_transport(
 
   // timing
   Timer t_transport;
-  t_transport.start_timer("timestep transport");
+  t_transport.start_timer("timestep_transport");
 
   // Number of particles to run between MPI communication
   const uint32_t batch_size = imc_parameters.get_batch_size();
 
   // Preferred size of MPI message
   const uint32_t max_buffer_size = imc_parameters.get_particle_message_size();
-
   MPI_Datatype MPI_Particle = mpi_types.get_particle_type();
 
   // get global photon count
-  uint64_t n_local = source.get_n_photon();
+  uint64_t n_local = all_photons.size();
   uint64_t n_global;
   uint64_t last_global_complete_count = 0;
 
@@ -148,7 +148,7 @@ std::vector<Photon> particle_pass_transport(
         phtn = phtn_recv_stack.top();
         from_receive_stack = true;
       } else {
-        phtn = source.get_photon(rng, dt);
+        phtn = all_photons[n_local_sourced];
         n_local_sourced++;
         from_receive_stack = false;
       }
@@ -204,6 +204,7 @@ std::vector<Photon> particle_pass_transport(
         }
         break;
       }
+      // decrement batch count
       n--;
       if (from_receive_stack)
         phtn_recv_stack.pop();
@@ -309,7 +310,7 @@ std::vector<Photon> particle_pass_transport(
   } // end while
 
   // record time of transport work for this rank
-  t_transport.stop_timer("timestep transport");
+  t_transport.stop_timer("timestep_transport");
 
   // wait for all ranks to finish then send empty photon messages
   // do this because it's possible for a rank to receive the empty message
@@ -352,13 +353,13 @@ std::vector<Photon> particle_pass_transport(
   delete[] phtn_recv_request;
   delete[] phtn_send_request;
 
+
   // set diagnostic quantities
   imc_state.set_exit_E(exit_E);
   imc_state.set_post_census_E(census_E);
   imc_state.set_census_size(census_list.size());
   imc_state.set_network_message_counts(mctr);
-  imc_state.set_rank_transport_runtime(
-      t_transport.get_time("timestep transport"));
+  imc_state.set_rank_transport_runtime(t_transport.get_time("timestep_transport"));
 
   return census_list;
 }
