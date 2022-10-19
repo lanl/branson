@@ -80,6 +80,7 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
 
     mesh.update_temperature(abs_E, track_E, imc_state);
 
+    MPI_Barrier(MPI_COMM_WORLD);
     // for replicated, just let root do conservation
     if (rank) {
       imc_state.set_absorbed_E(0.0);

@@ -178,6 +178,7 @@ public:
     // define global value
     double g_absorbed_E = 0.0;
     double g_emission_E = 0.0;
+    double g_source_E = 0.0;
     double g_pre_census_E = 0.0;
     double g_pre_mat_E = 0.0;
     double g_post_census_E = 0.0;
@@ -205,6 +206,8 @@ public:
     MPI_Allreduce(&absorbed_E, &g_absorbed_E, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
     MPI_Allreduce(&emission_E, &g_emission_E, 1, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
+    MPI_Allreduce(&source_E, &g_source_E, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
     MPI_Allreduce(&pre_census_E, &g_pre_census_E, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
@@ -252,7 +255,7 @@ public:
                   MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
 
     double rad_conservation = (g_absorbed_E + g_post_census_E + g_exit_E) -
-                              (g_pre_census_E + g_emission_E + source_E);
+                              (g_pre_census_E + g_emission_E + g_source_E);
 
     double mat_conservation =
         g_post_mat_E - (g_pre_mat_E + g_absorbed_E - g_emission_E);
@@ -266,7 +269,7 @@ public:
 
     if (rank == 0) {
       cout << "Total Photons transported: " << g_trans_particles << endl;
-      cout << "Emission E: " << g_emission_E
+      cout << "Emission E: " << g_emission_E << ", Source E: " <<g_source_E
            << ", Absorption E: " << g_absorbed_E;
       cout << ", Exit E: " << g_exit_E << endl;
       cout << "Pre census E: " << g_pre_census_E << " Post census E: ";

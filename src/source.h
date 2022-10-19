@@ -69,13 +69,13 @@ inline Photon get_initial_census_photon(const Cell &cell, const double &phtn_E, 
 
 
 //! Make the census photons on cycle 0
-std::vector<Photon> make_initial_census_photons(const double dt, const Mesh &mesh, const uint64_t user_photons, const double total_E, RNG *rng) {
+std::vector<Photon> make_initial_census_photons(const double dt, const Mesh &mesh, const uint64_t n_user_photons, const double total_E, RNG *rng) {
   std::vector<Photon> initial_census_photons;
   auto E_cell_census = mesh.get_census_E();
   for (auto const &cell : mesh) {
     int i = mesh.get_local_index(cell.get_global_index());
     if (E_cell_census[i] > 0.0) {
-      uint32_t t_num_census = int(user_photons * E_cell_census[i] / total_E);
+      uint32_t t_num_census = int(n_user_photons * E_cell_census[i] / total_E);
       // make at least one photon to represent census energy
       if (t_num_census == 0) t_num_census = 1;
       // keep track of census energy for conservation check
@@ -88,20 +88,46 @@ std::vector<Photon> make_initial_census_photons(const double dt, const Mesh &mes
   return initial_census_photons;
 }
 
-std::vector<Photon> make_photons(const double dt, const Mesh &mesh, const uint64_t user_photons, const double total_E, RNG *rng) {
+std::vector<Photon> make_photons(const double dt, const Mesh &mesh, const uint64_t n_user_photons, const double total_E, RNG *rng) {
 
   auto E_cell_emission = mesh.get_emission_E();
   auto E_cell_source = mesh.get_source_E();
 
   double total_census_E = 0.0;
 
-  std::vector<Photon> all_photons;
+  // figure out how many to make to size all_photons vector
+  uint64_t photons_to_make = 0;
   for (auto const &cell : mesh) {
     int i = mesh.get_local_index(cell.get_global_index());
     // emission
     if (E_cell_emission[i] > 0.0) {
       uint32_t t_num_emission =
-          int(user_photons * E_cell_emission[i] / total_E);
+          int(n_user_photons * E_cell_emission[i] / total_E);
+      // make at least one photon to represent emission energy
+      if (t_num_emission == 0)
+        t_num_emission = 1;
+      photons_to_make+=t_num_emission;
+    }
+    if (E_cell_source[i] > 0.0) {
+      // boundary source
+        uint32_t t_num_source =
+            int(n_user_photons * E_cell_source[i] / total_E);
+        // make at least one photon to represent source energy
+        if (t_num_source == 0)
+          t_num_source = 1;
+      photons_to_make+=t_num_source;
+    }
+  }
+
+  std::vector<Photon> all_photons;
+  all_photons.reserve(photons_to_make);
+
+  for (auto const &cell : mesh) {
+    int i = mesh.get_local_index(cell.get_global_index());
+    // emission
+    if (E_cell_emission[i] > 0.0) {
+      uint32_t t_num_emission =
+          int(n_user_photons * E_cell_emission[i] / total_E);
       // make at least one photon to represent emission energy
       if (t_num_emission == 0)
         t_num_emission = 1;
@@ -113,8 +139,8 @@ std::vector<Photon> make_photons(const double dt, const Mesh &mesh, const uint64
     if (E_cell_source[i] > 0.0) {
       // boundary source
         uint32_t t_num_source =
-            int(user_photons * E_cell_source[i] / total_E);
-        // make at least one photon to represent emission energy
+            int(n_user_photons * E_cell_source[i] / total_E);
+        // make at least one photon to represent source energy
         if (t_num_source == 0)
           t_num_source = 1;
         const double photon_source_E = E_cell_source[i] / t_num_source;
