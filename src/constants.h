@@ -43,6 +43,8 @@ constexpr int n_tally_tag(9);          //!< MPI tag for number of tally messages
 //! MPI tag for cell messages NOTE: the number of grips in the message will
 // added to the end of this number
 constexpr int cell_tag(10);
+
+constexpr int n_threads_per_block = 512;
 }; // namespace Constants
 
 #endif // constants_h_

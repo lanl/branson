@@ -20,44 +20,95 @@
 
 #include "RNG.h"
 #include "constants.h"
-#include "mesh.h"
 #include "photon.h"
 #include "sampling_functions.h"
 
+void cpu_transport_photons(const uint32_t rank_cell_offset,
+    std::vector<Photon> &photons, const std::vector<Cell> &cells, RNG *rng, std::vector<Cell_Tally> &cell_tallies) {,
+
+  auto cpu_cells_ptr{cells.data()};
+  auto cpu_cell_tallies_ptr{cell_tallies.data()};
+  for (photon : photons) {
+    transport_photon(rank_cell_offset, photon, cpu_cells_ptr, rng, cpu_cell_tallies_ptr);
+  }
+}
+
+void gpu_transport_photons(const uint32_t rank_cell_offset,
+    std::vector<Photon> cpu_photons, const Cell *device_cells_ptr, RNG *rng, Cell_Tally *device_cell_tallies_ptr) {
+
+  #ifdef USE_CUDA
+  size_t n_active_photons = cpu_photons.size();
+  // allocate and copy photons
+  Photon *device_photons_ptr;
+  err = cudaMalloc((void **)&device_photons_ptr, sizeof(Photon) * cpu_photons.size());
+  Insist(!err, "CUDA error in allocating photons data");
+  err = cudaMemcpy(device_photons_ptr, cpu_photons.data(), sizeof(Photon) * cpu_photons.size(),
+                   cudaMemcpyHostToDevice);
+  Insist(!err, "CUDA error in copying photons data");
+
+  // kernel settings
+  int n_blocks = (n_active_photons + Constants::n_threads_per_block - 1) /
+                 Constants::n_threads_per_block;
+
+  cudaDeviceSynchronize();
+
+  std::cout << "Launching with " << n_blocks << " blocks and ";
+  std::cout << n_active_photons << " photons" << std::endl;
+  gpu_no_accel_transport<<<n_blocks, Constants::n_threads_per_block>>>(
+      rank_cell_offset, n_active_photons, device_photons_ptr, device_cells_ptr, RNG, device_cell_tallies_ptr);
+
+  Insist(!(cudaGetLastError()), "CUDA error in transport kernel launch");
+  cudaDeviceSynchronize();
+
+  // copy particles back to host
+  err = cudaMemcpy(cpu_photons.data(), device_photons_ptr, n_active_photons * sizeof(Photon),
+                   cudaMemcpyDeviceToHost);
+  Insist(!err, "CUDA error in copying photons back to host");
+
+  #endif
+}
+
+GPU_KERNEL
+void gpu_no_accel_transport(const uint32_t rank_cell_offset,
+    Photon &phtn, const Cell *cells, RNG *rng, Cell_Tally *cell_tallies) {
+
+#ifdef USE_CUDA
+  __shared__ Particle block_particles[rtt_tracking::n_threads_per_block];
+  int32_t particle_id = threadIdx.x + blockIdx.x * blockDim.x;
+  if (particle_id < n_batch_particles) {
+    block_particles[threadIdx.x] = particles[index_set[particle_id]];
+
+    transport_photon(rank_cell_offest, block_particles[threadIdx.x], cells, rng, cell_tallies);
+
+    particles[index_set[particle_id]] = block_particles[threadIdx.x];
+  }
+
+#endif
+
+
 //----------------------------------------------------------------------------//
 //! Transport a photon when the mesh is always available
-Constants::event_type transport_photon_particle_pass(
-    Photon &phtn, const Mesh &mesh, RNG *rng, double &next_dt, double &exit_E,
-    double &census_E, std::vector<double> &rank_abs_E,
-    std::vector<double> &rank_track_E) {
-  using Constants::ELEMENT;
-  using Constants::PROCESSOR;
-  using Constants::REFLECT;
-  using Constants::VACUUM;
-  // events
+GPU_HOST_DEVICE
+void transport_photon(const uint32_t rank_cell_offset,
+    Photon &phtn, const Cell *cells, RNG *rng, Cell_Tally *cell_tallies) {
+
   using Constants::bc_type;
   using Constants::c;
-  using Constants::CENSUS;
-  using Constants::event_type;
-  using Constants::EXIT;
-  using Constants::KILL;
-  using Constants::PASS;
+  // events
   using std::min;
 
   uint32_t global_cell_index, local_cell_index, next_cell;
   bc_type boundary_event;
-  event_type event;
   double dist_to_scatter, dist_to_boundary, dist_to_census, dist_to_event;
   double sigma_a, sigma_s, f, absorbed_E, ew_factor;
   int group;
-  const Cell *cell;
 
   uint32_t surface_cross = 0;
   double cutoff_fraction = 0.01; // note: get this from IMC_state
 
-  global_cell_index = phtn.get_cell();
-  local_cell_index = mesh.get_local_index(global_cell_index);
-  cell = mesh.get_cell_ptr_global(global_cell_index);
+  uint32_t global_cell_index = phtn.get_cell();
+  uint32_t local_cell_index =  global_cell_index - rank_cell_offset;
+  Cell const * cell = &cells[local_cell_index];
   bool active = true;
 
   // transport this photon
@@ -96,7 +147,7 @@ Constants::event_type transport_photon_particle_pass(
     if (phtn.below_cutoff(cutoff_fraction)) {
       rank_abs_E[local_cell_index] += phtn.get_E();
       active = false;
-      event = KILL;
+      phtn.set_descriptor(Constants::KILL);
     }
     // or apply event
     else {
@@ -111,35 +162,32 @@ Constants::event_type transport_photon_particle_pass(
       // EVENT TYPE: BOUNDARY CROSS
       else if (dist_to_event == dist_to_boundary) {
         boundary_event = cell->get_bc(surface_cross);
-        if (boundary_event == ELEMENT) {
+        if (boundary_event == Constants::ELEMENT) {
           next_cell = cell->get_next_cell(surface_cross);
           phtn.set_cell(next_cell);
           global_cell_index = next_cell;
-          local_cell_index = mesh.get_local_index(global_cell_index);
-          cell = mesh.get_cell_ptr_global(global_cell_index); // note: only for on rank mesh data
-        } else if (boundary_event == PROCESSOR) {
+          local_cell_index =  global_cell_index - rank_cell_offset;
+          cell = &cells[local_cell_index]; // note: only for on rank mesh data
+        } else if (boundary_event == Constants::PROCESSOR) {
           active = false;
           // set correct cell index with global cell ID
           next_cell = cell->get_next_cell(surface_cross);
           phtn.set_cell(next_cell);
-          event = PASS;
-        } else if (boundary_event == VACUUM) {
+          phtn.set_descriptor(Constants::PASS);
+        } else if (boundary_event == Constants::VACUUM) {
           exit_E += phtn.get_E();
           active = false;
-          event = EXIT;
+          phtn.set_descriptor(EXIT);
         } else
           phtn.reflect(surface_cross);
       }
       // EVENT TYPE: REACH CENSUS
       else if (dist_to_event == dist_to_census) {
-        phtn.set_distance_to_census(c * next_dt);
         active = false;
-        event = CENSUS;
-        census_E += phtn.get_E();
+        phtn.set_descriptor(Constants::CENSUS);
       }
     } // end event loop
   }   // end while alive
-  return event;
 }
 //----------------------------------------------------------------------------//
 
