@@ -23,6 +23,41 @@
 // For faux multigroup array sizing
 #cmakedefine BRANSON_N_GROUPS @BRANSON_N_GROUPS@
 
+/*----------------------------------------------------------------------------*/
+/* Mark functions for compilation on host and device */
+
+#if defined __NVCC__ && defined USE_CUDA
+#define HOST_AND_DEVICE_FUNCTION __host__ __device__
+#define GPU_HOST_DEVICE __host__ __device__
+#define GPU_DEVICE __device__
+#define GPU_KERNEL __global__
+#define CONSTANT __constant__
+#else
+#define HOST_AND_DEVICE_FUNCTION
+#define GPU_HOST_DEVICE
+#define GPU_DEVICE
+#define GPU_KERNEL
+#define CONSTANT constexpr
+#endif
+
+#ifdef USE_CUDA
+
+//! Add addend to t, use atomicAdd if built on a CUDA device
+template <class T>
+GPU_HOST_DEVICE inline void accumulate(T &target, T const addend) {
+  atomicAdd(&target, addend);
+  return;
+}
+
+#else
+
+//! Add addend to t, non-atomic version
+template <class T> inline void accumulate(T &target, T const addend) {
+  target += addend;
+  return;
+}
+#endif // USE_CUDA
+
 #endif // def config_h_
 //----------------------------------------------------------------------------//
 // end of config.h

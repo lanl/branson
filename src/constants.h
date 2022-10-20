@@ -24,7 +24,7 @@ constexpr double a_SO(1.0);      //!< Boltzmann constant for SO problems
 
 enum bc_type { REFLECT, VACUUM, ELEMENT, SOURCE, PROCESSOR }; //!< Boundary conditions
 enum dir_type { X_NEG, X_POS, Y_NEG, Y_POS, Z_NEG, Z_POS }; //!< Directions
-enum event_type { KILL, EXIT, PASS, CENSUS, WAIT };         //!< Events
+enum event_type : unsigned char { KILL, EXIT, PASS, CENSUS};         //!< Events
 enum {
   PARTICLE_PASS,
   REPLICATED

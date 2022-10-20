@@ -59,6 +59,9 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
 
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
 
+    // make gpu setup object, may want to source on GPU later so make it before sourcing here
+    gpu_setup(imc_parameters.use_gpu_transporter(), mesh.get_cells());
+
     // setup source
     if (imc_state.get_step() == 1) {
       census_photons = make_initial_census_photons(imc_state.get_dt(), mesh, n_user_photons, global_source_energy, imc_state.get_rng());
@@ -73,7 +76,7 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
 
     imc_state.set_transported_particles(all_photons.size());
 
-    particle_pass_transport(mesh, imc_parameters, mpi_info, mpi_types, imc_state, mctr, abs_E, track_E, all_photons);
+    particle_pass_transport(mesh, gpu_setup, imc_parameters, mpi_info, mpi_types, imc_state, mctr, abs_E, track_E, all_photons);
 
     mesh.update_temperature(abs_E, track_E, imc_state);
 

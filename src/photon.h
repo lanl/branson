@@ -31,6 +31,7 @@
 class Photon {
 public:
   //! Constructor
+  GPU_HOST_DEVICE
   Photon() {}
 
   //! Destructor
@@ -41,31 +42,40 @@ public:
   //--------------------------------------------------------------------------//
 
   //! Check to see if photon energy weight is below cutoff fraction
+  GPU_HOST_DEVICE
   bool below_cutoff(const double cutoff_fraction) const {
     return (m_E / m_E0 < cutoff_fraction);
   }
 
+  GPU_HOST_DEVICE
   inline double get_fraction() const {return m_E/ m_E0;}
 
   //! Return global cell ID
+  GPU_HOST_DEVICE
   inline uint32_t get_cell(void) const { return m_cell_ID; }
 
   //! Return photon group
+  GPU_HOST_DEVICE
   inline uint32_t get_group(void) const { return group; }
 
   //! Return a constant pointer to the start of the particle position array
+  GPU_HOST_DEVICE
   inline std::array<double,3> get_position(void) const { return m_pos; }
 
   //! Return a constant pointer to the start of the particle direction array
+  GPU_HOST_DEVICE
   inline std::array<double,3> get_angle(void) const { return m_angle; }
 
   //! Get the particle's energy-weight
+  GPU_HOST_DEVICE
   inline double get_E(void) const { return m_E; }
 
   //! Get the partice's initial energy-weight
+  GPU_HOST_DEVICE
   inline double get_E0(void) const { return m_E0; }
 
   //! Get the distance to census (cm)
+  GPU_HOST_DEVICE
   inline double get_distance_remaining(void) const { return m_life_dx; }
 
   //! Print particle information
@@ -85,6 +95,8 @@ public:
   bool operator<(const Photon &compare) const {
     return m_cell_ID < compare.get_cell();
   }
+
+  Constants::event_type get_descriptor() {return descriptors[0];}
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
@@ -142,6 +154,8 @@ public:
       m_angle[2] = -m_angle[2];
   }
 
+  void set_descriptor(const Constants::event_type descriptor) { descriptors[0] = descriptor ;}
+
   //--------------------------------------------------------------------------//
   // member data                                                              //
   //--------------------------------------------------------------------------//
@@ -149,6 +163,7 @@ private:
   uint32_t m_cell_ID; //!< Cell ID
   uint32_t group;     //!< Group of photon
   uint32_t source_type; //!< CENSUS, EMISSION, or SOURCE
+  std::array<unsigned char, 4> descriptors; //!< Only using one, but it fills out the padding
   std::array<double,3> m_pos;    //!< photon position
   std::array<double,3> m_angle;  //!< photon angle array
   double m_E;         //!< current photon energy

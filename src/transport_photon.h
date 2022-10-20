@@ -23,6 +23,27 @@
 #include "photon.h"
 #include "sampling_functions.h"
 
+void post_process_photons(std::vector<Photon> &all_photons, std::vector<Photon> &census_list, std::vector<Photon> &comm_list, double &census_E, double &exit_E) {
+  for ( auto & phtn : all_photons) {
+    auto descriptor{phtn.get_descriptor()};
+    switch (descriptor) {
+    case PASS:
+      comm_list.push_back(phtn);
+      break;
+    case KILL:
+      // note: for now killed particles go into the material so separate conservation issues here
+      break;
+    case EXIT:
+      exit_E+=phtn.get_E();
+      break;
+    case CENSUS:
+      census_list.push_back(phtn);
+      census_E=+phtn.get_E();
+      break;
+    } //switch(descriptor)
+  } // phtn : all_photons
+}
+
 void cpu_transport_photons(const uint32_t rank_cell_offset,
     std::vector<Photon> &photons, const std::vector<Cell> &cells, RNG *rng, std::vector<Cell_Tally> &cell_tallies) {,
 
@@ -34,9 +55,9 @@ void cpu_transport_photons(const uint32_t rank_cell_offset,
 }
 
 void gpu_transport_photons(const uint32_t rank_cell_offset,
-    std::vector<Photon> cpu_photons, const Cell *device_cells_ptr, RNG *rng, Cell_Tally *device_cell_tallies_ptr) {
+    std::vector<Photon> cpu_photons, const Cell *device_cells_ptr, RNG *rng, std::vector<Cell_Tally> cpu_cell_tallies) {
 
-  #ifdef USE_CUDA
+#ifdef USE_CUDA
   size_t n_active_photons = cpu_photons.size();
   // allocate and copy photons
   Photon *device_photons_ptr;
@@ -45,6 +66,14 @@ void gpu_transport_photons(const uint32_t rank_cell_offset,
   err = cudaMemcpy(device_photons_ptr, cpu_photons.data(), sizeof(Photon) * cpu_photons.size(),
                    cudaMemcpyHostToDevice);
   Insist(!err, "CUDA error in copying photons data");
+
+  // allocate and copy cell tally object
+  Cell_Tally *device_cell_tallies_ptr;
+  err = cudaMalloc((void **)&device_cell_tallies_ptr, sizeof(Cell_Tally) * cpu_cell_tallies.size());
+  Insist(!err, "CUDA error in allocating cell tallies data");
+  err = cudaMemcpy(device_cell_tallies_ptr, cpu_cell_tallies.data(), sizeof(Cell_Tally) * cpu_cell_tallies.size(),
+                   cudaMemcpyHostToDevice);
+  Insist(!err, "CUDA error in copying cell tallies data");
 
   // kernel settings
   int n_blocks = (n_active_photons + Constants::n_threads_per_block - 1) /
@@ -65,7 +94,12 @@ void gpu_transport_photons(const uint32_t rank_cell_offset,
                    cudaMemcpyDeviceToHost);
   Insist(!err, "CUDA error in copying photons back to host");
 
-  #endif
+  // copy cell tallies back to host
+  err = cudaMemcpy(cpu_cell_tallies.data(), device_cell_tallies_ptr, sizeof(Cell_Tally)*cpu_cell_tallies.size(),,
+                   cudaMemcpyDeviceToHost);
+  Insist(!err, "CUDA error in copying cell tallies back to host");
+
+#endif
 }
 
 GPU_KERNEL

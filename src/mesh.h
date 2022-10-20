@@ -168,6 +168,10 @@ public:
     return s_i;
   }
 
+  uint32_t get_rank_cell_offset(const int rank) const {
+    return off_rank_bounds[rank];
+  }
+
   const Cell *get_cell_ptr_global(const uint32_t global_ID) const {
     return &cells[global_ID - on_rank_start];
   }
@@ -205,7 +209,7 @@ public:
     return (index >= on_rank_start) && (index <= on_rank_end);
   }
 
-  std::vector<Cell> &get_cells() {
+  const std::vector<Cell> &get_cells() const {
     return cells;
   }
 

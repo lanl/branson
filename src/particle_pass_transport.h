@@ -34,15 +34,8 @@
 
 
 std::vector<Photon> particle_pass_transport(
-    const Mesh &mesh, const IMC_Parameters &imc_parameters, const Info &mpi_info, const MPI_Types &mpi_types,
+    const Mesh &mesh, const GPU_Setup &gpu_setup, const IMC_Parameters &imc_parameters, const Info &mpi_info, const MPI_Types &mpi_types,
     IMC_State &imc_state, Message_Counter &mctr, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> all_photons) {
-  using Constants::CENSUS;
-  using Constants::event_type;
-  using Constants::EXIT;
-  using Constants::KILL;
-  using Constants::PASS;
-  using Constants::photon_tag;
-  using Constants::WAIT;
   using std::cout;
   using std::endl;
   using std::stack;
@@ -80,6 +73,7 @@ std::vector<Photon> particle_pass_transport(
 
   // This flag indicates that send processing is needed for target rank
   vector<vector<Photon>> send_list;
+  vector<Cell_Tally> cell_tallies(mesh.get_n_cells());;
 
   // Completion count request made flag
   bool req_made = false;
@@ -134,6 +128,8 @@ std::vector<Photon> particle_pass_transport(
   Photon phtn;
   event_type event;
 
+  uint32_t rank_cell_offset{mesh.get_cell_rank_offset(rank)};
+
   while (last_global_complete_count != n_global) {
 
     uint32_t n = batch_size;
@@ -153,20 +149,20 @@ std::vector<Photon> particle_pass_transport(
         from_receive_stack = false;
       }
 
-      event = transport_photon_particle_pass(
-          phtn, mesh, rng, next_dt, exit_E, census_E, rank_abs_E, rank_track_E);
-      switch (event) {
+      transport_photon_particle_pass(rank_cell_offset, mesh.get_cells().data(),
+          phtn, rng, cell_tallies.data());
+      switch (phtn.get_descriptor()) {
       // this case should never be reached
-      case WAIT:
-        break;
       case KILL:
         n_complete++;
         break;
       case EXIT:
         n_complete++;
+        exit_E+=phtn.get_E();
         break;
       case CENSUS:
         census_list.push_back(phtn);
+        census_E+=phtn.get_E();
         n_complete++;
         break;
       case PASS:
@@ -353,6 +349,11 @@ std::vector<Photon> particle_pass_transport(
   delete[] phtn_recv_request;
   delete[] phtn_send_request;
 
+  // copy cell tallies back out to rank_abs_E and rank_track_E
+  for (size_t i = 0; i<cell_tallies.size();++i) {
+    rank_abs_E[i] = cell_tallies[i].get_abs_E();
+    rank_track_E[i] = cell_tallies[i].get_track_E();
+  }
 
   // set diagnostic quantities
   imc_state.set_exit_E(exit_E);
