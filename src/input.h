@@ -139,8 +139,20 @@ public:
       map_size = settings_node.child("map_size").text().as_int();
       output_freq = settings_node.child("output_frequency").text().as_int();
 
+      // use gpu transporter if available
+      std::string tempString = settings_node.child_value("use_gpu_transporter");
+      if (tempString == "FALSE")
+        use_gpu_transporter = 0;
+      else if (tempString == "TRUE")
+        use_gpu_transporter = 1;
+      else {
+        cout << "\"use_gpu_transporter\" not found or recognized, defaulting to FALSE"
+             << endl;
+        use_gpu_transporter = 0;
+      }
+
       // use particle combing population control
-      std::string tempString = settings_node.child_value("use_combing");
+      tempString = settings_node.child_value("use_combing");
       if (tempString == "FALSE")
         use_comb = 0;
       else if (tempString == "TRUE")
@@ -434,7 +446,7 @@ public:
         batch_size = 100000000;
     } // end xml parse
 
-    const int n_bools = 4;
+    const int n_bools = 5;
     const int n_uint = 16;
     const int n_doubles = 6;
     MPI_Datatype MPI_Region = mpi_types.get_region_type();
@@ -449,8 +461,8 @@ public:
 
       // bools
       vector<int> all_bools = {write_silo, use_comb,
-                               print_verbose, print_mesh_info};
-      MPI_Bcast(&all_bools[0], n_bools, MPI_INT, 0, MPI_COMM_WORLD);
+                               print_verbose, print_mesh_info, use_gpu_transporter};
+      MPI_Bcast(all_bools.data(), n_bools, MPI_INT, 0, MPI_COMM_WORLD);
 
       // bcs
       vector<int> bcast_bcs = {bc[0], bc[1], bc[2], bc[3], bc[4], bc[5]};
@@ -519,6 +531,7 @@ public:
       use_comb = all_bools[1];
       print_verbose = all_bools[2];
       print_mesh_info = all_bools[3];
+      use_gpu_transporter = all_bools[4];
 
       // set bcs
       vector<int> bcast_bcs(6);
@@ -764,6 +777,8 @@ public:
   bool get_verbose_print_bool(void) const { return print_verbose; }
   //! Return the value of the mesh print option
   bool get_print_mesh_info_bool(void) const { return print_mesh_info; }
+  //! Return the use_gpu_transporter option
+  bool get_use_gpu_transporter_bool(void) const { return use_gpu_transporter; }
   //! Return the frequency of timestep summary printing
   uint32_t get_output_freq(void) const { return output_freq; }
 
@@ -828,7 +843,6 @@ public:
 
 private:
   // flags
-  bool write_silo; //!< Dump SILO output files
 
   Constants::bc_type bc[6]; //!< Boundary condition array
 
@@ -856,14 +870,18 @@ private:
   uint32_t seed;      //!< Random number seed
 
   // Method parameters
-  bool use_comb;        //!< Comb census photons
   uint32_t dd_mode;     //!< Mode of domain decomposed transport algorithm
   uint32_t decomp_mode; //!< Mode of decomposing mesh
 
   // Debug parameters
   uint32_t output_freq; //!< How often to print temperature information
+
+  // Bools
+  bool use_comb;        //!< Comb census photons
+  bool write_silo; //!< Dump SILO output files
   bool print_verbose;   //!< Verbose printing flag
   bool print_mesh_info; //!< Mesh information printing flag
+  bool use_gpu_transporter; //!< Run on GPU if availabile
 
   // parallel performance parameters
   uint32_t grip_size; //!< Preferred number of cells in a parallel communication

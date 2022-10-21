@@ -23,6 +23,7 @@
 
 #include "transport_photon.h"
 #include "RNG.h"
+#include "gpu_setup.h"
 #include "buffer.h"
 #include "constants.h"
 #include "info.h"
@@ -73,7 +74,7 @@ std::vector<Photon> particle_pass_transport(
 
   // This flag indicates that send processing is needed for target rank
   vector<vector<Photon>> send_list;
-  vector<Cell_Tally> cell_tallies(mesh.get_n_cells());;
+  vector<Cell_Tally> cell_tallies(mesh.get_n_local_cells());;
 
   // Completion count request made flag
   bool req_made = false;
@@ -104,7 +105,7 @@ std::vector<Photon> particle_pass_transport(
       // make receive buffer the appropriate size
       phtn_recv_buffer[i_b].resize(max_buffer_size);
       MPI_Irecv(phtn_recv_buffer[i_b].get_buffer(), max_buffer_size,
-                MPI_Particle, adj_rank, photon_tag, MPI_COMM_WORLD,
+                MPI_Particle, adj_rank, Constants::photon_tag, MPI_COMM_WORLD,
                 &phtn_recv_request[i_b]);
       mctr.n_receives_posted++;
       phtn_recv_buffer[i_b].set_awaiting();
@@ -126,9 +127,9 @@ std::vector<Photon> particle_pass_transport(
   bool from_receive_stack = false;
   int send_req_flag;
   Photon phtn;
-  event_type event;
+  Constants::event_type event;
 
-  uint32_t rank_cell_offset{mesh.get_cell_rank_offset(rank)};
+  uint32_t rank_cell_offset{mesh.get_rank_cell_offset(rank)};
 
   while (last_global_complete_count != n_global) {
 
@@ -149,23 +150,24 @@ std::vector<Photon> particle_pass_transport(
         from_receive_stack = false;
       }
 
-      transport_photon_particle_pass(rank_cell_offset, mesh.get_cells().data(),
-          phtn, rng, cell_tallies.data());
+      transport_photon(rank_cell_offset, phtn, mesh.get_cells().data(),
+          rng, cell_tallies.data());
       switch (phtn.get_descriptor()) {
       // this case should never be reached
-      case KILL:
+      case Constants::KILL:
         n_complete++;
         break;
-      case EXIT:
+      case Constants::EXIT:
         n_complete++;
         exit_E+=phtn.get_E();
         break;
-      case CENSUS:
+      case Constants::CENSUS:
+        phtn.set_distance_to_census(Constants::c*next_dt);
         census_list.push_back(phtn);
         census_E+=phtn.get_E();
         n_complete++;
         break;
-      case PASS:
+      case Constants::PASS:
         send_rank = mesh.get_rank(phtn.get_cell());
         int i_b = adjacent_procs[send_rank];
         send_list[i_b].push_back(phtn);
@@ -190,7 +192,7 @@ std::vector<Photon> particle_pass_transport(
           send_list[i_b].erase(copy_start, copy_end);
           phtn_send_buffer[i_b].fill(send_now_list);
           MPI_Isend(phtn_send_buffer[i_b].get_buffer(), max_buffer_size,
-                    MPI_Particle, send_rank, photon_tag, MPI_COMM_WORLD,
+                    MPI_Particle, send_rank, Constants::photon_tag, MPI_COMM_WORLD,
                     &phtn_send_request[i_b]);
           phtn_send_buffer[i_b].set_sent();
           // update counters
@@ -247,7 +249,7 @@ std::vector<Photon> particle_pass_transport(
             send_list[i_b].erase(copy_start, copy_end);
             phtn_send_buffer[i_b].fill(send_now_list);
             MPI_Isend(phtn_send_buffer[i_b].get_buffer(), n_photons_to_send,
-                      MPI_Particle, adj_rank, photon_tag, MPI_COMM_WORLD,
+                      MPI_Particle, adj_rank, Constants::photon_tag, MPI_COMM_WORLD,
                       &phtn_send_request[i_b]);
             phtn_send_buffer[i_b].set_sent();
             // update counters
@@ -270,7 +272,7 @@ std::vector<Photon> particle_pass_transport(
             phtn_recv_buffer[i_b].reset();
             // post receive again, don't resize--it's already set to maximum
             MPI_Irecv(phtn_recv_buffer[i_b].get_buffer(), max_buffer_size,
-                      MPI_Particle, adj_rank, photon_tag, MPI_COMM_WORLD,
+                      MPI_Particle, adj_rank, Constants::photon_tag, MPI_COMM_WORLD,
                       &phtn_recv_request[i_b]);
             phtn_recv_buffer[i_b].set_awaiting();
             mctr.n_receives_completed++;
@@ -327,7 +329,7 @@ std::vector<Photon> particle_pass_transport(
         MPI_Wait(&phtn_send_request[i_b], MPI_STATUS_IGNORE);
       // send one photon vector to finish off receives, these photons will not
       // be processed by the receiving ranks (all ranks are out of transport)
-      MPI_Isend(&one_photon[0], 1, MPI_Particle, adj_rank, photon_tag,
+      MPI_Isend(&one_photon[0], 1, MPI_Particle, adj_rank, Constants::photon_tag,
                 MPI_COMM_WORLD, &phtn_send_request[i_b]);
       mctr.n_sends_posted++;
       MPI_Wait(&phtn_send_request[i_b], MPI_STATUS_IGNORE);

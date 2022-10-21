@@ -18,7 +18,6 @@
 #include <vector>
 
 #include "census_creation.h"
-#include "gpu_setup.h"
 #include "info.h"
 #include "imc_parameters.h"
 #include "imc_state.h"
@@ -61,7 +60,7 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
 
     // make gpu setup object, may want to source on GPU later so make it before sourcing here
-    gpu_setup(imc_parameters.use_gpu_transporter(), mesh.get_cells());
+    GPU_Setup gpu_setup(imc_parameters.get_use_gpu_transporter_flag(), mesh.get_cells());
 
     // setup source
     if (imc_state.get_step() == 1)

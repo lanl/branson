@@ -19,11 +19,11 @@ class GPU_Setup {
 
 public:
   //! Constructor
-  Message_Counter(const bool use_gpu_transporter, std::vector<Cell> &cpu_cells)
-    : m_use_gpu_transporter(use_gpu_transporter), device_cells_ptr(nullptr),
+  GPU_Setup(const bool use_gpu_transporter, const std::vector<Cell> &cpu_cells)
+    : m_use_gpu_transporter(use_gpu_transporter), device_cells_ptr(nullptr)
   {
 #ifdef USE_CUDA
-    if(use_gpu_transporter) {
+    if(m_use_gpu_transporter) {
 
       // allocate and copy cells
       err = cudaMalloc((void **)&device_cells_ptr, sizeof(Cell) * cpu_cells.size());
@@ -32,21 +32,24 @@ public:
                        cudaMemcpyHostToDevice);
       Insist(!err, "CUDA error in copying cells data");
     }
+#endif
   }
 
   //! Destructor
-  ~Message_Counter() {
+  ~GPU_Setup() {
 #ifdef USE_CUDA
     if(use_gpu_transporter) {
       cudaFree(device_cells_ptr);
       cudaFree(device_abs_E_ptr);
       cudaFree(device_track_E_ptr);
     }
+#endif
   }
 
   Cell *get_device_cells_ptr() const {return device_cells_ptr;}
+  bool use_gpu_transporter() const {return m_use_gpu_transporter;}
 
-  private:
+private:
   bool m_use_gpu_transporter;
   Cell *device_cells_ptr;
 };

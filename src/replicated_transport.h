@@ -25,9 +25,8 @@
 #include "info.h"
 #include "mesh.h"
 #include "message_counter.h"
-#include "particle_pass_transport.h"
+#include "transport_photon.h"
 #include "photon.h"
-#include "sampling_functions.h"
 
 std::vector<Photon> replicated_transport(
     const Mesh &mesh, const GPU_Setup &gpu_setup, IMC_State &imc_state, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> all_photons) {
@@ -38,7 +37,8 @@ std::vector<Photon> replicated_transport(
   double census_E = 0.0;
   double exit_E = 0.0;
   double next_dt = imc_state.get_next_dt(); //! Set for census photons
-  double dt = imc_state.get_next_dt();      //! For making current photons
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   RNG *rng = imc_state.get_rng();
 
@@ -54,19 +54,20 @@ std::vector<Photon> replicated_transport(
   //------------------------------------------------------------------------//
 
   vector<Photon> census_list;   //! End of timestep census list
-
-  vector<Cell_Tally> cell_tallies(mesh.get_n_cells());;
+  vector<Cell_Tally> cell_tallies(mesh.get_n_local_cells());
   uint32_t rank_cell_offset{0}; // no offset in replicated mesh
   if(gpu_setup.use_gpu_transporter())
-    gpu_transport(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), rng, cell_tallies);
+    gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), rng, cell_tallies);
   else
-    cpu_transport(rank_cell_offset, all_photons, mesh.get_cells() rng, cell_tallies);
+    cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), rng, cell_tallies);
 
   // post process photons, account for escaped energy and add particles to census
-  post_process_photons(all_photons, census_list, census_E, exit_E);
+  post_process_photons(next_dt, all_photons, census_list, census_E, exit_E);
 
   // copy cell tallies back out to rank_abs_E and rank_track_E
+  double total_abs = 0;
   for (size_t i = 0; i<cell_tallies.size();++i) {
+    total_abs+=cell_tallies[i].get_abs_E();
     rank_abs_E[i] = cell_tallies[i].get_abs_E();
     rank_track_E[i] = cell_tallies[i].get_track_E();
   }

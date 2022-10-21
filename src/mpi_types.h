@@ -65,7 +65,7 @@ public:
       const int particle_entry_count = 3;
 
       // 2 uint32_t, 9 double
-      int particle_array_of_block_length[3] = {3, 1,  9};
+      int particle_array_of_block_length[3] = {3, 4,  9};
 
       // Displacements of each type in the cell
       MPI_Aint particle_array_of_block_displace[3] = {0, 3 * sizeof(uint32_t), 3*sizeof(uint32_t) + 4*sizeof(unsigned char)  };

@@ -18,6 +18,7 @@
 #include <array>
 
 #include "constants.h"
+#include "config.h"
 
 //==============================================================================
 /*!
@@ -96,7 +97,7 @@ public:
     return m_cell_ID < compare.get_cell();
   }
 
-  Constants::event_type get_descriptor() {return descriptors[0];}
+  Constants::event_type get_descriptor() {return static_cast<Constants::event_type>(descriptors[0]);}
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
@@ -129,9 +130,7 @@ public:
   inline void set_E(const double E) { m_E = E; }
 
   //! Set the distance to census (cm)
-  inline void set_distance_to_census(const double dist_remain) {
-    m_life_dx = dist_remain;
-  }
+  inline void set_distance_to_census(const double dist_remain) { m_life_dx = dist_remain; }
 
   //! Set the angle of the photon
   inline void set_angle(const std::array<double,3> &new_angle) { m_angle = new_angle;}
@@ -154,7 +153,7 @@ public:
       m_angle[2] = -m_angle[2];
   }
 
-  void set_descriptor(const Constants::event_type descriptor) { descriptors[0] = descriptor ;}
+  void set_descriptor(const Constants::event_type descriptor) { descriptors[0] = static_cast<unsigned char>(descriptor);}
 
   //--------------------------------------------------------------------------//
   // member data                                                              //
