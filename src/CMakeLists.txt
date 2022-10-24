@@ -10,11 +10,14 @@
 # Release
 
 cmake_minimum_required (VERSION 3.11)
+
 project (BRANSON
   VERSION 0.8
   DESCRIPTION "Branson can be used to study different algorithms for parallel Monte Carlo transport. Currently it contains particle passing and mesh passing methods for domain decomposition."
 #  HOMEPAGE URL "https://github.com/lanl/branson" # needs cmake 3.12+
-  LANGUAGES CXX C)
+  LANGUAGES CXX C CUDA)
+
+enable_language(CUDA)
 
 # Build system support files are located here.
 set( CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/config )
@@ -50,7 +53,7 @@ set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
 # Setup compiler options
 
 # C11 support:
-set( CMAKE_C_STANDARD 11 )
+set( CMAKE_C_STANDARD 17 )
 
 # C++14 support:
 #set( CMAKE_CXX_STANDARD 14 )
@@ -152,6 +155,12 @@ set( branson_deps
 if( VIZ_LIBRARIES_FOUND )
   set( branson_deps "Silo::silo;${HDF5_LIBRARIES};${branson_deps}" )
 endif()
+
+set_target_properties(BRANSON PROPERTIES CUDA_ARCHITECTURES "70")
+set_target_properties(BRANSON PROPERTIES CUDA_STANDARD 17)
+string(APPEND CMAKE_CUDA_FLAGS " -g --expt-relaxed-constexpr")
+string(APPEND CMAKE_CUDA_FLAGS " --expt-extended-lambda"  )
+set_source_files_properties("main.cc" PROPERTIES LANGUAGE CUDA)
 target_link_libraries( BRANSON PUBLIC ${branson_deps} )
 
 #------------------------------------------------------------------------------#

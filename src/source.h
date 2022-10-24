@@ -80,7 +80,7 @@ std::vector<Photon> make_initial_census_photons(const double dt, const Mesh &mes
       if (t_num_census == 0) t_num_census = 1;
       // keep track of census energy for conservation check
       const double photon_census_E = E_cell_census[i] / t_num_census;
-      for (int p=0; p<t_num_census;++p)
+      for (uint32_t p=0; p<t_num_census;++p)
         initial_census_photons.push_back(get_initial_census_photon(cell, photon_census_E, dt, rng));
     }
   }
@@ -92,8 +92,6 @@ std::vector<Photon> make_photons(const double dt, const Mesh &mesh, const uint64
 
   auto E_cell_emission = mesh.get_emission_E();
   auto E_cell_source = mesh.get_source_E();
-
-  double total_census_E = 0.0;
 
   // figure out how many to make to size all_photons vector
   uint64_t photons_to_make = 0;
@@ -132,7 +130,7 @@ std::vector<Photon> make_photons(const double dt, const Mesh &mesh, const uint64
       if (t_num_emission == 0)
         t_num_emission = 1;
       const double photon_emission_E = E_cell_emission[i] / t_num_emission;
-      for (int p=0; p<t_num_emission;++p)
+      for (uint32_t p=0; p<t_num_emission;++p)
         all_photons.push_back(get_emission_photon(cell, photon_emission_E, dt, rng));
 
     }
@@ -145,7 +143,7 @@ std::vector<Photon> make_photons(const double dt, const Mesh &mesh, const uint64
           t_num_source = 1;
         const double photon_source_E = E_cell_source[i] / t_num_source;
         const int face = cell.get_source_face();
-        for (int p=0; p<t_num_source;++p)
+        for (uint32_t p=0; p<t_num_source;++p)
           all_photons.push_back(get_boundary_source_photon(cell, photon_source_E, dt, rng, face));
     }
   }

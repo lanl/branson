@@ -53,6 +53,7 @@ inline std::array<double, 3>  get_uniform_position_on_face(const Cell &cell, RNG
 
 
 //! Set angle given input array and RNG
+GPU_HOST_DEVICE
 inline std::array<double, 3> get_uniform_angle(RNG *rng) {
   using Constants::pi;
   using std::cos;
@@ -121,6 +122,7 @@ inline std::array<double, 3> get_source_angle_on_face( RNG *rng, int face) {
 
 
 //! Sample the group after an effective scattering event
+GPU_HOST_DEVICE
 inline int sample_emission_group(RNG *rng, const Cell &cell_data) {
   // Sample a new group from a uniform CDF (but mimc non-uniform CDF algorithm)
   double cdf_value = rng->generate_random_number();

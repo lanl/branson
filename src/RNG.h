@@ -65,6 +65,7 @@
 #endif
 
 #include "random123/threefry.h"
+#include "config.h"
 
 #ifdef __clang__
 // Restore clang diagnostics to previous state.
@@ -258,6 +259,7 @@ typedef CBRNG::key_type key_type;
  * Given a pointer to RNG state data, this function returns a random double in
  * the open interval (0, 1)---i.e., excluding the endpoints.
  */
+GPU_HOST_DEVICE
 static inline double _ran(ctr_type::value_type *const data) {
   CBRNG rng;
 
@@ -314,6 +316,7 @@ public:
   RNG() {}
 
   //! Return a random double in the interval (0, 1).
+  GPU_HOST_DEVICE
   double generate_random_number() const { return _ran(data); }
 
   //! Return the stream number.

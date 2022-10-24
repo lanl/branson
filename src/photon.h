@@ -104,6 +104,7 @@ public:
   //--------------------------------------------------------------------------//
 
   //! Update particle position by moving it a distance
+  GPU_HOST_DEVICE
   inline void move(const double distance) {
     m_pos[0] += m_angle[0] * distance;
     m_pos[1] += m_angle[1] * distance;
@@ -115,9 +116,11 @@ public:
   inline void set_source_type(uint32_t source_type_in) {source_type = source_type_in;}
 
   //! Set the global cell ID
+  GPU_HOST_DEVICE
   inline void set_cell(const uint32_t new_cell) { m_cell_ID = new_cell; }
 
   //! Set the group of the photon
+  GPU_HOST_DEVICE
   inline void set_group(const uint32_t new_group) { group = new_group; }
 
   //! Set the initial energy-weight
@@ -127,18 +130,23 @@ public:
   }
 
   //! Set the current energy-weight
+  GPU_HOST_DEVICE
   inline void set_E(const double E) { m_E = E; }
 
   //! Set the distance to census (cm)
+  GPU_HOST_DEVICE
   inline void set_distance_to_census(const double dist_remain) { m_life_dx = dist_remain; }
 
   //! Set the angle of the photon
+  GPU_HOST_DEVICE
   inline void set_angle(const std::array<double,3> &new_angle) { m_angle = new_angle;}
 
   //! Set the spatial position of the photon
+  GPU_HOST_DEVICE
   inline void set_position(const std::array<double, 3> &new_pos) { m_pos = new_pos;}
 
   //! Reflect a photon about a plane aligned with the X, Y, or Z axes
+  GPU_HOST_DEVICE
   inline void reflect(const uint32_t surface_cross) {
     using Constants::X_NEG;
     using Constants::X_POS;
@@ -153,6 +161,7 @@ public:
       m_angle[2] = -m_angle[2];
   }
 
+  GPU_HOST_DEVICE
   void set_descriptor(const Constants::event_type descriptor) { descriptors[0] = static_cast<unsigned char>(descriptor);}
 
   //--------------------------------------------------------------------------//

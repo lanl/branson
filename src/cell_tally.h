@@ -43,7 +43,9 @@ public:
     accumulate(track_E, delta_track_E);
   }
 
+  GPU_HOST_DEVICE
   double get_abs_E() const {return abs_E;}
+
   double get_track_E() const {return track_E;}
 
   double abs_E;  //!< Absorbed energy in jerks

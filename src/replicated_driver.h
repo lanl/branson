@@ -59,6 +59,8 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
 
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
 
+    std::cout<<"im in here"<<std::endl;
+
     // make gpu setup object, may want to source on GPU later so make it before sourcing here
     GPU_Setup gpu_setup(imc_parameters.get_use_gpu_transporter_flag(), mesh.get_cells());
 

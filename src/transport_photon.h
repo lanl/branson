@@ -47,23 +47,6 @@ void post_process_photons(const double next_dt, std::vector<Photon> &all_photons
 }
 
 
-GPU_KERNEL
-void gpu_no_accel_transport(const uint32_t rank_cell_offset,
-    Photon &phtn, const Cell *cells, RNG *rng, Cell_Tally *cell_tallies) {
-
-#ifdef USE_CUDA
-  __shared__ Particle block_particles[rtt_tracking::n_threads_per_block];
-  int32_t particle_id = threadIdx.x + blockIdx.x * blockDim.x;
-  if (particle_id < n_batch_particles) {
-    block_particles[threadIdx.x] = particles[index_set[particle_id]];
-
-    transport_photon(rank_cell_offest, block_particles[threadIdx.x], cells, rng, cell_tallies);
-
-    particles[index_set[particle_id]] = block_particles[threadIdx.x];
-  }
-
-#endif
-}
 
 //----------------------------------------------------------------------------//
 //! Transport a photon when the mesh is always available
@@ -124,7 +107,9 @@ void transport_photon(const uint32_t rank_cell_offset,
 
     // apply variance/runtime reduction
     if (phtn.below_cutoff(cutoff_fraction)) {
+      printf("abpout to absorb: %e in cell %d \n", phtn.get_E(), local_cell_index);
       cell_tallies[local_cell_index].accumulate_absorbed_E(phtn.get_E());
+      printf("cell tally %d total E: %e \n", local_cell_index, cell_tallies[local_cell_index].get_abs_E());
       active = false;
       phtn.set_descriptor(Constants::KILL);
     }
@@ -170,6 +155,29 @@ void transport_photon(const uint32_t rank_cell_offset,
 //----------------------------------------------------------------------------//
 
 //----------------------------------------------------------------------------//
+GPU_KERNEL
+void gpu_no_accel_transport(const uint32_t rank_cell_offset,
+    Photon *all_photons, const Cell *cells, RNG *rng, Cell_Tally *cell_tallies, const uint32_t n_batch_particles) {
+
+#ifdef USE_CUDA
+  //__shared__ Photon block_particles[Constants::n_threads_per_block];
+  int32_t particle_id = threadIdx.x + blockIdx.x * blockDim.x;
+  if (particle_id < n_batch_particles) {
+    //block_particles[threadIdx.x] = all_photons[particle_id];
+    Photon &phtn = all_photons[particle_id];
+
+    printf("about to start, E: %e\n", phtn.get_E());
+    transport_photon(rank_cell_offset, phtn, cells, rng, cell_tallies);
+    printf("all done, E: %e\n", phtn.get_E());
+    //all_photons[particle_id] = block_particles[threadIdx.x];
+  } // if particle id is valid
+  __syncthreads();
+
+#endif
+}
+//----------------------------------------------------------------------------//
+
+//----------------------------------------------------------------------------//
 void cpu_transport_photons(const uint32_t rank_cell_offset,
     std::vector<Photon> &photons, const std::vector<Cell> &cells, RNG *rng, std::vector<Cell_Tally> &cell_tallies) {
 
@@ -181,13 +189,14 @@ void cpu_transport_photons(const uint32_t rank_cell_offset,
 }
 
 void gpu_transport_photons(const uint32_t rank_cell_offset,
-    std::vector<Photon> cpu_photons, const Cell *device_cells_ptr, RNG *rng, std::vector<Cell_Tally> cpu_cell_tallies) {
+    std::vector<Photon> &cpu_photons, const Cell *device_cells_ptr, RNG *rng, std::vector<Cell_Tally> &cpu_cell_tallies) {
 
 #ifdef USE_CUDA
+
   size_t n_active_photons = cpu_photons.size();
   // allocate and copy photons
   Photon *device_photons_ptr;
-  err = cudaMalloc((void **)&device_photons_ptr, sizeof(Photon) * cpu_photons.size());
+  cudaError_t err = cudaMalloc((void **)&device_photons_ptr, sizeof(Photon) * cpu_photons.size());
   Insist(!err, "CUDA error in allocating photons data");
   err = cudaMemcpy(device_photons_ptr, cpu_photons.data(), sizeof(Photon) * cpu_photons.size(),
                    cudaMemcpyHostToDevice);
@@ -210,7 +219,7 @@ void gpu_transport_photons(const uint32_t rank_cell_offset,
   std::cout << "Launching with " << n_blocks << " blocks and ";
   std::cout << n_active_photons << " photons" << std::endl;
   gpu_no_accel_transport<<<n_blocks, Constants::n_threads_per_block>>>(
-      rank_cell_offset, n_active_photons, device_photons_ptr, device_cells_ptr, RNG, device_cell_tallies_ptr);
+      rank_cell_offset, device_photons_ptr, device_cells_ptr, rng, device_cell_tallies_ptr, static_cast<uint32_t>(n_active_photons));
 
   Insist(!(cudaGetLastError()), "CUDA error in transport kernel launch");
   cudaDeviceSynchronize();
@@ -221,7 +230,7 @@ void gpu_transport_photons(const uint32_t rank_cell_offset,
   Insist(!err, "CUDA error in copying photons back to host");
 
   // copy cell tallies back to host
-  err = cudaMemcpy(cpu_cell_tallies.data(), device_cell_tallies_ptr, sizeof(Cell_Tally)*cpu_cell_tallies.size(),,
+  err = cudaMemcpy(cpu_cell_tallies.data(), device_cell_tallies_ptr, sizeof(Cell_Tally)*cpu_cell_tallies.size(),
                    cudaMemcpyDeviceToHost);
   Insist(!err, "CUDA error in copying cell tallies back to host");
 

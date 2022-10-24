@@ -44,12 +44,10 @@ std::vector<Photon> particle_pass_transport(
   using std::vector;
 
   int rank = mpi_info.get_rank();
-  int n_rank = mpi_info.get_n_rank();
 
   double census_E = 0.0;
   double exit_E = 0.0;
   double next_dt = imc_state.get_next_dt(); //! Set for census photons
-  double dt = imc_state.get_next_dt();      //! For making current photons
 
   RNG *rng = imc_state.get_rng();
 
@@ -127,7 +125,6 @@ std::vector<Photon> particle_pass_transport(
   bool from_receive_stack = false;
   int send_req_flag;
   Photon phtn;
-  Constants::event_type event;
 
   uint32_t rank_cell_offset{mesh.get_rank_cell_offset(rank)};
 

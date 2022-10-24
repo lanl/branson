@@ -13,6 +13,8 @@
 #ifndef config_h_
 #define config_h_
 
+#include <mpi.h>
+
 #cmakedefine VIZ_LIBRARIES_FOUND
 #cmakedefine MOONLIGHT_NODE
 #cmakedefine SNOW_NODE
@@ -25,6 +27,10 @@
 
 /*----------------------------------------------------------------------------*/
 /* Mark functions for compilation on host and device */
+#ifdef __NVCC__
+#define USE_CUDA ON
+#endif
+
 
 #if defined __NVCC__ && defined USE_CUDA
 #define HOST_AND_DEVICE_FUNCTION __host__ __device__
@@ -40,7 +46,11 @@
 #define CONSTANT constexpr
 #endif
 
+
 #ifdef USE_CUDA
+
+#include <cuda.h>
+#include <cuda_runtime.h>
 
 //! Add addend to t, use atomicAdd if built on a CUDA device
 template <class T>
@@ -57,6 +67,13 @@ template <class T> inline void accumulate(T &target, T const addend) {
   return;
 }
 #endif // USE_CUDA
+
+inline void Insist(const bool pass, const std::string &message) {
+  if (!pass) {
+    std::cout<<"Insist at "<< __FILE__ <<" "<<__LINE__<<" fails with: "<<message<<std::endl;
+    MPI_Abort(MPI_COMM_WORLD, 1);
+  }
+}
 
 #endif // def config_h_
 //----------------------------------------------------------------------------//

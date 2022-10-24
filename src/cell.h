@@ -20,7 +20,9 @@
 #include "constants.h"
 #include "proto_cell.h"
 
-template <typename T> int sgn(T val) { return (T(0) < val); }
+template <typename T>
+GPU_HOST_DEVICE
+int sgn(T val) { return (T(0) < val); }
 
 //==============================================================================
 /*!
@@ -49,8 +51,8 @@ public:
    : global_index(proto_cell.get_global_index()), region_ID(proto_cell.get_region_ID()),
     silo_index(proto_cell.get_silo_index()),
     e_next(proto_cell.get_e_next()),
-    nodes(proto_cell.get_nodes()),
     bc(proto_cell.get_bc()),
+    nodes(proto_cell.get_nodes()),
     abs_groups(),
     sct_groups(),
     op_a(0.0), op_s(0.0), f(0.0), rho(0.0), T_e(0.0), T_r(0.0), T_s(0.0)

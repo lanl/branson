@@ -54,8 +54,9 @@ public:
   Mesh(const Input &input, const MPI_Types &mpi_types, const Info &mpi_info,
        const IMC_Parameters &imc_p)
       : ngx(input.get_global_n_x_cells()), ngy(input.get_global_n_y_cells()),
-        ngz(input.get_global_n_z_cells()), n_global(ngz * ngy * ngx), verbose_print(input.get_verbose_print_bool()),
+        ngz(input.get_global_n_z_cells()), n_global(ngz * ngy * ngx),
         rank(mpi_info.get_rank()), n_rank(mpi_info.get_n_rank()),
+        verbose_print(input.get_verbose_print_bool()),
         silo_x(input.get_silo_x_ptr()),
         silo_y(input.get_silo_y_ptr()), silo_z(input.get_silo_z_ptr()),
         total_photon_E(0.0), replicated_factor(1.0),
@@ -190,7 +191,7 @@ public:
       return global_index - on_rank_start;
     else {
       std::cout<<"about to seg fault probably"<<std::endl;
-      return -1;
+      return UINT32_MAX;
     }
   }
 

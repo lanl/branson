@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "cell.h"
+#include "config.h"
 
 class GPU_Setup {
 
@@ -25,8 +26,9 @@ public:
 #ifdef USE_CUDA
     if(m_use_gpu_transporter) {
 
+      std::cout<<"Allocating and transferring "<<cpu_cells.size()<<" cell to the GPU"<<std::endl;
       // allocate and copy cells
-      err = cudaMalloc((void **)&device_cells_ptr, sizeof(Cell) * cpu_cells.size());
+      cudaError_t err = cudaMalloc((void **)&device_cells_ptr, sizeof(Cell) * cpu_cells.size());
       Insist(!err, "CUDA error in allocating cells data");
       err = cudaMemcpy(device_cells_ptr, cpu_cells.data(), sizeof(Cell) * cpu_cells.size(),
                        cudaMemcpyHostToDevice);
@@ -38,10 +40,8 @@ public:
   //! Destructor
   ~GPU_Setup() {
 #ifdef USE_CUDA
-    if(use_gpu_transporter) {
+    if(m_use_gpu_transporter) {
       cudaFree(device_cells_ptr);
-      cudaFree(device_abs_E_ptr);
-      cudaFree(device_track_E_ptr);
     }
 #endif
   }
