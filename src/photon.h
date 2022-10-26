@@ -19,6 +19,7 @@
 
 #include "constants.h"
 #include "config.h"
+#include "RNG.h"
 
 //==============================================================================
 /*!
@@ -32,7 +33,6 @@
 class Photon {
 public:
   //! Constructor
-  GPU_HOST_DEVICE
   Photon() {}
 
   //! Destructor
@@ -97,6 +97,7 @@ public:
     return m_cell_ID < compare.get_cell();
   }
 
+  GPU_HOST_DEVICE
   Constants::event_type get_descriptor() {return static_cast<Constants::event_type>(descriptors[0]);}
 
   //--------------------------------------------------------------------------//
@@ -148,21 +149,18 @@ public:
   //! Reflect a photon about a plane aligned with the X, Y, or Z axes
   GPU_HOST_DEVICE
   inline void reflect(const uint32_t surface_cross) {
-    using Constants::X_NEG;
-    using Constants::X_POS;
-    using Constants::Y_NEG;
-    using Constants::Y_POS;
     // reflect the photon over the surface it was crossing
-    if (surface_cross == X_POS || surface_cross == X_NEG)
-      m_angle[0] = -m_angle[0];
-    else if (surface_cross == Y_POS || surface_cross == Y_NEG)
-      m_angle[1] = -m_angle[1];
-    else
-      m_angle[2] = -m_angle[2];
+    int reflect_angle = surface_cross/2; // X -> 0, Y->1, Z->2
+    m_angle[reflect_angle] = -m_angle[reflect_angle];
   }
 
   GPU_HOST_DEVICE
   void set_descriptor(const Constants::event_type descriptor) { descriptors[0] = static_cast<unsigned char>(descriptor);}
+
+  GPU_HOST_DEVICE
+  RNG &get_rng() {return m_rng;}
+
+  void set_rng(const RNG &rng) { m_rng = rng;}
 
   //--------------------------------------------------------------------------//
   // member data                                                              //
@@ -177,9 +175,8 @@ private:
   double m_E;         //!< current photon energy
   double m_E0;        //!< photon energy at creation
   double m_life_dx;   //!< Distance remaining this time step
+  RNG m_rng;          //!< Member RNG
 
-  // private member functions
-private:
 };
 
 #endif // photon_h_

@@ -328,11 +328,6 @@ public:
 private:
   mutable ctr_type::value_type data[4];
 
-  //! Private copy constructor.
-  RNG(const RNG &);
-
-  //! Private assignment operator.
-  RNG &operator=(const RNG &);
 };
 
 //---------------------------------------------------------------------------//

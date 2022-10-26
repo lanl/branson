@@ -173,8 +173,8 @@ public:
     return off_rank_bounds[rank];
   }
 
-  const Cell *get_cell_ptr_global(const uint32_t global_ID) const {
-    return &cells[global_ID - on_rank_start];
+  const Cell *get_cell_ptr_global(const uint32_t global_index) const {
+    return &cells[global_index - on_rank_start];
   }
   int32_t get_rank(const uint32_t &index) const {
     int32_t r_rank;

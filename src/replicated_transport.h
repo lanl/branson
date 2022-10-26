@@ -40,8 +40,6 @@ std::vector<Photon> replicated_transport(
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  RNG *rng = imc_state.get_rng();
-
   // timing
   Timer t_transport;
   t_transport.start_timer("timestep transport");
@@ -53,13 +51,11 @@ std::vector<Photon> replicated_transport(
   vector<Photon> census_list;   //! End of timestep census list
   vector<Cell_Tally> cell_tallies(mesh.get_n_local_cells());
   uint32_t rank_cell_offset{0}; // no offset in replicated mesh
-  std::cout<<"about to transport"<<std::endl;
   if(gpu_setup.use_gpu_transporter())
-    gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), rng, cell_tallies);
+    gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
   else
-    cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), rng, cell_tallies);
+    cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies);
 
-  std::cout<<"done with transport"<<std::endl;
   // post process photons, account for escaped energy and add particles to census
   post_process_photons(next_dt, all_photons, census_list, census_E, exit_E);
 
@@ -69,7 +65,6 @@ std::vector<Photon> replicated_transport(
     total_abs+=cell_tallies[i].get_abs_E();
     rank_abs_E[i] = cell_tallies[i].get_abs_E();
     rank_track_E[i] = cell_tallies[i].get_track_E();
-    std::cout<<"rank abs E: "<<rank_abs_E[i]<<std::endl;
   }
 
   // record time of transport work for this rank

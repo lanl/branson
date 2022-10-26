@@ -39,8 +39,8 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
   vector<Photon> census_photons;
   auto n_user_photons = imc_parameters.get_n_user_photon();
   Message_Counter mctr;
-  int rank = mpi_info.get_rank();
-  int n_rank = mpi_info.get_n_rank();
+  const int rank = mpi_info.get_rank();
+  const int n_ranks = mpi_info.get_n_rank();
 
   while (!imc_state.finished()) {
     if (rank == 0)
@@ -60,17 +60,16 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
 
     // make gpu setup object, may want to source on GPU later so make it before sourcing here
-    GPU_Setup gpu_setup(imc_parameters.get_use_gpu_transporter_flag(), mesh.get_cells());
+    GPU_Setup gpu_setup(rank, n_ranks, imc_parameters.get_use_gpu_transporter_flag(), mesh.get_cells());
 
     // setup source
-    if (imc_state.get_step() == 1) {
-      census_photons = make_initial_census_photons(imc_state.get_dt(), mesh, n_user_photons, global_source_energy, imc_state.get_rng());
-    }
+    if (imc_state.get_step() == 1)
+      census_photons = make_initial_census_photons(imc_state.get_dt(), mesh, rank, n_user_photons, global_source_energy);
 
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
     MPI_Barrier(MPI_COMM_WORLD);
     // make emission and source photons
-    auto all_photons = make_photons(imc_state.get_dt(), mesh, n_user_photons, global_source_energy, imc_state.get_rng());
+    auto all_photons = make_photons(imc_state.get_dt(), mesh, rank, imc_state.get_step(), n_user_photons, global_source_energy);
     // add the census photons
     all_photons.insert(all_photons.end(), census_photons.begin(), census_photons.end());
 
@@ -90,7 +89,7 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
       double fake_mpi_runtime = 0.0;
       write_silo(mesh, imc_state.get_time(), imc_state.get_step(),
                  imc_state.get_rank_transport_runtime(), fake_mpi_runtime, rank,
-                 n_rank);
+                 n_ranks);
     }
 
     imc_state.next_time_step();
