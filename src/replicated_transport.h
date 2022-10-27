@@ -51,8 +51,12 @@ std::vector<Photon> replicated_transport(
   vector<Photon> census_list;   //! End of timestep census list
   vector<Cell_Tally> cell_tallies(mesh.get_n_local_cells());
   uint32_t rank_cell_offset{0}; // no offset in replicated mesh
-  if(gpu_setup.use_gpu_transporter())
+  if(gpu_setup.use_gpu_transporter()) {
+    t_transport.start_timer("gpu transport");
     gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
+    t_transport.stop_timer("gpu transport");
+    std::cout<<"gpu transport time: "<<t_transport.get_time("gpu transport")<<std::endl;
+  }
   else
     cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies);
 

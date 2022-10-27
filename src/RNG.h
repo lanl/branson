@@ -315,28 +315,7 @@ public:
    */
   RNG() {}
 
-  //! Return a random double in the interval (0, 1).
-  GPU_HOST_DEVICE
-  double generate_random_number() const { return _ran(data); }
-
-  //! Return the stream number.
-  uint64_t get_num() const { return data[2]; }
-
-  //! Initialize internal state from a seed and stream number.
-  inline void set_seed(const uint32_t seed, const uint64_t streamnum = 0);
-
-private:
-  mutable ctr_type::value_type data[4];
-
-};
-
-//---------------------------------------------------------------------------//
-// Implementation
-//---------------------------------------------------------------------------//
-
-//---------------------------------------------------------------------------//
-//! \brief Initialize internal state from a seed and stream number.
-inline void RNG::set_seed(const uint32_t seed, const uint64_t streamnum) {
+  RNG(const uint32_t seed, const uint64_t streamnum) {
   // Low bits of the counter.
   data[0] = 0;
 
@@ -348,7 +327,23 @@ inline void RNG::set_seed(const uint32_t seed, const uint64_t streamnum) {
 
   // High bits of the key; used as a spawn counter.
   data[3] = 0;
-}
+  }
+
+  //! Return a random double in the interval (0, 1).
+  GPU_HOST_DEVICE
+  double generate_random_number() const { return _ran(data); }
+
+  //! Return the stream number.
+  uint64_t get_num() const { return data[2]; }
+
+private:
+  mutable ctr_type::value_type data[4];
+
+};
+
+//---------------------------------------------------------------------------//
+// Implementation
+//---------------------------------------------------------------------------//
 
 #endif
 //----------------------------------------------------------------------------//

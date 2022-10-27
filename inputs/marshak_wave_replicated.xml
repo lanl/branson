@@ -9,6 +9,7 @@
     <photons>100</photons>
     <seed>14706</seed>
     <use_combing>TRUE</use_combing>
+    <use_gpu_transporter>TRUE</use_gpu_transporter>
     <dd_transport_type>REPLICATED</dd_transport_type>
     <output_frequency>1</output_frequency>
   </common>

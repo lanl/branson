@@ -276,6 +276,8 @@ public:
         m_census_E[i] = 0.0;
       else
         m_census_E[i] = replicated_factor * vol * a * pow(Tr, 4);
+
+      // source temperature will be zero
       m_source_E[i] = replicated_factor * 0.25 * a * c *  e.get_source_area() * pow(Ts, 4) * dt;
 
       pre_mat_E += T * cV * vol * rho;

@@ -20,15 +20,18 @@ int main(void) {
 
   int nfail = 0;
 
-  // test to make sure rng only produces values in (0,1) and not [0,1] or (0,1] etc.
+  constexpr uint32_t seed = 777U;
+
+ // test to make sure rng only produces values in (0,1) and not [0,1] or (0,1] etc.
   {
     bool test_rng_max_min = true;
 
     double max_rng = 0.0;
     double min_rng = 100.0;
 
-    RNG rng_1;
-    rng_1.set_seed(12412);
+    uint64_t stream_num = 1UL;
+
+    RNG rng_1(seed, stream_num);
 
     double temp_random_double;
     double random_avg = 0.0;
@@ -68,10 +71,8 @@ int main(void) {
   {
     bool test_rng_equal = true;
 
-    RNG rng_1;
-    rng_1.set_seed(4056);
-    RNG rng_2;
-    rng_2.set_seed(4056);
+    RNG rng_1(seed, 4056UL);
+    RNG rng_2(seed, 4056UL);
 
     double temp_random_double_1 = rng_1.generate_random_number();
     double temp_random_double_2 = rng_2.generate_random_number();
@@ -100,15 +101,12 @@ int main(void) {
     }
   }
 
-  // test if identical seed and different stream values produces different
-  // values
+  // test if identical seed and different stream values produces different values
   {
     bool test_rng_stream_equal = true;
 
-    RNG rng_1;
-    rng_1.set_seed(4056, 10);
-    RNG rng_2;
-    rng_2.set_seed(4056, 100);
+    RNG rng_1(seed, 10);
+    RNG rng_2(seed, 100);
 
     double temp_random_double_1 = rng_1.generate_random_number();
     double temp_random_double_2 = rng_2.generate_random_number();
@@ -138,14 +136,13 @@ int main(void) {
     }
   }
 
-  // test for identical seed and different values
+  // test for identical stream and different seed produces different values
   {
     bool test_rng_diff = true;
 
-    RNG rng_1;
-    rng_1.set_seed(1985);
-    RNG rng_2;
-    rng_2.set_seed(2015);
+    constexpr uint32_t seed_2{778};
+    RNG rng_1(seed, 1985UL);
+    RNG rng_2(seed_2, 1985UL);
 
     double temp_random_double_1 = rng_1.generate_random_number();
     double temp_random_double_2 = rng_2.generate_random_number();

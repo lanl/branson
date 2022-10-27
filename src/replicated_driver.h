@@ -42,6 +42,7 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
   const int rank = mpi_info.get_rank();
   const int n_ranks = mpi_info.get_n_rank();
 
+  constexpr uint32_t seed = 777;
   while (!imc_state.finished()) {
     if (rank == 0)
       imc_state.print_timestep_header();
@@ -65,10 +66,10 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
     Timer t_source;
     t_source.start_timer("source");
     if (imc_state.get_step() == 1)
-      census_photons = make_initial_census_photons(imc_state.get_dt(), mesh, rank, n_user_photons, global_source_energy);
+      census_photons = make_initial_census_photons(imc_state.get_dt(), mesh, rank, seed, n_user_photons, global_source_energy);
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
     // make emission and source photons
-    auto all_photons = make_photons(imc_state.get_dt(), mesh, rank, imc_state.get_step(), n_user_photons, global_source_energy);
+    auto all_photons = make_photons(imc_state.get_dt(), mesh, rank, imc_state.get_step(), seed, n_user_photons, global_source_energy);
     // add the census photons
     all_photons.insert(all_photons.end(), census_photons.begin(), census_photons.end());
     t_source.stop_timer("source");
@@ -103,9 +104,10 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
         !(imc_state.get_step() % imc_parameters.get_output_frequency())) {
       // write SILO file
       double fake_mpi_runtime = 0.0;
+      constexpr bool replicated_flag = true;
       write_silo(mesh, imc_state.get_time(), imc_state.get_step(),
                  imc_state.get_rank_transport_runtime(), fake_mpi_runtime, rank,
-                 n_ranks);
+                 n_ranks, replicated_flag);
     }
 
     // update time for next step

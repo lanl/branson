@@ -30,7 +30,7 @@
 // writes the SILO file for visualization
 void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
                 const double &r_transport_time, const double &r_mpi_time,
-                const int &rank, const int &n_rank) {
+                const int &rank, const int &n_rank, const bool replicated_flag) {
 
 #ifdef VIZ_LIBRARIES_FOUND
   using Constants::ELEMENT;
@@ -106,29 +106,32 @@ void write_silo(const Mesh &mesh, const double &arg_time, const uint32_t &step,
     material[silo_index] = cell.get_region_ID();
   }
 
-  // reduce to get rank of each cell across all ranks
-  MPI_Allreduce(MPI_IN_PLACE, &rank_data[0], n_xyz_cells, MPI_INT, MPI_SUM,
-                MPI_COMM_WORLD);
+  // replicated doesn't need to do this reduction
+  if (!replicated_flag) {
+    // reduce to get rank of each cell across all ranks
+    MPI_Allreduce(MPI_IN_PLACE, &rank_data[0], n_xyz_cells, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
 
-  // reduce to get T_e across all ranks
-  MPI_Allreduce(MPI_IN_PLACE, &T_e[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
-                MPI_COMM_WORLD);
+    // reduce to get T_e across all ranks
+    MPI_Allreduce(MPI_IN_PLACE, &T_e[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
 
-  // reduce to get T_r across all ranks
-  MPI_Allreduce(MPI_IN_PLACE, &T_r[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
-                MPI_COMM_WORLD);
+    // reduce to get T_r across all ranks
+    MPI_Allreduce(MPI_IN_PLACE, &T_r[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
 
-  // reduce to get transport runtime from all ranks
-  MPI_Allreduce(MPI_IN_PLACE, &transport_time[0], n_xyz_cells, MPI_DOUBLE,
-                MPI_SUM, MPI_COMM_WORLD);
+    // reduce to get transport runtime from all ranks
+    MPI_Allreduce(MPI_IN_PLACE, &transport_time[0], n_xyz_cells, MPI_DOUBLE,
+                  MPI_SUM, MPI_COMM_WORLD);
 
-  // reduce to get mpi time from all ranks
-  MPI_Allreduce(MPI_IN_PLACE, &mpi_time[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
-                MPI_COMM_WORLD);
+    // reduce to get mpi time from all ranks
+    MPI_Allreduce(MPI_IN_PLACE, &mpi_time[0], n_xyz_cells, MPI_DOUBLE, MPI_SUM,
+                  MPI_COMM_WORLD);
 
-  // reduce to get material ID across all ranks
-  MPI_Allreduce(MPI_IN_PLACE, &material[0], n_xyz_cells, MPI_INT, MPI_SUM,
-                MPI_COMM_WORLD);
+    // reduce to get material ID across all ranks
+    MPI_Allreduce(MPI_IN_PLACE, &material[0], n_xyz_cells, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
+  }
 
   // First rank writes the SILO file
   if (rank == 0) {

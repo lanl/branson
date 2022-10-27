@@ -10,6 +10,7 @@
     <seed>14706</seed>
     <tilt>FALSE</tilt>
     <stratified_sampling>FALSE</stratified_sampling>
+    <use_gpu_transporter>TRUE</use_gpu_transporter>
     <dd_transport_type>REPLICATED</dd_transport_type>
     <output_frequency>1</output_frequency>
     <write_silo>FALSE</write_silo>
