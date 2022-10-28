@@ -28,7 +28,7 @@ public:
       // MPI rank to GPU mapping
       set_device_ID(rank, n_ranks);
 
-      std::cout<<"Allocating and transferring "<<cpu_cells.size()<<" cell to the GPU"<<std::endl;
+      std::cout<<"Allocating and transferring "<<cpu_cells.size()<<" cell(s) to the GPU"<<std::endl;
       // allocate and copy cells
       cudaError_t err = cudaMalloc((void **)&device_cells_ptr, sizeof(Cell) * cpu_cells.size());
       Insist(!err, "CUDA error in allocating cells data");
@@ -66,6 +66,7 @@ private:
  * \param[in] n_ranks total number of MPI ranks
  */
 void set_device_ID(const int rank, const int n_ranks) {
+#ifdef USE_CUDA
   // device set
   int n_devices;
   cudaGetDeviceCount(&n_devices);
@@ -80,6 +81,7 @@ void set_device_ID(const int rank, const int n_ranks) {
   std::cout << "N devices: " << n_devices << std::endl;
   std::cout << "rank: " << rank << ", device: " << my_device << " bus id: ";
   std::cout << my_bus_id << std::endl;
+#endif
 }
 
 
