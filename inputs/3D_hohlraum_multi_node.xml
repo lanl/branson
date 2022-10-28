@@ -10,6 +10,7 @@
     <seed>14706</seed>
     <tilt>FALSE</tilt>
     <stratified_sampling>FALSE</stratified_sampling>
+    <use_gpu_transporter>TRUE</use_gpu_transporter>
     <dd_transport_type>PARTICLE_PASS</dd_transport_type>
     <mesh_decomposition>METIS</mesh_decomposition>
     <batch_size>5000</batch_size>

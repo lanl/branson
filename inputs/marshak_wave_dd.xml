@@ -1,0 +1,78 @@
+<prototype>
+  <common>
+    <method>IMC</method>
+    <t_start>0.0</t_start>
+    <t_stop>0.001</t_stop>
+    <dt_start>0.0001</dt_start>
+    <t_mult>1.0</t_mult>
+    <dt_max>1.0</dt_max>
+    <photons>100</photons>
+    <seed>14706</seed>
+    <use_combing>TRUE</use_combing>
+    <use_gpu_transporter>TRUE</use_gpu_transporter>
+    <dd_transport_type>PARTICLE_PASS</dd_transport_type>
+    <output_frequency>1</output_frequency>
+  </common>
+
+  <debug_options>
+    <print_verbose>TRUE</print_verbose>
+    <print_mesh_info>TRUE</print_mesh_info>
+  </debug_options>
+
+  <spatial>
+    <x_division>
+      <x_start>0.0</x_start>
+      <x_end> 0.1</x_end>
+      <n_x_cells>100</n_x_cells>
+    </x_division>
+
+    <y_division>
+      <y_start>0.0</y_start>
+      <y_end> 1.0</y_end>
+      <n_y_cells>1</n_y_cells>
+    </y_division>
+
+    <z_division>
+      <z_start>0.0</z_start>
+      <z_end>1.0</z_end>
+      <n_z_cells>1</n_z_cells>
+    </z_division>
+
+    <region_map>
+      <x_div_ID>0</x_div_ID>
+      <y_div_ID>0</y_div_ID>
+      <z_div_ID>0</z_div_ID>
+      <region_ID>1</region_ID>
+    </region_map>
+
+  </spatial>
+
+  <boundary>
+    <bc_left>SOURCE</bc_left>
+    <bc_right>VACUUM</bc_right>
+
+    <bc_down>REFLECT</bc_down>
+    <bc_up>REFLECT</bc_up>
+
+    <bc_bottom>REFLECT</bc_bottom>
+    <bc_top>REFLECT</bc_top>
+
+    <T_source>1.00</T_source>
+  </boundary>
+
+  <regions>
+    <region>
+      <ID>1</ID>
+      <density>1.0</density>
+      <CV>1.0</CV>
+      <opacA>0.0</opacA>
+      <opacB>100.0</opacB>
+      <opacC>-3.0</opacC>
+      <opacS>0.0</opacS>
+      <initial_T_e>0.01</initial_T_e>
+      <initial_T_r>0.01</initial_T_r>
+    </region>
+  </regions>
+
+</prototype>
+

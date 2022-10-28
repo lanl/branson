@@ -54,8 +54,9 @@ public:
   Mesh(const Input &input, const MPI_Types &mpi_types, const Info &mpi_info,
        const IMC_Parameters &imc_p)
       : ngx(input.get_global_n_x_cells()), ngy(input.get_global_n_y_cells()),
-        ngz(input.get_global_n_z_cells()), n_global(ngz * ngy * ngx), verbose_print(input.get_verbose_print_bool()),
+        ngz(input.get_global_n_z_cells()), n_global(ngz * ngy * ngx),
         rank(mpi_info.get_rank()), n_rank(mpi_info.get_n_rank()),
+        verbose_print(input.get_verbose_print_bool()),
         silo_x(input.get_silo_x_ptr()),
         silo_y(input.get_silo_y_ptr()), silo_z(input.get_silo_z_ptr()),
         total_photon_E(0.0), replicated_factor(1.0),
@@ -168,8 +169,12 @@ public:
     return s_i;
   }
 
-  const Cell *get_cell_ptr_global(const uint32_t global_ID) const {
-    return &cells[global_ID - on_rank_start];
+  uint32_t get_rank_cell_offset(const int rank) const {
+    return off_rank_bounds[rank];
+  }
+
+  const Cell *get_cell_ptr_global(const uint32_t global_index) const {
+    return &cells[global_index - on_rank_start];
   }
   int32_t get_rank(const uint32_t &index) const {
     int32_t r_rank;
@@ -186,7 +191,7 @@ public:
       return global_index - on_rank_start;
     else {
       std::cout<<"about to seg fault probably"<<std::endl;
-      return -1;
+      return UINT32_MAX;
     }
   }
 
@@ -205,7 +210,7 @@ public:
     return (index >= on_rank_start) && (index <= on_rank_end);
   }
 
-  std::vector<Cell> &get_cells() {
+  const std::vector<Cell> &get_cells() const {
     return cells;
   }
 
@@ -271,6 +276,8 @@ public:
         m_census_E[i] = 0.0;
       else
         m_census_E[i] = replicated_factor * vol * a * pow(Tr, 4);
+
+      // source temperature will be zero
       m_source_E[i] = replicated_factor * 0.25 * a * c *  e.get_source_area() * pow(Ts, 4) * dt;
 
       pre_mat_E += T * cV * vol * rho;

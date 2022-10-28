@@ -25,12 +25,12 @@ int main(void) {
   using std::vector;
 
   int nfail = 0;
+  constexpr uint64_t seed = 777U;
 
   // test position sampling functions
   {
     bool test_sampling_functions_position = true;
-    RNG rng;
-    rng.set_seed(72412);
+    RNG rng(seed, 72412UL);
 
     //setup cell
     Cell cell;
@@ -45,10 +45,10 @@ int main(void) {
 
     // sample the position to makes it matches
     std::array<double, 3> avg_pos{0.0,0.0,0.0};
-    constexpr int n_samples = 10000;
+    constexpr int n_samples = 40000;
 
     for (int i = 0;i<n_samples;++i) {
-      auto uniform_pos = get_uniform_position_in_cell(cell, &rng);
+      auto uniform_pos = get_uniform_position_in_cell(cell, rng);
       avg_pos[0] += uniform_pos[0];
       avg_pos[1] += uniform_pos[1];
       avg_pos[2] += uniform_pos[2];
@@ -79,15 +79,14 @@ int main(void) {
   // test angle sampling functions
   {
     bool test_sampling_functions_angle = true;
-    RNG rng;
-    rng.set_seed(72412);
+    RNG rng(seed, 72412UL);
 
     // sample the angle to makes it matches
     std::array<double, 3> avg_angle{0.0,0.0,0.0};
     constexpr int n_samples = 10000;
 
     for (int i = 0;i<n_samples;++i) {
-      auto uniform_angle = get_uniform_angle(&rng);
+      auto uniform_angle = get_uniform_angle(rng);
       avg_angle[0] += uniform_angle[0];
       avg_angle[1] += uniform_angle[1];
       avg_angle[2] += uniform_angle[2];
@@ -119,8 +118,7 @@ int main(void) {
   // to otherwise gray branson)
   {
     bool test_sampling_functions_group = true;
-    RNG rng;
-    rng.set_seed(72412);
+    RNG rng(seed, 72412UL);
 
     //setup cell
     Cell cell;
@@ -140,7 +138,7 @@ int main(void) {
     constexpr int n_samples = 10000;
 
     for (int i = 0;i<n_samples;++i) {
-      auto uniform_group = sample_emission_group(&rng, cell);
+      auto uniform_group = sample_emission_group(rng, cell);
       avg_group += uniform_group;
     }
     avg_group = avg_group/static_cast<double>(n_samples);

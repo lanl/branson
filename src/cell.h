@@ -20,7 +20,9 @@
 #include "constants.h"
 #include "proto_cell.h"
 
-template <typename T> int sgn(T val) { return (T(0) < val); }
+template <typename T>
+GPU_HOST_DEVICE
+int sgn(T val) { return (T(0) < val); }
 
 //==============================================================================
 /*!
@@ -37,7 +39,8 @@ template <typename T> int sgn(T val) { return (T(0) < val); }
 class Cell {
 
 public:
-  Cell(void) {
+  GPU_HOST_DEVICE
+  Cell() {
     op_a = 0.0;
     op_s = 0.0;
     f = 0.0;
@@ -48,8 +51,8 @@ public:
    : global_index(proto_cell.get_global_index()), region_ID(proto_cell.get_region_ID()),
     silo_index(proto_cell.get_silo_index()),
     e_next(proto_cell.get_e_next()),
-    nodes(proto_cell.get_nodes()),
     bc(proto_cell.get_bc()),
+    nodes(proto_cell.get_nodes()),
     abs_groups(),
     sct_groups(),
     op_a(0.0), op_s(0.0), f(0.0), rho(0.0), T_e(0.0), T_r(0.0), T_s(0.0)
@@ -97,17 +100,20 @@ public:
   }
 
   //! Get boundary condition type in this direction
+  GPU_HOST_DEVICE
   inline Constants::bc_type get_bc(const uint32_t &dir) const {
     return bc[dir];
   }
 
   //! Get global index of cell in next direction
+  GPU_HOST_DEVICE
   inline uint32_t get_next_cell(const uint32_t &dir) const {
     return e_next[dir];
   }
 
   //! Return a distance to boundary and set surface crossing given
   // position and angle
+  GPU_HOST_DEVICE
   inline double get_distance_to_boundary(const std::array<double,3> &pos, const std::array<double,3> &angle,
                                          uint32_t &surface_cross) const {
     double min_dist = 1.0e16;
@@ -154,42 +160,54 @@ public:
   inline double get_cV(void) const { return cV; }
 
   //! Retrun absorption opacity
+  GPU_HOST_DEVICE
   inline double get_op_a(void) const { return op_a; }
 
   //! Return multigroup absorption opacity
+  GPU_HOST_DEVICE
   inline double get_op_a(uint32_t g) const { return abs_groups[g]; }
 
   //! Retrun scattering opacity
+  GPU_HOST_DEVICE
   inline double get_op_s(void) const { return op_s; }
 
   //! Return multigroup scattering opacity
+  GPU_HOST_DEVICE
   inline double get_op_s(uint32_t g) const { return sct_groups[g]; }
 
   //! Retrun fleck factor
+  GPU_HOST_DEVICE
   inline double get_f(void) const { return f; }
 
   //! Return density
+  GPU_HOST_DEVICE
   inline double get_rho(void) const { return rho; }
 
   //! Return cell volume
+  GPU_HOST_DEVICE
   inline double get_volume(void) const {
     return (nodes[1] - nodes[0]) * (nodes[3] - nodes[2]) *
            (nodes[5] - nodes[4]);
   }
 
   //! Return electron temperature
+  GPU_HOST_DEVICE
   inline double get_T_e(void) const { return T_e; }
 
   //! Return radiation temperature
+  GPU_HOST_DEVICE
   inline double get_T_r(void) const { return T_r; }
 
   //! Return source temperature
+  GPU_HOST_DEVICE
   inline double get_T_s(void) const { return T_s; }
 
   // Return global cell index
+  GPU_HOST_DEVICE
   inline uint32_t get_global_index(void) const { return global_index; }
 
   // Return region ID
+  GPU_HOST_DEVICE
   inline uint32_t get_region_ID(void) const { return region_ID; }
 
   //! Set input array to center of cell (for mesh decomposition only)

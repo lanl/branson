@@ -65,6 +65,7 @@
 #endif
 
 #include "random123/threefry.h"
+#include "config.h"
 
 #ifdef __clang__
 // Restore clang diagnostics to previous state.
@@ -258,6 +259,7 @@ typedef CBRNG::key_type key_type;
  * Given a pointer to RNG state data, this function returns a random double in
  * the open interval (0, 1)---i.e., excluding the endpoints.
  */
+GPU_HOST_DEVICE
 static inline double _ran(ctr_type::value_type *const data) {
   CBRNG rng;
 
@@ -313,32 +315,7 @@ public:
    */
   RNG() {}
 
-  //! Return a random double in the interval (0, 1).
-  double generate_random_number() const { return _ran(data); }
-
-  //! Return the stream number.
-  uint64_t get_num() const { return data[2]; }
-
-  //! Initialize internal state from a seed and stream number.
-  inline void set_seed(const uint32_t seed, const uint64_t streamnum = 0);
-
-private:
-  mutable ctr_type::value_type data[4];
-
-  //! Private copy constructor.
-  RNG(const RNG &);
-
-  //! Private assignment operator.
-  RNG &operator=(const RNG &);
-};
-
-//---------------------------------------------------------------------------//
-// Implementation
-//---------------------------------------------------------------------------//
-
-//---------------------------------------------------------------------------//
-//! \brief Initialize internal state from a seed and stream number.
-inline void RNG::set_seed(const uint32_t seed, const uint64_t streamnum) {
+  RNG(const uint32_t seed, const uint64_t streamnum) {
   // Low bits of the counter.
   data[0] = 0;
 
@@ -350,7 +327,23 @@ inline void RNG::set_seed(const uint32_t seed, const uint64_t streamnum) {
 
   // High bits of the key; used as a spawn counter.
   data[3] = 0;
-}
+  }
+
+  //! Return a random double in the interval (0, 1).
+  GPU_HOST_DEVICE
+  double generate_random_number() const { return _ran(data); }
+
+  //! Return the stream number.
+  uint64_t get_num() const { return data[2]; }
+
+private:
+  mutable ctr_type::value_type data[4];
+
+};
+
+//---------------------------------------------------------------------------//
+// Implementation
+//---------------------------------------------------------------------------//
 
 #endif
 //----------------------------------------------------------------------------//

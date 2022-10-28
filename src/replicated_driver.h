@@ -18,9 +18,10 @@
 #include <vector>
 
 #include "census_creation.h"
+#include "info.h"
 #include "imc_parameters.h"
 #include "imc_state.h"
-#include "info.h"
+#include "photon.h"
 #include "mesh.h"
 #include "message_counter.h"
 #include "mpi_types.h"
@@ -38,39 +39,47 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
   vector<Photon> census_photons;
   auto n_user_photons = imc_parameters.get_n_user_photon();
   Message_Counter mctr;
-  int rank = mpi_info.get_rank();
-  int n_rank = mpi_info.get_n_rank();
+  const int rank = mpi_info.get_rank();
+  const int n_ranks = mpi_info.get_n_rank();
 
+  constexpr uint32_t seed = 777;
   while (!imc_state.finished()) {
     if (rank == 0)
       imc_state.print_timestep_header();
 
     mctr.reset_counters();
 
-    //set opacity, Fleck factor, all energy to source
+    // set opacity, Fleck factor, all energy to source
     mesh.calculate_photon_energy(imc_state);
 
-    //all reduce to get total source energy to make correct number of
-    //particles on each rank
+    // all reduce to get total source energy to make correct number of articles on each rank
     double global_source_energy = mesh.get_total_photon_E();
     MPI_Allreduce(MPI_IN_PLACE, &global_source_energy, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
 
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
 
+    // make gpu setup object, may want to source on GPU later so make it before sourcing here
+    GPU_Setup gpu_setup(rank, n_ranks, imc_parameters.get_use_gpu_transporter_flag(), mesh.get_cells());
+
     // setup source
+    Timer t_source;
+    t_source.start_timer("source");
     if (imc_state.get_step() == 1)
-      census_photons = make_initial_census_photons(imc_state.get_dt(), mesh, n_user_photons, global_source_energy, imc_state.get_rng());
+      census_photons = make_initial_census_photons(imc_state.get_dt(), mesh, rank, seed, n_user_photons, global_source_energy);
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
     // make emission and source photons
-    auto all_photons = make_photons(imc_state.get_dt(), mesh, n_user_photons, global_source_energy, imc_state.get_rng());
+    auto all_photons = make_photons(imc_state.get_dt(), mesh, rank, imc_state.get_step(), seed, n_user_photons, global_source_energy);
     // add the census photons
     all_photons.insert(all_photons.end(), census_photons.begin(), census_photons.end());
+    t_source.stop_timer("source");
+    if (rank ==0)
+      std::cout<<"source time: "<<t_source.get_time("source")<<std::endl;
 
     imc_state.set_transported_particles(all_photons.size());
 
     census_photons =
-        replicated_transport(mesh, imc_state, abs_E, track_E, all_photons);
+        replicated_transport(mesh, gpu_setup, imc_state, abs_E, track_E, all_photons);
 
     // reduce the abs_E and the track weighted energy (for T_r)
     MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh.get_n_global_cells(),
@@ -95,9 +104,10 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
         !(imc_state.get_step() % imc_parameters.get_output_frequency())) {
       // write SILO file
       double fake_mpi_runtime = 0.0;
+      constexpr bool replicated_flag = true;
       write_silo(mesh, imc_state.get_time(), imc_state.get_step(),
                  imc_state.get_rank_transport_runtime(), fake_mpi_runtime, rank,
-                 n_rank);
+                 n_ranks, replicated_flag);
     }
 
     // update time for next step

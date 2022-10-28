@@ -10,11 +10,24 @@
 # Release
 
 cmake_minimum_required (VERSION 3.11)
+
+
+if(DEFINED ENV{CUDADIR}
+   OR DEFINED ENV{CUDACXX}
+   OR DEFINED ENV{CUDA_HOME})
+  message("CUDA module found (CUDA environment variables set) making GPU BRANSON")
+  set(CUDA_DBS_STRING "CUDA")
+  enable_language(CUDA)
+else()
+  message("CUDA module not found making CPU only BRANSON")
+  set(CUDA_DBS_STRING "")
+endif()
+
 project (BRANSON
   VERSION 0.8
   DESCRIPTION "Branson can be used to study different algorithms for parallel Monte Carlo transport. Currently it contains particle passing and mesh passing methods for domain decomposition."
 #  HOMEPAGE URL "https://github.com/lanl/branson" # needs cmake 3.12+
-  LANGUAGES CXX C)
+  LANGUAGES CXX C ${CUDA_DBS_STRING})
 
 # Build system support files are located here.
 set( CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/config )
@@ -50,7 +63,7 @@ set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
 # Setup compiler options
 
 # C11 support:
-set( CMAKE_C_STANDARD 11 )
+set( CMAKE_C_STANDARD 17 )
 
 # C++14 support:
 #set( CMAKE_CXX_STANDARD 14 )
@@ -78,7 +91,8 @@ endif ()
 # add compiler flags
 if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0")
-  set( CMAKE_CXX_FLAGS_RELEASE "-march=native  -O3 -funroll-loops -fno-var-tracking-assignments")
+  #set( CMAKE_CXX_FLAGS_RELEASE "-march=native  -O3 -funroll-loops -fno-var-tracking-assignments")
+  set( CMAKE_CXX_FLAGS_RELEASE "-O3 -funroll-loops -fno-var-tracking-assignments")
   # optionally add sanitize flags
   #set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${GCC_SANITIZE_COMPILE_FLAGS}")
   #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
@@ -152,6 +166,16 @@ set( branson_deps
 if( VIZ_LIBRARIES_FOUND )
   set( branson_deps "Silo::silo;${HDF5_LIBRARIES};${branson_deps}" )
 endif()
+
+if("${CUDA_DBS_STRING}" STREQUAL "CUDA" )
+  message("Setting CUDA compiler options")
+  set_target_properties(BRANSON PROPERTIES CUDA_ARCHITECTURES "70")
+  set_target_properties(BRANSON PROPERTIES CUDA_STANDARD 17)
+  string(APPEND CMAKE_CUDA_FLAGS " -g --expt-relaxed-constexpr")
+  string(APPEND CMAKE_CUDA_FLAGS " --expt-extended-lambda"  )
+  set_source_files_properties("main.cc" PROPERTIES LANGUAGE CUDA)
+endif()
+
 target_link_libraries( BRANSON PUBLIC ${branson_deps} )
 
 #------------------------------------------------------------------------------#

@@ -70,16 +70,13 @@ public:
     step_receives_posted = 0;
     step_receives_completed = 0;
 
-    m_RNG = new RNG();
-    m_RNG->set_seed(input.get_rng_seed() + rank * 4106);
-
     rank_transport_runtime = 0.0;
     rank_rebalance_time = 0.0;
     rank_load_balance_time = 0.0;
   }
 
   //! Destructor
-  ~IMC_State() { delete m_RNG; }
+  ~IMC_State() { }
 
   //--------------------------------------------------------------------------//
   // const functions                                                          //
@@ -300,9 +297,6 @@ public:
     } // if rank==0
   }
 
-  //! Return random number generator
-  RNG *get_rng(void) { return m_RNG; }
-
   //! Increment time and step counter
   void next_time_step(void) {
     m_time += m_dt;
@@ -434,8 +428,6 @@ private:
 
   //! Time to load balance particles this timestep
   double rank_load_balance_time;
-
-  RNG *m_RNG; //!< Rank specific RNG
 };
 
 #endif // imc_state_h_

@@ -13,6 +13,8 @@
 #ifndef config_h_
 #define config_h_
 
+#include <mpi.h>
+
 #cmakedefine VIZ_LIBRARIES_FOUND
 #cmakedefine MOONLIGHT_NODE
 #cmakedefine SNOW_NODE
@@ -22,6 +24,56 @@
 
 // For faux multigroup array sizing
 #cmakedefine BRANSON_N_GROUPS @BRANSON_N_GROUPS@
+
+/*----------------------------------------------------------------------------*/
+/* Mark functions for compilation on host and device */
+#ifdef __NVCC__
+#define USE_CUDA ON
+#endif
+
+
+#if defined __NVCC__ && defined USE_CUDA
+#define HOST_AND_DEVICE_FUNCTION __host__ __device__
+#define GPU_HOST_DEVICE __host__ __device__
+#define GPU_DEVICE __device__
+#define GPU_KERNEL __global__
+#define CONSTANT __constant__
+#else
+#define HOST_AND_DEVICE_FUNCTION
+#define GPU_HOST_DEVICE
+#define GPU_DEVICE
+#define GPU_KERNEL
+#define CONSTANT constexpr
+#endif
+
+
+#ifdef USE_CUDA
+
+#include <cuda.h>
+#include <cuda_runtime.h>
+
+//! Add addend to t, use atomicAdd if built on a CUDA device
+template <class T>
+GPU_HOST_DEVICE inline void accumulate(T &target, T const addend) {
+  atomicAdd(&target, addend);
+  return;
+}
+
+#else
+
+//! Add addend to t, non-atomic version
+template <class T> inline void accumulate(T &target, T const addend) {
+  target += addend;
+  return;
+}
+#endif // USE_CUDA
+
+inline void Insist(const bool pass, const std::string &message) {
+  if (!pass) {
+    std::cout<<"Insist at "<< __FILE__ <<" "<<__LINE__<<" fails with: "<<message<<std::endl;
+    MPI_Abort(MPI_COMM_WORLD, 1);
+  }
+}
 
 #endif // def config_h_
 //----------------------------------------------------------------------------//

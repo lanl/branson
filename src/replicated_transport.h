@@ -21,21 +21,15 @@
 
 #include "RNG.h"
 #include "constants.h"
+#include "gpu_setup.h"
 #include "info.h"
 #include "mesh.h"
 #include "message_counter.h"
-#include "particle_pass_transport.h"
+#include "transport_photon.h"
 #include "photon.h"
-#include "sampling_functions.h"
 
 std::vector<Photon> replicated_transport(
-    const Mesh &mesh, IMC_State &imc_state, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> all_photons) {
-  using Constants::CENSUS;
-  using Constants::event_type;
-  using Constants::EXIT;
-  using Constants::KILL;
-  using Constants::PASS;
-  using Constants::WAIT;
+    const Mesh &mesh, const GPU_Setup &gpu_setup, IMC_State &imc_state, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> all_photons) {
   using std::cout;
   using std::endl;
   using std::vector;
@@ -43,46 +37,39 @@ std::vector<Photon> replicated_transport(
   double census_E = 0.0;
   double exit_E = 0.0;
   double next_dt = imc_state.get_next_dt(); //! Set for census photons
-  double dt = imc_state.get_next_dt();      //! For making current photons
-
-  RNG *rng = imc_state.get_rng();
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   // timing
   Timer t_transport;
   t_transport.start_timer("timestep transport");
-
-  // replicated transport does not require the global photon count
-  uint64_t n_local = all_photons.size();
 
   //------------------------------------------------------------------------//
   // main transport loop
   //------------------------------------------------------------------------//
 
   vector<Photon> census_list;   //! End of timestep census list
-  event_type event;
+  vector<Cell_Tally> cell_tallies(mesh.get_n_local_cells());
+  uint32_t rank_cell_offset{0}; // no offset in replicated mesh
+  if(gpu_setup.use_gpu_transporter()) {
+    t_transport.start_timer("gpu transport");
+    gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
+    t_transport.stop_timer("gpu transport");
+    std::cout<<"gpu transport time: "<<t_transport.get_time("gpu transport")<<std::endl;
+  }
+  else
+    cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies);
 
-  //------------------------------------------------------------------------//
-  // Transport photons from source
-  //------------------------------------------------------------------------//
-  for ( auto & phtn : all_photons) {
-    event = transport_photon_particle_pass(phtn, mesh, rng, next_dt, exit_E,
-                                           census_E, rank_abs_E, rank_track_E);
-    switch (event) {
-    // this case should never be reached
-    case WAIT:
-      break;
-    // this case should never be reached
-    case PASS:
-      break;
-    case KILL:
-      break;
-    case EXIT:
-      break;
-    case CENSUS:
-      census_list.push_back(phtn);
-      break;
-    }
-  } // end while
+  // post process photons, account for escaped energy and add particles to census
+  post_process_photons(next_dt, all_photons, census_list, census_E, exit_E);
+
+  // copy cell tallies back out to rank_abs_E and rank_track_E
+  double total_abs = 0;
+  for (size_t i = 0; i<cell_tallies.size();++i) {
+    total_abs+=cell_tallies[i].get_abs_E();
+    rank_abs_E[i] = cell_tallies[i].get_abs_E();
+    rank_track_E[i] = cell_tallies[i].get_track_E();
+  }
 
   // record time of transport work for this rank
   t_transport.stop_timer("timestep transport");

@@ -62,16 +62,16 @@ public:
     {
       MPI_Datatype og_MPI_Particle;
 
-      const int particle_entry_count = 2;
+      const int particle_entry_count = 3;
 
       // 2 uint32_t, 9 double
-      int particle_array_of_block_length[2] = {4, 9};
+      int particle_array_of_block_length[3] = {3, 4,  13};
 
       // Displacements of each type in the cell
-      MPI_Aint particle_array_of_block_displace[2] = {0, 4 * sizeof(uint32_t)};
+      MPI_Aint particle_array_of_block_displace[3] = {0, 3 * sizeof(uint32_t), 3*sizeof(uint32_t) + 4*sizeof(unsigned char)  };
 
       //Type of each memory block
-      MPI_Datatype particle_array_of_types[2] = {MPI_UNSIGNED, MPI_DOUBLE};
+      MPI_Datatype particle_array_of_types[3] = {MPI_UNSIGNED, MPI_UNSIGNED_CHAR, MPI_DOUBLE};
 
       MPI_Type_create_struct(particle_entry_count,
                              particle_array_of_block_length,

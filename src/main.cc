@@ -10,7 +10,6 @@
 //---------------------------------------------------------------------------//
 
 #include <iostream>
-#include <mpi.h>
 #include <string>
 #include <sys/time.h>
 #include <time.h>

@@ -21,10 +21,11 @@ constexpr double h(6.62606957e-34 * 1.0e-9 /
 constexpr double k(1.60219e-31); //!< energy conversion constant GJ/keV
 constexpr double a(0.01372);     //!< Boltzmann constant in GJ/cm^3/keV^4
 constexpr double a_SO(1.0);      //!< Boltzmann constant for SO problems
+constexpr double cutoff_fraction = 0.01; // note: get this from IMC_state in the future
 
 enum bc_type { REFLECT, VACUUM, ELEMENT, SOURCE, PROCESSOR }; //!< Boundary conditions
 enum dir_type { X_NEG, X_POS, Y_NEG, Y_POS, Z_NEG, Z_POS }; //!< Directions
-enum event_type { KILL, EXIT, PASS, CENSUS, WAIT };         //!< Events
+enum event_type : unsigned char { KILL, EXIT, PASS, CENSUS, SCATTER, KILLED, BOUND };         //!< Events
 enum {
   PARTICLE_PASS,
   REPLICATED
@@ -43,6 +44,8 @@ constexpr int n_tally_tag(9);          //!< MPI tag for number of tally messages
 //! MPI tag for cell messages NOTE: the number of grips in the message will
 // added to the end of this number
 constexpr int cell_tag(10);
+
+constexpr int n_threads_per_block = 128;
 }; // namespace Constants
 
 #endif // constants_h_

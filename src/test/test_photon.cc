@@ -50,9 +50,8 @@ int main(void) {
     if (angle[2] != angle_from_get[2])
       test_photon = false;
 
-    // set cell and grip matches get cell and grip
+    // set cell matches get cell
     uint32_t cell = 129120;
-    uint32_t grip = 213191;
     photon.set_cell(cell);
 
     if (photon.get_cell() != cell)
