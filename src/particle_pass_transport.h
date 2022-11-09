@@ -80,6 +80,7 @@ std::vector<Photon> particle_pass_transport(
   uint32_t n_adjacent = adjacent_procs.size();
   // messsage requests for photon sends and receives
   MPI_Request *phtn_recv_request = new MPI_Request[n_adjacent];
+  MPI_Request *phtn_send_request = new MPI_Request[n_adjacent];
   // message request for non-blocking allreduce
   MPI_Request completion_request;
   // make a send/receive particle buffer for each adjacent processor
@@ -122,8 +123,9 @@ std::vector<Photon> particle_pass_transport(
   //------------------------------------------------------------------------//
   // frist transport all photons from source (best for GPU)
   //------------------------------------------------------------------------//
-  if(gpu_setup.use_gpu_transporter())
+  if(gpu_setup.use_gpu_transporter()) {
     gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
+  }
   else
     cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies);
 
@@ -150,7 +152,6 @@ std::vector<Photon> particle_pass_transport(
     }
   }
 
-  std::cout<<"end source phase for rank "<<rank<<std::endl;
   //------------------------------------------------------------------------//
   // process photon send and receives
   //------------------------------------------------------------------------//
@@ -165,21 +166,32 @@ std::vector<Photon> particle_pass_transport(
       adj_rank = it.first;
       i_b = it.second;
 
+      // test completion of send buffer
+      if (phtn_send_buffer[i_b].sent()) {
+        int send_req_flag;
+        MPI_Test(&phtn_send_request[i_b], &send_req_flag, MPI_STATUS_IGNORE);
+        if (send_req_flag) {
+          phtn_send_buffer[i_b].reset();
+          mctr.n_sends_completed++;
+        }
+      }
+
       // send full photon buffers if send_list has some photons in it
-      if (!send_list[i_b].empty()) {
+      if (phtn_send_buffer[i_b].empty() && !send_list[i_b].empty()) {
         const uint32_t n_photons_to_send = (send_list[i_b].size() < max_buffer_size) ?
             send_list[i_b].size() : max_buffer_size;
         vector<Photon>::iterator copy_start = send_list[i_b].begin();
         vector<Photon>::iterator copy_end = send_list[i_b].begin() + n_photons_to_send;
         vector<Photon> send_now_list(copy_start, copy_end);
         send_list[i_b].erase(copy_start, copy_end);
-        MPI_Send(send_now_list.data(), n_photons_to_send, MPI_Particle, adj_rank,
-          Constants::photon_tag, MPI_COMM_WORLD);
+        phtn_send_buffer[i_b].fill(send_now_list);
+        MPI_Isend(phtn_send_buffer[i_b].get_buffer(), n_photons_to_send, MPI_Particle, adj_rank,
+          Constants::photon_tag, MPI_COMM_WORLD, &phtn_send_request[i_b]);
+        phtn_send_buffer[i_b].set_sent();
         // update counters
-        mctr.n_particles_sent += n_photons_to_send;
-        mctr.n_sends_posted++;
-        mctr.n_sends_completed++;
-        mctr.n_particle_messages++;
+         mctr.n_particles_sent += n_photons_to_send;
+         mctr.n_sends_posted++;
+         mctr.n_particle_messages++;
       }
 
       // process receive buffer
@@ -207,8 +219,9 @@ std::vector<Photon> particle_pass_transport(
     if(!phtn_recv_list.empty()) {
       if(gpu_setup.use_gpu_transporter())
         gpu_transport_photons(rank_cell_offset, phtn_recv_list, gpu_setup.get_device_cells_ptr(), cell_tallies);
-      else
+      else {
         cpu_transport_photons(rank_cell_offset, phtn_recv_list, mesh.get_cells(), cell_tallies);
+      }
 
       for (auto &phtn : phtn_recv_list) {
         switch (phtn.get_descriptor()) {
@@ -263,6 +276,7 @@ std::vector<Photon> particle_pass_transport(
   // record time of transport work for this rank
   t_transport.stop_timer("timestep_transport");
 
+
   // wait for all ranks to finish then send empty photon messages,  do this because it's possible
   // for a rank to receive the empty message while it's still in the transport loop. In that case, it will post a
   // receive again, which will never have a matching send
@@ -294,6 +308,7 @@ std::vector<Photon> particle_pass_transport(
 
   // all ranks have now finished transport
   delete[] phtn_recv_request;
+  delete[] phtn_send_request;
 
   // copy cell tallies back out to rank_abs_E and rank_track_E
   for (size_t i = 0; i<cell_tallies.size();++i) {
