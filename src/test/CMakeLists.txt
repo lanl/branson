@@ -72,7 +72,6 @@ set(branson_test_sources_1pe
   test_input.cc
   test_mesh.cc
   test_mpi_types.cc
-  test_photon.cc
   test_sampling_functions.cc
  )
 foreach( btest ${branson_test_sources_1pe} )
@@ -82,7 +81,8 @@ endforeach()
 #------------------------------------------------------------------------------#
 # Other tests
 
-add_branson_test( SOURCE test_imc_state.cc     PE_LIST "2" )
+add_branson_test( SOURCE test_imc_state.cc      PE_LIST "2" )
+add_branson_test( SOURCE test_photon.cc      PE_LIST "2" )
 
 #------------------------------------------------------------------------------#
 # copy these input files for Input, IMC_State, Mesh and write_silo tests

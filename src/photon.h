@@ -36,7 +36,7 @@ public:
   Photon() {}
 
   //! Destructor
-  ~Photon(void) {}
+  ~Photon() {}
 
   //--------------------------------------------------------------------------//
   // const functions                                                          //

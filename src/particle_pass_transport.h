@@ -121,7 +121,7 @@ std::vector<Photon> particle_pass_transport(
   const uint32_t rank_cell_offset{mesh.get_rank_cell_offset(rank)};
 
   //------------------------------------------------------------------------//
-  // frist transport all photons from source (best for GPU)
+  // first transport all photons from source (best for GPU)
   //------------------------------------------------------------------------//
   if(gpu_setup.use_gpu_transporter()) {
     gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
