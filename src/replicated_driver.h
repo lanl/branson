@@ -78,6 +78,9 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
 
     imc_state.set_transported_particles(all_photons.size());
 
+    // add barrier here to make sure the transport timer starts at roughly the same time
+    MPI_Barrier(MPI_COMM_WORLD);
+
     census_photons =
         replicated_transport(mesh, gpu_setup, imc_state, abs_E, track_E, all_photons);
 

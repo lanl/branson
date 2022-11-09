@@ -73,6 +73,7 @@ public:
     rank_transport_runtime = 0.0;
     rank_rebalance_time = 0.0;
     rank_load_balance_time = 0.0;
+    total_transport_time = 0.0;
   }
 
   //! Destructor
@@ -159,6 +160,9 @@ public:
 
   //! Get transport time for this rank on current timestep
   double get_rank_transport_runtime(void) { return rank_transport_runtime; }
+
+  //! Get total transport time (max time summed across all timesteps)
+  double get_total_transport_time(void) { return total_transport_time; }
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
@@ -294,6 +298,7 @@ public:
         cout << "Census Rebalance time max/min: " << max_rebalance_time << "/";
         cout << min_rebalance_time << endl;
       }
+      total_transport_time += max_transport_time;
     } // if rank==0
   }
 
@@ -425,9 +430,8 @@ private:
 
   double rank_transport_runtime; //!< Transport step runtime for this rank
   double rank_rebalance_time;    //!< Time to rebalance census after transport
-
-  //! Time to load balance particles this timestep
-  double rank_load_balance_time;
+  double rank_load_balance_time; //! Time to load balance particles this timestep
+  double total_transport_time;    //!< Max transport time summed across all timesteps
 };
 
 #endif // imc_state_h_

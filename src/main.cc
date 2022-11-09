@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
     // TRT PHYSICS CALCULATION
     //--------------------------------------------------------------------------//
 
-    timers.start_timer("Total transport");
+    timers.start_timer("Total non-setup");
 
     if (input.get_dd_mode() == PARTICLE_PASS)
       imc_particle_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
@@ -104,13 +104,14 @@ int main(int argc, char **argv) {
       exit(EXIT_FAILURE);
     }
 
-    timers.stop_timer("Total transport");
+    timers.stop_timer("Total non-setup");
 
     if (mpi_info.get_rank() == 0) {
       cout << "****************************************";
       cout << "****************************************" << endl;
       imc_state.print_simulation_footer(input.get_dd_mode());
       timers.print_timers();
+      cout<<"Total transport: "<<imc_state.get_total_transport_time()<<endl;
     }
 
   } // end main loop scope, objects destroyed here
