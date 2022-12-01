@@ -169,7 +169,8 @@ endif()
 
 if("${CUDA_DBS_STRING}" STREQUAL "CUDA" )
   message("Setting CUDA compiler options")
-  set_target_properties(BRANSON PROPERTIES CUDA_ARCHITECTURES "70")
+  set_target_properties(BRANSON PROPERTIES CUDA_ARCHITECTURES "70") # V100
+  #set_target_properties(BRANSON PROPERTIES CUDA_ARCHITECTURES "80") # A100
   set_target_properties(BRANSON PROPERTIES CUDA_STANDARD 17)
   string(APPEND CMAKE_CUDA_FLAGS " -g --expt-relaxed-constexpr")
   string(APPEND CMAKE_CUDA_FLAGS " --expt-extended-lambda"  )
