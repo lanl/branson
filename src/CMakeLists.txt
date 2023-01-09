@@ -62,10 +62,13 @@ set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
 #------------------------------------------------------------------------------#
 # Setup compiler options
 
-# C11 support:
-set( CMAKE_C_STANDARD 17 )
+# C++ support, GPU needs 17, CPU can use 14
+if (CUDA_DBS_STRING STREQUAL "CUDA")
+  set( CMAKE_C_STANDARD 17 )
+else ()
+  set( CMAKE_C_STANDARND 14)
+endif ()
 
-# C++14 support:
 #set( CMAKE_CXX_STANDARD 14 )
 set( CXX_STANDARD_REQUIRED ON )
 
@@ -98,6 +101,9 @@ if( CMAKE_CXX_COMPILER_ID STREQUAL "GNU" )
   #set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${GCC_SANITIZE_LINK_FLAGS}")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0")
+  # note that the "fp-model=precise" flag significantly limite vectorization and slows down
+  # branson but it makes it the hardware counter data match Jayenne more closely (Jayenne uses
+  # this flag)
   set( CMAKE_CXX_FLAGS_RELEASE "-O3 -fp-speculation=fast -fp-model=precise -qno-opt-dynamic-align")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
   set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -g -DR123_USE_GNU_UINT128=0")
