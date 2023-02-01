@@ -88,10 +88,11 @@ std::vector<Photon> make_initial_census_photons(const double dt, const Mesh &mes
       if (t_num_census == 0) t_num_census = 1;
       // keep track of census energy for conservation check
       const double photon_census_E = E_cell_census[i] / t_num_census;
-      for (uint32_t p=0; p<t_num_census;++p)
+      for (uint32_t p=0; p<t_num_census;++p) {
         initial_census_photons.push_back(get_initial_census_photon(cell, photon_census_E, dt, seed, rank_stream_num_offset + ith_census));
+        ith_census++;
+      }
     }
-    ith_census++;
   }
   MPI_Barrier(MPI_COMM_WORLD);
   return initial_census_photons;

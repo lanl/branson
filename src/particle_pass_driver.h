@@ -51,7 +51,7 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
     mctr.reset_counters();
 
     //set opacity, Fleck factor, all energy to source
-    mesh.calculate_photon_energy(imc_state);
+    mesh.calculate_photon_energy(imc_state, n_user_photons);
 
     // all reduce to get total source energy to make correct number of
     // particles on each rank

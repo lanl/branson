@@ -55,8 +55,8 @@ public:
        const IMC_Parameters &imc_p)
       : ngx(input.get_global_n_x_cells()), ngy(input.get_global_n_y_cells()),
         ngz(input.get_global_n_z_cells()), n_global(ngz * ngy * ngx),
-        rank(mpi_info.get_rank()), n_rank(mpi_info.get_n_rank()),
-        verbose_print(input.get_verbose_print_bool()),
+        rank(mpi_info.get_rank()), n_ranks(mpi_info.get_n_rank()),
+        verbose_print(input.get_verbose_print_bool()), replicated(false),
         silo_x(input.get_silo_x_ptr()),
         silo_y(input.get_silo_y_ptr()), silo_z(input.get_silo_z_ptr()),
         total_photon_E(0.0), replicated_factor(1.0),
@@ -84,7 +84,8 @@ public:
       off_rank_bounds = proto_mesh.get_off_rank_bounds();
       on_rank_start = off_rank_bounds.front();
       on_rank_end = off_rank_bounds.back() - 1;
-      replicated_factor = 1.0 / n_rank;
+      replicated_factor = 1.0 / n_ranks;
+      replicated = true;
     } else if (input.get_decomposition_mode() == METIS) {
       decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(),
                      METIS);
@@ -235,7 +236,7 @@ public:
 
   //! Calculate new physical properties and emission energy for each cell on
   // the mesh
-  void calculate_photon_energy(IMC_State &imc_state) {
+  void calculate_photon_energy(IMC_State &imc_state, const uint32_t n_user_photons) {
     using Constants::a;
     using Constants::c;
     total_photon_E = 0.0;
@@ -284,8 +285,36 @@ public:
       tot_emission_E += m_emission_E[i];
       tot_census_E += m_census_E[i];
       tot_source_E += m_source_E[i];
-      total_photon_E += m_emission_E[i] + m_census_E[i] + m_source_E[i];
+      total_photon_E += m_source_E[i] + m_census_E[i] + m_emission_E[i];;
     }
+
+    // adjust the census, emission and source energies for replicated mode to avoid having multiple
+    // ranks make small energy photons, recaculculate total_photon_E on this rank
+    if(replicated) {
+      double global_source_E{tot_emission_E + tot_census_E + tot_source_E};
+      MPI_Allreduce(MPI_IN_PLACE, &global_source_E, 1, MPI_DOUBLE, MPI_SUM,
+                    MPI_COMM_WORLD);
+
+      tot_census_E = 0.0;
+      tot_emission_E = 0.0;
+      tot_source_E = 0.0;
+      total_photon_E = 0.0;
+      for (uint32_t i = 0; i < n_cell; ++i) {
+        if(step ==1 && m_census_E[i] > 0.0 && int(n_user_photons*(m_census_E[i] / global_source_E)) == 0 ) {
+            m_census_E[i] = (i % n_ranks == rank)  ? m_census_E[i]/replicated_factor : 0.0;
+        }
+        if(m_emission_E[i] > 0.0 && int(n_user_photons*(m_emission_E[i] / global_source_E)) == 0 ) {
+            m_emission_E[i] = (i % n_ranks == rank) ? m_emission_E[i]/replicated_factor : 0.0;
+        }
+        if(m_source_E[i] > 0.0 && int(n_user_photons*(m_source_E[i] / global_source_E)) == 0 ) {
+            m_source_E[i] = (i % n_ranks == rank) ? m_source_E[i]/replicated_factor : 0.0;
+        }
+        tot_emission_E += m_emission_E[i];
+        tot_census_E += m_census_E[i];
+        tot_source_E += m_source_E[i];
+        total_photon_E += m_source_E[i] + m_census_E[i] + m_emission_E[i];;
+      } // for loop over cells
+    } // if replicated
 
     // set energy for conservation checks
     imc_state.set_pre_mat_E(pre_mat_E);
@@ -311,6 +340,13 @@ public:
     uint32_t region_ID;
     Region region;
 
+    // in replicated mode reduce the emission energy as some ranks may have had their emission
+    // energy zeroed out for some cells to try to keep photon counts close to n_user_photons
+    if(replicated)
+      MPI_Allreduce(MPI_IN_PLACE, m_emission_E.data(), m_emission_E.size(),
+                    MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+
     if (verbose_print && rank==0) {
       std::cout.precision(8);
       std::cout<<"-------- VERBOSE PRINT BLOCK: CELL TEMPERATURE --------"<<std::endl;
@@ -328,8 +364,7 @@ public:
       Cell &e = cells[i];
       vol = e.get_volume();
       T = e.get_T_e();
-      T_new = T + (abs_E[i] - m_emission_E[i]/replicated_factor ) /
-                      (cV * vol * rho);
+      T_new = T + (abs_E[i] - m_emission_E[i]) / (cV * vol * rho);
       T_r[i] = std::pow(track_E[i] / (vol * imc_state.get_dt() * a * c), 0.25);
       e.set_T_e(T_new);
       total_abs_E += abs_E[i];
@@ -399,9 +434,10 @@ private:
   uint32_t n_global; //!< Nuber of global cells
 
   int32_t rank;   //!< MPI rank of this mesh
-  int32_t n_rank; //!< Number of global ranks
+  int32_t n_ranks; //!< Number of global ranks
 
   bool verbose_print;
+  bool replicated; //!< Flag for replicated mode
 
   float *silo_x; //!< Global array of x face locations for SILO
   float *silo_y; //!< Global array of y face locations for SILO
