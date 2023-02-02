@@ -51,6 +51,8 @@ else ()
 endif()
 set(BRANSON_N_GROUPS ${BRANSON_N_GROUPS} CACHE STRING "Number of energy groups." FORCE)
 
+set(ENABLE_VERBOSE_GPU_TRANSPORT ${ENABLE_VERBOSE_GPU_TRANSPORT} CACHE STRING "Flag for verbose GPU output." FORCE)
+
 #------------------------------------------------------------------------------#
 # Record the site name
 
@@ -167,8 +169,12 @@ target_include_directories( BRANSON PRIVATE
 set( branson_deps
   MPI::MPI_CXX
   MPI::MPI_C
-  METIS::metis
   pugixml)
+
+if(METIS_FOUND)
+  set( branson_deps "METIS::metis;${branson_deps}")
+endif()
+
 if( VIZ_LIBRARIES_FOUND )
   set( branson_deps "Silo::silo;${HDF5_LIBRARIES};${branson_deps}" )
 endif()

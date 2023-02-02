@@ -14,13 +14,15 @@
 
 #include <algorithm>
 #include <iostream>
-#include <metis.h>
 #include <mpi.h>
 #include <numeric>
 #include <unistd.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#ifdef METIS_FOUND
+#include <metis.h>
+#endif
 
 #include "buffer.h"
 #include "mpi_types.h"
@@ -49,6 +51,7 @@ void print_MPI_out(const Proto_Mesh &mesh, const uint32_t rank,
 
 //----------------------------------------------------------------------------//
 //! partition a mesh with metis
+#ifdef METIS_FOUND
 std::vector<int> metis_partition(Proto_Mesh &mesh, int &edgecut, const int rank,
                                  const int n_rank, const MPI_Types &mpi_types) {
 
@@ -205,6 +208,7 @@ std::vector<int> metis_partition(Proto_Mesh &mesh, int &edgecut, const int rank,
 
   return part;
 }
+#endif
 //----------------------------------------------------------------------------//
 
 //----------------------------------------------------------------------------//
@@ -587,26 +591,44 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   int rank = mpi_info.get_rank();
   int n_rank = mpi_info.get_n_rank();
 
+  // exit if there are more ranks than cells
+  if(n_rank > mesh.get_n_global_cells()) {
+    std::cout<<"ERROR: Can't run a decomposed problem with more ranks than cells"<<std::endl;
+    exit(EXIT_FAILURE);
+  }
+
   // metis sets this, if it's zero no changes were made to the default
   // partition (cube decomposition always changes paritioning)
   int edgecut = 0;
   if (rank == 0)
     std::cout << "partitioning..." << std::endl;
   t_partition.start_timer("partition");
-  // decomposition methods return a partition vector which is the rank of each
-  // cell
+
+  // decomposition methods return a partition vector which is the rank of each cell
   std::vector<int> part;
   if (decomposition_type == CUBE) {
     part = cube_partition(mesh, rank, n_rank);
     edgecut = 1;
-  } else if (decomposition_type == METIS)
-    if (n_rank > 1)
+  } else if (decomposition_type == METIS) {
+    if (n_rank > 1) {
+#ifdef METIS_FOUND
       part = metis_partition(mesh, edgecut, rank, n_rank, mpi_types);
+#else
+      if(rank == 0) {
+        std::cout<<"WARNING, domposition_type == METIS but Metis was not found at configure stage";
+        std::cout<<std::endl;
+        std::cout<<"Using initial decomposition (\"bacon strip\" in 2D, \"hamburger patty\" in";
+        std::cout<<" 3D), may not be contiguous"<<std::endl;
+      }
+      part = std::vector<int>(mesh.get_n_local_cells(), rank);
+      edgecut = 0;
+#endif
+    }
     else {
       part = std::vector<int>(mesh.get_n_local_cells(), 0);
       edgecut = 0;
     }
-  else {
+  } else {
     if (rank == 0) {
       std::cout << "Decomposition type not recognized.";
       std::cout << " Exiting..." << std::endl;

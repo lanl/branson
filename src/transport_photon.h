@@ -183,7 +183,7 @@ void gpu_transport_photons(const uint32_t rank_cell_offset,
 
 #ifdef USE_CUDA
   uint32_t n_batch_photons = static_cast<uint32_t>(cpu_photons.size());
-#ifdef MC_VERBOSE_GPU_TRANSPORT
+#ifdef ENABLE_VERBOSE_GPU_TRANSPORT
   int my_bus_id = 0;
   int my_device = 0;
   cudaGetDevice(&my_device);

@@ -16,6 +16,7 @@
 #include <mpi.h>
 
 #cmakedefine VIZ_LIBRARIES_FOUND
+#cmakedefine METIS_FOUND
 #cmakedefine MOONLIGHT_NODE
 #cmakedefine SNOW_NODE
 #cmakedefine TRINITITE_NODE
@@ -25,6 +26,7 @@
 // For faux multigroup array sizing
 #cmakedefine BRANSON_N_GROUPS @BRANSON_N_GROUPS@
 
+#cmakedefine ENABLE_VERBOSE_GPU_TRANSPORT @ENABLE_VERBOSE_GPU_TRANSPORT@
 /*----------------------------------------------------------------------------*/
 /* Mark functions for compilation on host and device */
 #ifdef __NVCC__

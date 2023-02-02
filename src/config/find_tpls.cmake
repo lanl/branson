@@ -48,7 +48,7 @@ macro(setupTPLs)
   if( NOT TARGET METIS::metis )
 
     message( STATUS "Looking for METIS..." )
-    find_package( METIS QUIET REQUIRED )
+    find_package( METIS QUIET)
     if( METIS_FOUND )
       message( STATUS "Looking for METIS.....found ${METIS_LIBRARY}" )
     else()
@@ -57,7 +57,7 @@ macro(setupTPLs)
 
     set_package_properties( METIS PROPERTIES
       DESCRIPTION "METIS"
-      TYPE REQUIRED
+      TYPE OPTIONAL
       URL "http://glaros.dtc.umn.edu/gkhome/metis/metis/overview"
       PURPOSE "METIS is a set of serial programs for partitioning graphs,
    partitioning finite element meshes, and producing fill reducing orderings for
