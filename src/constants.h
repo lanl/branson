@@ -25,7 +25,7 @@ constexpr double cutoff_fraction = 0.01; // note: get this from IMC_state in the
 
 enum bc_type { REFLECT, VACUUM, ELEMENT, SOURCE, PROCESSOR }; //!< Boundary conditions
 enum dir_type { X_NEG, X_POS, Y_NEG, Y_POS, Z_NEG, Z_POS }; //!< Directions
-enum event_type : unsigned char { KILL, EXIT, PASS, CENSUS, SCATTER, KILLED, BOUND };         //!< Events
+enum event_type : unsigned char { EXIT, PASS, CENSUS, SCATTER, KILLED, BOUND };         //!< Events
 enum {
   PARTICLE_PASS,
   REPLICATED

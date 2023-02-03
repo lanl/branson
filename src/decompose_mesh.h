@@ -20,14 +20,16 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#ifdef METIS_FOUND
-#include <metis.h>
-#endif
 
 #include "buffer.h"
 #include "mpi_types.h"
 #include "proto_mesh.h"
 #include "timer.h"
+
+// do this check after config file is included
+#ifdef METIS_FOUND
+#include <metis.h>
+#endif
 
 //----------------------------------------------------------------------------//
 //! Print the mesh information for each rank, one at a time

@@ -37,7 +37,7 @@ void post_process_photons(const double next_dt, std::vector<Photon> &all_photons
     case Constants::event_type::PASS:
       // handle in other function
       break;
-    case Constants::event_type::KILL:
+    case Constants::event_type::KILLED:
       // note: for now killed particles go into the material so separate conservation issues here
       break;
     case Constants::event_type::EXIT:
@@ -105,7 +105,7 @@ void transport_photon(const uint32_t rank_cell_offset,
     if (phtn.below_cutoff(Constants::cutoff_fraction)) {
       cell_tallies[local_cell_index].accumulate_absorbed_E(phtn.get_E());
       active = false;
-      phtn.set_descriptor(Constants::KILL);
+      phtn.set_descriptor(Constants::KILLED);
     }
     // or apply event
     else {

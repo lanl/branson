@@ -69,7 +69,7 @@ std::vector<Photon> particle_pass_transport(
 
   // This flag indicates that send processing is needed for target rank
   vector<vector<Photon>> send_list;
-  vector<Cell_Tally> cell_tallies(mesh.get_n_local_cells());;
+  vector<Cell_Tally> cell_tallies(mesh.get_n_local_cells());
 
   // Completion count request made flag
   bool req_made = false;
@@ -132,7 +132,7 @@ std::vector<Photon> particle_pass_transport(
   for (auto &phtn : all_photons) {
     switch (phtn.get_descriptor()) {
     // this case should never be reached
-    case Constants::KILL:
+    case Constants::KILLED:
       n_complete++;
       break;
     case Constants::EXIT:
@@ -226,7 +226,7 @@ std::vector<Photon> particle_pass_transport(
       for (auto &phtn : phtn_recv_list) {
         switch (phtn.get_descriptor()) {
         // this case should never be reached
-        case Constants::KILL:
+        case Constants::KILLED:
           n_complete++;
           break;
         case Constants::EXIT:

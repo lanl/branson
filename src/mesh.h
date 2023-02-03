@@ -84,7 +84,7 @@ public:
       off_rank_bounds = proto_mesh.get_off_rank_bounds();
       on_rank_start = off_rank_bounds.front();
       on_rank_end = off_rank_bounds.back() - 1;
-      replicated_factor = 1.0 / n_ranks;
+      replicated_factor = 1.0 / static_cast<double>(n_ranks);
       replicated = true;
     } else if (input.get_decomposition_mode() == METIS) {
       decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(),
@@ -285,7 +285,7 @@ public:
       tot_emission_E += m_emission_E[i];
       tot_census_E += m_census_E[i];
       tot_source_E += m_source_E[i];
-      total_photon_E += m_source_E[i] + m_census_E[i] + m_emission_E[i];;
+      total_photon_E += m_source_E[i] + m_census_E[i] + m_emission_E[i];
     }
 
     // adjust the census, emission and source energies for replicated mode to avoid having multiple
@@ -312,7 +312,7 @@ public:
         tot_emission_E += m_emission_E[i];
         tot_census_E += m_census_E[i];
         tot_source_E += m_source_E[i];
-        total_photon_E += m_source_E[i] + m_census_E[i] + m_emission_E[i];;
+        total_photon_E += m_source_E[i] + m_census_E[i] + m_emission_E[i];
       } // for loop over cells
     } // if replicated
 
@@ -373,7 +373,7 @@ public:
         std::cout<<setiosflags(ios::right) << setw(12) << i<<" ";
         std::cout<<setiosflags(ios::right) << setw(12) << T_new<<" ";
         std::cout<<setiosflags(ios::right) << setw(12) << T_r[i]<<" ";
-        std::cout<<setiosflags(ios::right) << setw(12) << abs_E[i]<<" ";;
+        std::cout<<setiosflags(ios::right) << setw(12) << abs_E[i]<<" ";
         std::cout<<std::endl;
       }
     }
