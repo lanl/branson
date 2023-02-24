@@ -42,9 +42,9 @@ This is ${CMAKE_PROJECT_NAME} v. ${PROJECT_VERSION}.
 set (BRANSON_N_GROUPS ${N_GROUPS})
 if (NOT BRANSON_N_GROUPS)
   message(STATUS
-    "HARDCODED NUMBER OF GROUPS NOT SET, DEFAULTING TO ONE GROUP (GRAY)
-     use '-DN_GROUPS=<int>' when running cmake to select multigroup.\n")
-  set(BRANSON_N_GROUPS "1")
+    "HARDCODED NUMBER OF GROUPS NOT SET, DEFAULTING TO THIRTY GROUPS
+     use '-DN_GROUPS=<uint>' when running cmake to specify groups.\n")
+  set(BRANSON_N_GROUPS "30")
 else ()
   message(STATUS
     "HARDCODED NUMBER OF GROUPS SET TO ${BRANSON_N_GROUPS} (FAUX MULTIGROUP)\n")

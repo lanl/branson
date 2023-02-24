@@ -43,17 +43,17 @@ Installing Branson:
   - [CMake 3.9+](https://cmake.org/download/)
   - MPI 3.0+ ([OpenMPI 1.10+](https://www.open-mpi.org/software/ompi/),
     [mpich](http://www.mpich.org), etc.)
+- Optional dependencies (better domains in DD mode, visualization)
   - [Metis](http://glaros.dtc.umn.edu/gkhome/metis/metis/overview)
-- Optional dependencies (needed for visualization)
   - [HDF5](https://support.hdfgroup.org/HDF5/)
   - [Silo](http://wci.llnl.gov/simulation/computer-codes/silo)
-  - If these tools aren't readily avilable on your target machine, consider
+  - If these tools aren't readily available on your target machine, consider
     using a package manager like [spack](https://github.com/spack/spack) to help
     you install these tools.
 - There is only one CMake user option right now: `CMAKE_BUILD_TYPE` which can be
   set on the command line with `-DCMAKE_BUILD_TYPE=<Debug|Release>` and the
   default is Release.
-- If cmake has trouble finding your installed TPLs, you can try
+- If CMake has trouble finding your installed TPLs, you can try
   - appending their locations to `CMAKE_PREFIX_PATH`,
   - Setting helper variables like `HDF5_ROOT` (refer to the
     [cmake
@@ -89,26 +89,23 @@ ctest -j 32
     a very large problem (Metis is serial and ParMetis can't be used due to licensing restrictions).
     For a cube decomposition, the number of ranks must be perfect cubes (x^(1/3) is an interger)
 
-## Special builds
+## Default builds
 
 ### Fake Multigrop Branson:
-
-- The clean_mg branch has a new capability that mimics the data flow in real
-  multigroup transport.
-- This branch sets the number of groups at the configure step in CMake. I know
-  this is messy from a usability standpoint but it makes the data layout very
-  easy to control when the number of groups is known at compile time. Use the
-  `N_GROUPS` CMake variable to set the number of groups (e.g. `cmake
+- The number frequency groups is set at the configure step in CMake.  This makes it easy to control the data layout and looks more like the data
+  layout in the production code Branson is meant to mimic.
+- For this ATS-5 branch the number of groups defaults to 30.
+- Use the `N_GROUPS` CMake variable to set the number of groups (e.g. `cmake
   -DN_GROUPS=10 ../path/to/CMakeLists.txt`).
 - The code will still produce gray results! The physical value in each group is
   the same and it's still set via the input deck.
-- This branch samples a group with a uniform PDF (it does not weight the opacity
+- The group is sampled with a uniform PDF (it does not weight the opacity
   with a Planckian spectrum).
 
 ## Running Branson on performance problems
 
 - There are two performance problems of interest in the `inputs` folder, they are both simplified
- 3D hohlraums and should be run with a 30 group build of Branson (see Special builds section above).
+ 3D hohlraums and should be run with a 30 group build of Branson (now the default).
 - The `3D_hohlaum_single_node.xml` problem is meant to be run on a full node. It is in replicated
  mode which means there is very little MPI communication (end of cycle reductions). It is run with:
 ```
