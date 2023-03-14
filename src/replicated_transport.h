@@ -29,7 +29,7 @@
 #include "photon.h"
 
 std::vector<Photon> replicated_transport(
-    const Mesh &mesh, const GPU_Setup &gpu_setup, IMC_State &imc_state, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> all_photons) {
+    const Mesh &mesh, const GPU_Setup &gpu_setup, IMC_State &imc_state, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> &all_photons) {
   using std::cout;
   using std::endl;
   using std::vector;
