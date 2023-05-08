@@ -34,11 +34,24 @@ std::vector<Photon> replicated_transport(
   using std::endl;
   using std::vector;
 
+  // is the GPU even available?
+  #ifdef USE_GPU
+  constexpr bool gpu_available = true;
+  #else
+  constexpr bool gpu_available = false;
+  #endif
+
   double census_E = 0.0;
   double exit_E = 0.0;
   double next_dt = imc_state.get_next_dt(); //! Set for census photons
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  // print warning message if GPU transport is requested but not available
+  if(rank==0 && gpu_setup.use_gpu_transporter() && !gpu_available) {
+    std::cout<<"WARNING: use_gpu_transporter set to true but GPU kernel not available,";
+    std::cout<<" running transport on CPU"<<std::endl;
+  }
 
   // timing
   Timer t_transport;
@@ -51,7 +64,7 @@ std::vector<Photon> replicated_transport(
   vector<Photon> census_list;   //! End of timestep census list
   vector<Cell_Tally> cell_tallies(mesh.get_n_local_cells());
   uint32_t rank_cell_offset{0}; // no offset in replicated mesh
-  if(gpu_setup.use_gpu_transporter()) {
+  if(gpu_setup.use_gpu_transporter() && gpu_available ) {
     t_transport.start_timer("gpu transport");
     gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
     t_transport.stop_timer("gpu transport");
