@@ -42,7 +42,20 @@ std::vector<Photon> particle_pass_transport(
   using std::unordered_map;
   using std::vector;
 
+  // is the GPU even available?
+  #ifdef USE_GPU
+  constexpr bool gpu_available = true;
+  #else
+  constexpr bool gpu_available = false;
+  #endif
+
   int rank = mpi_info.get_rank();
+
+  // print warning message if GPU transport is requested but not available
+  if(rank==0 && gpu_setup.use_gpu_transporter() && !gpu_available) {
+    std::cout<<"WARNING: use_gpu_transporter set to true but GPU kernel not available,";
+    std::cout<<" running transport on CPU"<<std::endl;
+  }
 
   double census_E = 0.0;
   double exit_E = 0.0;
@@ -123,7 +136,7 @@ std::vector<Photon> particle_pass_transport(
   //------------------------------------------------------------------------//
   // first transport all photons from source (best for GPU)
   //------------------------------------------------------------------------//
-  if(gpu_setup.use_gpu_transporter()) {
+  if(gpu_setup.use_gpu_transporter() && gpu_available) {
     gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
   }
   else
@@ -217,7 +230,7 @@ std::vector<Photon> particle_pass_transport(
     } // end loop over adjacent processors
 
     if(!phtn_recv_list.empty()) {
-      if(gpu_setup.use_gpu_transporter())
+      if(gpu_setup.use_gpu_transporter() && gpu_available)
         gpu_transport_photons(rank_cell_offset, phtn_recv_list, gpu_setup.get_device_cells_ptr(), cell_tallies);
       else {
         cpu_transport_photons(rank_cell_offset, phtn_recv_list, mesh.get_cells(), cell_tallies);
