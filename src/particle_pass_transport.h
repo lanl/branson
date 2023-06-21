@@ -261,9 +261,6 @@ std::vector<Photon> particle_pass_transport(
     }
 
     phtn_recv_list.clear();
-    //------------------------------------------------------------------------//
-    // binary tree completion communication
-    //------------------------------------------------------------------------//
 
     if (!req_made) {
       s_global_complete = n_complete;
@@ -290,7 +287,7 @@ std::vector<Photon> particle_pass_transport(
   t_transport.stop_timer("timestep_transport");
 
 
-  // wait for all ranks to finish then send empty photon messages,  do this because it's possible
+  // wait for all ranks to finish then send empty photon messages, do this because it's possible
   // for a rank to receive the empty message while it's still in the transport loop. In that case, it will post a
   // receive again, which will never have a matching send
   MPI_Barrier(MPI_COMM_WORLD);
