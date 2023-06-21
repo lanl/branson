@@ -356,6 +356,7 @@ public:
       std::cout<<setiosflags(ios::right) << setw(12) << "abs_E"<<" ";
       std::cout<<std::endl;
     }
+    // calculate new temperatures, update global conservation quantities
     for (uint32_t i = 0; i < n_cell; ++i) {
       region_ID = cells[i].get_region_ID();
       region = regions[region_ID_to_index[region_ID]];
@@ -369,12 +370,34 @@ public:
       e.set_T_e(T_new);
       total_abs_E += abs_E[i];
       total_post_mat_E += T_new * cV * vol * rho;
-      if (verbose_print && rank == 0) {
-        std::cout<<setiosflags(ios::right) << setw(12) << i<<" ";
-        std::cout<<setiosflags(ios::right) << setw(12) << T_new<<" ";
+    }
+
+    // replicated verbose print of updated fields
+    if (replicated && verbose_print && rank==0) {
+      for (uint32_t i = 0; i < n_cell; ++i) {
+        Cell &e = cells[i];
+        std::cout<<setiosflags(ios::right) << setw(12) << i <<" ";
+        std::cout<<setiosflags(ios::right) << setw(12) << e.get_T_e()<<" ";
         std::cout<<setiosflags(ios::right) << setw(12) << T_r[i]<<" ";
         std::cout<<setiosflags(ios::right) << setw(12) << abs_E[i]<<" ";
         std::cout<<std::endl;
+      }
+    }
+    // ranks take turns writing out cell data for ordered cell output in domain decomposed mode
+    else if(!replicated && verbose_print) {
+      for (int write_rank =0; write_rank < n_ranks; ++write_rank) {
+        if(rank == write_rank) {
+          for (uint32_t i = 0; i < n_cell; ++i) {
+            Cell &e = cells[i];
+            std::cout<<setiosflags(ios::right) << setw(12) << e.get_global_index()<<" ";
+            std::cout<<setiosflags(ios::right) << setw(12) << e.get_T_e()<<" ";
+            std::cout<<setiosflags(ios::right) << setw(12) << T_r[i]<<" ";
+            std::cout<<setiosflags(ios::right) << setw(12) << abs_E[i]<<" ";
+            std::cout<<std::endl;
+          }
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+        std::cout<<std::flush;
       }
     }
     if (verbose_print && rank == 0)

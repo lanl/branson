@@ -63,7 +63,9 @@ public:
 
     // root rank reads file, prints warnings, and broadcasts to others
     int rank;
+    int n_ranks;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &n_ranks);
     if (rank == 0) {
       uint32_t x_key, y_key, z_key, key;
       // initialize nunmber of divisions in each dimension to zero
@@ -179,6 +181,12 @@ public:
         cout << "WARNING: Domain decomposition method not recognized... ";
         cout << "setting to PARTICLE PASSING method" << endl;
         dd_mode = PARTICLE_PASS;
+      }
+
+      if (n_ranks == 1 && dd_mode == PARTICLE_PASS) {
+        cout<<"WARNING: Domain decomposition method set to PARTICLE_PASS but there is only one";
+        cout<<" rank, setting to REPLICATED"<<endl;
+        dd_mode = REPLICATED;
       }
 
       // domain decomposition method, only do non-repliacted
