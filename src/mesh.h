@@ -365,29 +365,39 @@ public:
 
     // verbose printing block
     if (verbose_print) {
-      // only one rank prints the header message
-      if (rank==0) {
-        std::cout.precision(8);
-        std::cout<<"-------- VERBOSE PRINT BLOCK: CELL TEMPERATURE --------"<<std::endl;
-        std::cout<<setiosflags(ios::right) << setw(12) << "cell"<<" ";
-        std::cout<<setiosflags(ios::right) << setw(12) << "T_e"<<" ";
-        std::cout<<setiosflags(ios::right) << setw(12) << "T_r"<<" ";
-        std::cout<<setiosflags(ios::right) << setw(12) << "abs_E"<<" ";
-        std::cout<<std::endl;
-      }
-      // cell data print, in replicated only rank 0 prints this
-      if (replicated && rank==0) {
-        for (uint32_t i = 0; i < n_cell; ++i) {
-          const Cell &e = cells[i];
-          std::cout<<setiosflags(ios::right) << setw(12) << i <<" ";
-          std::cout<<setiosflags(ios::right) << setw(12) << e.get_T_e()<<" ";
-          std::cout<<setiosflags(ios::right) << setw(12) << T_r[i]<<" ";
-          std::cout<<setiosflags(ios::right) << setw(12) << abs_E[i]<<" ";
+      // only one rank prints the header message in replicated mode
+      if (replicated) {
+        if (rank == 0) {
+          std::cout.precision(8);
+          std::cout<<"-------- VERBOSE PRINT BLOCK: CELL TEMPERATURE --------"<<std::endl;
+          std::cout<<setiosflags(ios::right) << setw(12) << "cell"<<" ";
+          std::cout<<setiosflags(ios::right) << setw(12) << "T_e"<<" ";
+          std::cout<<setiosflags(ios::right) << setw(12) << "T_r"<<" ";
+          std::cout<<setiosflags(ios::right) << setw(12) << "abs_E"<<" ";
           std::cout<<std::endl;
+          for (uint32_t i = 0; i < n_cell; ++i) {
+            const Cell &e = cells[i];
+            std::cout<<setiosflags(ios::right) << setw(12) << i <<" ";
+            std::cout<<setiosflags(ios::right) << setw(12) << e.get_T_e()<<" ";
+            std::cout<<setiosflags(ios::right) << setw(12) << T_r[i]<<" ";
+            std::cout<<setiosflags(ios::right) << setw(12) << abs_E[i]<<" ";
+            std::cout<<std::endl;
+          }
+          std::cout<<"-------------------------------------------------------"<<std::endl;
         }
       }
-      // ranks take turns writing out cell data for ordered cell output in domain decomposed mode
+      // domain decomposed mode
       else {
+        if (rank == 0) {
+          std::cout.precision(8);
+          std::cout<<"-------- VERBOSE PRINT BLOCK: CELL TEMPERATURE --------"<<std::endl;
+          std::cout<<setiosflags(ios::right) << setw(12) << "cell"<<" ";
+          std::cout<<setiosflags(ios::right) << setw(12) << "T_e"<<" ";
+          std::cout<<setiosflags(ios::right) << setw(12) << "T_r"<<" ";
+          std::cout<<setiosflags(ios::right) << setw(12) << "abs_E"<<" ";
+          std::cout<<std::endl;
+        }
+        // ranks take turns writing out cell data for ordered cell output in domain decomposed mode
         for (int write_rank =0; write_rank < n_ranks; ++write_rank) {
           if(rank == write_rank) {
             for (uint32_t i = 0; i < n_cell; ++i) {
@@ -402,9 +412,9 @@ public:
           MPI_Barrier(MPI_COMM_WORLD);
           std::cout<<std::flush;
         }
-      }
       if (rank == 0)
         std::cout<<"-------------------------------------------------------"<<std::endl;
+      }
     } // end verbose print block
 
     // zero out absorption tallies for all cells (global)
