@@ -162,8 +162,8 @@ configure_file(config.h.in ${PROJECT_BINARY_DIR}/config.h)
 
 #------------------------------------------------------------------------------#
 # Targets
-
-add_executable(BRANSON main.cc)
+file(GLOB headers *.h)
+add_executable(BRANSON main.cc ${headers})
 target_include_directories( BRANSON PRIVATE
   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> ${PROJECT_SOURCE_DIR}/pugixml/src/)
 set( branson_deps
