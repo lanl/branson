@@ -63,16 +63,14 @@ set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
 
 #------------------------------------------------------------------------------#
 # Setup compiler options
+set( CXX_STANDARD_REQUIRED ON )
 
 # C++ support, GPU needs 17, CPU can use 14
 if (CUDA_DBS_STRING STREQUAL "CUDA")
-  set( CMAKE_C_STANDARD 17 )
+  set( CMAKE_CXX_STANDARD 17 )
 else ()
-  set( CMAKE_C_STANDARND 14)
+  set( CMAKE_CXX_STANDARD 14)
 endif ()
-
-#set( CMAKE_CXX_STANDARD 14 )
-set( CXX_STANDARD_REQUIRED ON )
 
 # Do not enable extensions (e.g.: --std=gnu++11)
 set( CMAKE_CXX_EXTENSIONS OFF )
