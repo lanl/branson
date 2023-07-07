@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
 
   MPI_Init(&argc, &argv);
 
-  using Constants::PARTICLE_PASS;
+  using Constants::REPLICATED;
   using Constants::REFLECT;
   using Constants::VACUUM;
   using Constants::X_NEG;
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
       if (input.get_dz(0) != 3.0)
         simple_input_pass = false;
 
-      if (input.get_comb_bool() != true)
+      if (input.get_comb_bool() != false)
         simple_input_pass = false;
       if (input.get_verbose_print_bool() != true)
         simple_input_pass = false;
@@ -80,19 +80,23 @@ int main(int argc, char *argv[]) {
         simple_input_pass = false;
       if (input.get_time_mult() != 1.0)
         simple_input_pass = false;
-      if (input.get_time_mult() != 1.0)
-        simple_input_pass = false;
       if (input.get_rng_seed() != 14706)
         simple_input_pass = false;
       if (input.get_number_photons() != 10000)
         simple_input_pass = false;
-      if (input.get_batch_size() != 10000)
+      // Even though input says 10k, this defaults to the replicated
+      // value of 100M when you're running 1 MPI rank.
+      if (input.get_batch_size() != 100000000)
         simple_input_pass = false;
       if (input.get_particle_message_size() != 1000)
         simple_input_pass = false;
       if (input.get_map_size() != 50000)
         simple_input_pass = false;
-      if (input.get_dd_mode() != PARTICLE_PASS)
+      // Even though input says PARTICLE_PASS, this defaults back to replicated
+      // when you're only running 1 MPI rank.
+      if (input.get_dd_mode() != REPLICATED)
+        simple_input_pass = false;
+      if(input.get_use_gpu_transporter_bool() != false)
         simple_input_pass = false;
 
       if (input.get_bc(X_NEG) != REFLECT)
@@ -215,13 +219,17 @@ int main(int argc, char *argv[]) {
         three_region_pass = false;
       if (input.get_number_photons() != 10000)
         three_region_pass = false;
-      if (input.get_batch_size() != 10000)
+      // Even though input says 10k, this defaults to the replicated
+      // value of 100M when you're running 1 MPI rank.
+      if (input.get_batch_size() != 100000000)
         three_region_pass = false;
       if (input.get_particle_message_size() != 1000)
         three_region_pass = false;
       if (input.get_map_size() != 50000)
         three_region_pass = false;
-      if (input.get_dd_mode() != PARTICLE_PASS)
+      // Even though input says PARTICLE_PASS, this defaults back to replicated
+      // when you're only running 1 MPI rank.
+      if (input.get_dd_mode() != REPLICATED)
         three_region_pass = false;
 
       if (input.get_bc(X_NEG) != REFLECT)
