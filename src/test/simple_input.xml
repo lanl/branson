@@ -14,6 +14,8 @@
     <map_size>50000</map_size>
     <batch_size>10000</batch_size>
     <particle_message_size>1000</particle_message_size>
+    <use_gpu_transporter>FALSE</use_gpu_transporter>
+    <use_combing>FALSE</use_combing>
   </common>
 
   <debug_options>
