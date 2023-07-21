@@ -43,7 +43,7 @@ std::vector<Photon> particle_pass_transport(
   using std::vector;
 
   // is the GPU even available?
-  #ifdef USE_GPU
+  #ifdef USE_CUDA
   constexpr bool gpu_available = true;
   #else
   constexpr bool gpu_available = false;
