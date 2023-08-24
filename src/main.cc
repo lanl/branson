@@ -112,6 +112,8 @@ int main(int argc, char **argv) {
       imc_state.print_simulation_footer(input.get_dd_mode());
       timers.print_timers();
       cout<<"Total transport: "<<imc_state.get_total_transport_time()<<endl;
+      cout<<"Photons Per Second (FOM):"<<
+        imc_state.get_photons_per_second_fom(imc_p.get_n_user_photon())<<endl;
     }
 
   } // end main loop scope, objects destroyed here
