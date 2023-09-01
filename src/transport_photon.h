@@ -18,17 +18,12 @@
 #include <unordered_map>
 #include <vector>
 
+#include "config.h"
 #include "RNG.h"
 #include "cell_tally.h"
 #include "constants.h"
 #include "photon.h"
 #include "sampling_functions.h"
-
-#ifdef USE_CUDA
-#include <thrust/device_vector.h>
-#include <thrust/execution_policy.h>
-#include <thrust/sort.h>
-#endif
 
 void post_process_photons(const double next_dt, std::vector<Photon> &all_photons, std::vector<Photon> &census_list, double &census_E, double &exit_E) {
   for ( auto & phtn : all_photons) {
@@ -166,13 +161,36 @@ void gpu_no_accel_transport(const uint32_t rank_cell_offset,
 
 //------------------------------------------------------------------------------------------------//
 void cpu_transport_photons(const uint32_t rank_cell_offset,
-    std::vector<Photon> &photons, const std::vector<Cell> &cells, std::vector<Cell_Tally> &cell_tallies) {
+    std::vector<Photon> &photons, const std::vector<Cell> &cells, std::vector<Cell_Tally> &cell_tallies, int n_omp_threads) {
 
   auto cpu_cells_ptr{cells.data()};
-  auto cpu_cell_tallies_ptr{cell_tallies.data()};
-  for (auto &photon : photons) {
-    transport_photon(rank_cell_offset, photon, cpu_cells_ptr, cpu_cell_tallies_ptr);
+
+#ifdef USE_OPENMP
+  // this is set earlier based on input variable
+  std::vector<std::vector<Cell_Tally>> thread_tallies(n_omp_threads, cell_tallies);
+#pragma omp parallel
+  {
+    auto thread_tally_ptr = thread_tallies[omp_get_thread_num()].data();
+    // loop_sched defined in imc/config.h:
+    const omp_sched_t loop_sched = (omp_sched_guided);
+    omp_set_schedule(loop_sched, 1000);
+#pragma omp for
+    for (int i=0; i<photons.size(); ++i) {
+      transport_photon(rank_cell_offset, photons[i], cpu_cells_ptr, thread_tally_ptr);
+    }
+  } // end parallel region
+
+  // reduce tallies if using openmp
+  for(size_t cell=0; cell<cell_tallies.size() ; ++cell) {
+    auto &cell_tally{cell_tallies[cell]};
+    for(int thread =0; thread<n_omp_threads;++thread)
+      cell_tally.merge_in_tally(thread_tallies[thread][cell]);
   }
+#else
+  // normal serial version
+  for (auto &photon : photons)
+    transport_photon(rank_cell_offset, photon, cpu_cells_ptr, cell_tallies.data());
+#endif
 }
 //------------------------------------------------------------------------------------------------//
 

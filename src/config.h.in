@@ -23,6 +23,8 @@
 #cmakedefine TRINITY_NODE
 #cmakedefine CCS_NODE
 
+#cmakedefine USE_OPENMP
+
 // For faux multigroup array sizing
 #cmakedefine BRANSON_N_GROUPS @BRANSON_N_GROUPS@
 
@@ -48,11 +50,17 @@
 #define CONSTANT constexpr
 #endif
 
+#ifdef USE_OPENMP
+#include <omp.h>
+#endif
 
 #ifdef USE_CUDA
 
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/sort.h>
 
 //! Add addend to t, use atomicAdd if built on a CUDA device
 template <class T>

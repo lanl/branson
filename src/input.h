@@ -189,6 +189,17 @@ public:
         dd_mode = REPLICATED;
       }
 
+      // set number of OpenMP threads, default to 1, warn if set and no OpenMP
+      if (settings_node.child("n_omp_threads")) {
+        n_omp_threads = settings_node.child("n_omp_threads").text().as_int();
+#ifndef USE_OPENMP
+        std::cout<<"WARNING: Number of OpenMP threads set but Branson was not configured with";
+        std::cout<<" OpenMP, OpenMP threads will not be used"<<std::endl;
+#endif
+      }
+      else
+        n_omp_threads = 1;
+
       // domain decomposition method, only do non-repliacted
       tempString = settings_node.child_value("mesh_decomposition");
       if (tempString == "METIS")
@@ -455,7 +466,7 @@ public:
     } // end xml parse
 
     const int n_bools = 5;
-    const int n_uint = 16;
+    const int n_uint = 17;
     const int n_doubles = 6;
     MPI_Datatype MPI_Region = mpi_types.get_region_type();
 
@@ -480,6 +491,7 @@ public:
       vector<uint32_t> all_uint = {seed,
                                    dd_mode,
                                    decomp_mode,
+                                   n_omp_threads,
                                    output_freq,
                                    grip_size,
                                    map_size,
@@ -493,7 +505,8 @@ public:
                                    n_x_div,
                                    n_y_div,
                                    n_z_div};
-      MPI_Bcast(&all_uint[0], n_uint, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+
+      MPI_Bcast(all_uint.data(), n_uint, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
 
       // uint64
       MPI_Bcast(&n_photons, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
@@ -501,10 +514,10 @@ public:
       // double
       vector<double> all_doubles = {tStart, dt,    tFinish,
                                     tMult,  dtMax, T_source};
-      MPI_Bcast(&all_doubles[0], n_doubles, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+      MPI_Bcast(all_doubles.data(), n_doubles, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
       // region processing
-      MPI_Bcast(&regions[0], n_regions, MPI_Region, 0, MPI_COMM_WORLD);
+      MPI_Bcast(regions.data(), n_regions, MPI_Region, 0, MPI_COMM_WORLD);
       vector<uint32_t> division_key;
       vector<uint32_t> region_at_division;
       for (auto rmap : region_map) {
@@ -549,23 +562,24 @@ public:
 
       // set uints
       vector<uint32_t> all_uint(n_uint);
-      MPI_Bcast(&all_uint[0], n_uint, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+      MPI_Bcast(all_uint.data(), n_uint, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
       seed = all_uint[0];
       dd_mode = all_uint[1];
       decomp_mode = all_uint[2];
-      output_freq = all_uint[3];
-      grip_size = all_uint[4];
-      map_size = all_uint[5];
-      batch_size = all_uint[6];
-      particle_message_size = all_uint[7];
-      n_divisions = all_uint[8];
-      n_global_x_cells = all_uint[9];
-      n_global_y_cells = all_uint[10];
-      n_global_z_cells = all_uint[11];
-      const uint32_t n_regions = all_uint[12];
-      const uint32_t n_x_div = all_uint[13];
-      const uint32_t n_y_div = all_uint[14];
-      const uint32_t n_z_div = all_uint[15];
+      n_omp_threads = all_uint[3];
+      output_freq = all_uint[4];
+      grip_size = all_uint[5];
+      map_size = all_uint[6];
+      batch_size = all_uint[7];
+      particle_message_size = all_uint[8];
+      n_divisions = all_uint[9];
+      n_global_x_cells = all_uint[10];
+      n_global_y_cells = all_uint[11];
+      n_global_z_cells = all_uint[12];
+      const uint32_t n_regions = all_uint[13];
+      const uint32_t n_x_div = all_uint[14];
+      const uint32_t n_y_div = all_uint[15];
+      const uint32_t n_z_div = all_uint[16];
 
       // uint64
       MPI_Bcast(&n_photons, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
@@ -583,7 +597,6 @@ public:
       regions.resize(n_regions);
       MPI_Bcast(&regions[0], n_regions, MPI_Region, 0, MPI_COMM_WORLD);
 
-      n_divisions = all_uint[8];
       vector<uint32_t> division_key(n_divisions);
       vector<uint32_t> region_at_division(n_divisions);
       MPI_Bcast(&division_key[0], n_divisions, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
@@ -707,6 +720,12 @@ public:
       cout << " Exiting..." << endl;
       exit(EXIT_FAILURE);
     }
+#ifdef USE_OPENMP
+    std::cout<<"Branson built with OpenMP"<<std::endl;
+#else
+    std::cout<<"Branson built WITHOUT OpenMP"<<std::endl;
+#endif
+    std::cout<<"Number of OpenMP threads per rank: "<<n_omp_threads<<std::endl;
 
     cout << "Mesh decomposition: ";
     if (decomp_mode == METIS && dd_mode != REPLICATED)
@@ -818,6 +837,8 @@ public:
   uint32_t get_dd_mode(void) const { return dd_mode; }
   //! Return the domain decomposition algorithm
   uint32_t get_decomposition_mode(void) const { return decomp_mode; }
+  //! Return the number of OpenMP threads
+  uint32_t get_n_omp_threads(void) const { return n_omp_threads;}
 
   // source functions
   //! Return the temperature of the face source
@@ -877,9 +898,10 @@ private:
   uint64_t n_photons; //!< Photons to source each timestep
   uint32_t seed;      //!< Random number seed
 
-  // Method parameters
+  // Parallel parameters
   uint32_t dd_mode;     //!< Mode of domain decomposed transport algorithm
   uint32_t decomp_mode; //!< Mode of decomposing mesh
+  uint32_t n_omp_threads; //!< Number of OpenMP threads, 1 if no OpenMP
 
   // Debug parameters
   uint32_t output_freq; //!< How often to print temperature information

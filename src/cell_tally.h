@@ -50,6 +50,11 @@ public:
 
   double abs_E;  //!< Absorbed energy in jerks
   double track_E;  //!< Track energy used for estimate of radiation temperature
+
+  void merge_in_tally(const Cell_Tally &other_cell_tally) {
+    abs_E+= other_cell_tally.get_abs_E();
+    track_E+= other_cell_tally.get_track_E();
+  }
 };
 
 #endif // cell_tally_h_

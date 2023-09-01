@@ -29,7 +29,7 @@
 #include "photon.h"
 
 std::vector<Photon> replicated_transport(
-    const Mesh &mesh, const GPU_Setup &gpu_setup, IMC_State &imc_state, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> &all_photons) {
+    const Mesh &mesh, const GPU_Setup &gpu_setup, IMC_State &imc_state, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> &all_photons, const int n_omp_threads) {
   using std::cout;
   using std::endl;
   using std::vector;
@@ -70,8 +70,9 @@ std::vector<Photon> replicated_transport(
     t_transport.stop_timer("gpu transport");
     std::cout<<"gpu transport time: "<<t_transport.get_time("gpu transport")<<std::endl;
   }
-  else
-    cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies);
+  else {
+    cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies, n_omp_threads);
+  }
 
   // post process photons, account for escaped energy and add particles to census
   post_process_photons(next_dt, all_photons, census_list, census_E, exit_E);
