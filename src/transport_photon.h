@@ -164,24 +164,22 @@ void cpu_transport_photons(const uint32_t rank_cell_offset,
     std::vector<Photon> &photons, const std::vector<Cell> &cells, std::vector<Cell_Tally> &cell_tallies, int n_omp_threads) {
 
   auto cpu_cells_ptr{cells.data()};
-
+  const auto n_cells = cell_tallies.size();
 #ifdef USE_OPENMP
   // this is set earlier based on input variable
-  std::vector<std::vector<Cell_Tally>> thread_tallies(n_omp_threads, cell_tallies);
+  std::vector<std::vector<Cell_Tally>> thread_tallies(n_omp_threads);
 #pragma omp parallel
   {
+    thread_tallies[omp_get_thread_num()].resize(n_cells);
     auto thread_tally_ptr = thread_tallies[omp_get_thread_num()].data();
-    // loop_sched defined in imc/config.h:
-    const omp_sched_t loop_sched = (omp_sched_guided);
-    omp_set_schedule(loop_sched, 1000);
-#pragma omp for
+#pragma omp for schedule(guided)
     for (int i=0; i<photons.size(); ++i) {
       transport_photon(rank_cell_offset, photons[i], cpu_cells_ptr, thread_tally_ptr);
     }
   } // end parallel region
 
   // reduce tallies if using openmp
-  for(size_t cell=0; cell<cell_tallies.size() ; ++cell) {
+  for(size_t cell=0; cell<n_cells; ++cell) {
     auto &cell_tally{cell_tallies[cell]};
     for(int thread =0; thread<n_omp_threads;++thread)
       cell_tally.merge_in_tally(thread_tallies[thread][cell]);
