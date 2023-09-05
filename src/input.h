@@ -722,10 +722,11 @@ public:
     }
 #ifdef USE_OPENMP
     std::cout<<"Branson built with OpenMP"<<std::endl;
-#else
-    std::cout<<"Branson built WITHOUT OpenMP"<<std::endl;
-#endif
     std::cout<<"Number of OpenMP threads per rank: "<<n_omp_threads<<std::endl;
+#else
+    std::cout<<"Branson built WITHOUT OpenMP, number of OpenMP threads set in the input will have"
+    std::cout<<" no affect"<<std::endl;
+#endif
 
     cout << "Mesh decomposition: ";
     if (decomp_mode == METIS && dd_mode != REPLICATED)
