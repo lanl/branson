@@ -72,7 +72,6 @@ public:
 
     rank_transport_runtime = 0.0;
     rank_rebalance_time = 0.0;
-    rank_load_balance_time = 0.0;
     total_transport_time = 0.0;
   }
 
@@ -290,11 +289,6 @@ public:
       if (dd_type == PARTICLE_PASS) {
         cout << "Step particles messages sent: " << g_step_particle_messages;
         cout << ", Step particles sent: " << g_step_particles_sent << endl;
-      } else {
-        cout << "Step cell messages sent: " << g_step_cell_messages;
-        cout << ", Step cells sent: " << g_step_cells_sent << endl;
-        cout << "Step cells requested: " << g_step_cells_requested << endl;
-        cout << "Load balance time: " << rank_load_balance_time << endl;
       }
       cout << "Transport time max/min: " << max_transport_time << "/";
       cout << min_transport_time << endl;
@@ -374,11 +368,6 @@ public:
     rank_rebalance_time = _rebalance_time;
   }
 
-  //! Set load balance time for this timestep
-  void set_load_balance_time(double _load_balance_time) {
-    rank_load_balance_time = _load_balance_time;
-  }
-
   //--------------------------------------------------------------------------//
   // member data                                                              //
   //--------------------------------------------------------------------------//
@@ -434,7 +423,6 @@ private:
 
   double rank_transport_runtime; //!< Transport step runtime for this rank
   double rank_rebalance_time;    //!< Time to rebalance census after transport
-  double rank_load_balance_time; //! Time to load balance particles this timestep
   double total_transport_time;    //!< Max transport time summed across all timesteps
 };
 

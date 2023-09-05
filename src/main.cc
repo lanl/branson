@@ -15,6 +15,7 @@
 #include <time.h>
 #include <vector>
 
+#include "config.h"
 #include "constants.h"
 #include "imc_parameters.h"
 #include "imc_state.h"
@@ -88,6 +89,11 @@ int main(int argc, char **argv) {
 
     MPI_Barrier(MPI_COMM_WORLD);
     // print_MPI_out(mesh, rank, n_rank);
+
+    // set the number of threads, it will be used by both replicated and particle passing methods
+#ifdef USE_OPENMP
+    omp_set_num_threads(input.get_n_omp_threads());
+#endif
 
     //--------------------------------------------------------------------------//
     // TRT PHYSICS CALCULATION
