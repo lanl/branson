@@ -110,12 +110,14 @@ elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
   set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -DR123_USE_GNU_UINT128=0")
 endif()
 
+
 #------------------------------------------------------------------------------#
 # Look for Third Party Libraries (metis, etc.)
 add_subdirectory(pugixml)
 
 include(find_tpls)
 setupTPLs()
+
 #------------------------------------------------------------------------------#
 # Report build configuration
 
@@ -168,6 +170,10 @@ set( branson_deps
   MPI::MPI_CXX
   MPI::MPI_C
   pugixml)
+
+if(OpenMP_FOUND)
+  set(branson_deps "OpenMP::OpenMP_CXX;${branson_deps}")
+endif()
 
 if(METIS_FOUND)
   set( branson_deps "METIS::metis;${branson_deps}")
