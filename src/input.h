@@ -838,7 +838,7 @@ public:
   //! Return the domain decomposition algorithm
   uint32_t get_decomposition_mode(void) const { return decomp_mode; }
   //! Return the number of OpenMP threads
-  uint32_t get_n_omp_threads(void) const { return n_omp_threads;}
+  int32_t get_n_omp_threads(void) const { return static_cast<int>(n_omp_threads);}
 
   // source functions
   //! Return the temperature of the face source
