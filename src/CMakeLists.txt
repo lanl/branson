@@ -63,16 +63,14 @@ set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
 
 #------------------------------------------------------------------------------#
 # Setup compiler options
+set( CXX_STANDARD_REQUIRED ON )
 
 # C++ support, GPU needs 17, CPU can use 14
 if (CUDA_DBS_STRING STREQUAL "CUDA")
-  set( CMAKE_C_STANDARD 17 )
+  set( CMAKE_CXX_STANDARD 17 )
 else ()
-  set( CMAKE_C_STANDARND 14)
+  set( CMAKE_CXX_STANDARD 14)
 endif ()
-
-#set( CMAKE_CXX_STANDARD 14 )
-set( CXX_STANDARD_REQUIRED ON )
 
 # Do not enable extensions (e.g.: --std=gnu++11)
 set( CMAKE_CXX_EXTENSIONS OFF )
@@ -112,12 +110,14 @@ elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
   set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -DR123_USE_GNU_UINT128=0")
 endif()
 
+
 #------------------------------------------------------------------------------#
 # Look for Third Party Libraries (metis, etc.)
 add_subdirectory(pugixml)
 
 include(find_tpls)
 setupTPLs()
+
 #------------------------------------------------------------------------------#
 # Report build configuration
 
@@ -162,14 +162,18 @@ configure_file(config.h.in ${PROJECT_BINARY_DIR}/config.h)
 
 #------------------------------------------------------------------------------#
 # Targets
-
-add_executable(BRANSON main.cc)
+file(GLOB headers *.h)
+add_executable(BRANSON main.cc ${headers})
 target_include_directories( BRANSON PRIVATE
   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> ${PROJECT_SOURCE_DIR}/pugixml/src/)
 set( branson_deps
   MPI::MPI_CXX
   MPI::MPI_C
   pugixml)
+
+if(OpenMP_FOUND)
+  set(branson_deps "OpenMP::OpenMP_CXX;${branson_deps}")
+endif()
 
 if(METIS_FOUND)
   set( branson_deps "METIS::metis;${branson_deps}")
