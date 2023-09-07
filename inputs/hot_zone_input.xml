@@ -11,6 +11,7 @@
     <tilt>FALSE</tilt>
     <stratified_sampling>FALSE</stratified_sampling>
     <dd_transport_type>CELL_PASS</dd_transport_type>
+    <n_omp_threads>1</n_omp_threads>
     <grip_size>100</grip_size>
     <map_size>5000</map_size>
     <batch_size>500</batch_size>

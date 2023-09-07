@@ -11,6 +11,7 @@
     <use_combing>TRUE</use_combing>
     <use_gpu_transporter>TRUE</use_gpu_transporter>
     <dd_transport_type>REPLICATED</dd_transport_type>
+    <n_omp_threads>1</n_omp_threads>
     <output_frequency>1</output_frequency>
   </common>
 
