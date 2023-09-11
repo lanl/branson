@@ -724,7 +724,7 @@ public:
     std::cout<<"Branson built with OpenMP"<<std::endl;
     std::cout<<"Number of OpenMP threads per rank: "<<n_omp_threads<<std::endl;
 #else
-    std::cout<<"Branson built WITHOUT OpenMP, number of OpenMP threads set in the input will have"
+    std::cout<<"Branson built WITHOUT OpenMP, number of OpenMP threads set in the input will have";
     std::cout<<" no affect"<<std::endl;
 #endif
 
