@@ -23,6 +23,8 @@
 #include "input.h"
 #include "message_counter.h"
 #include "photon.h"
+#include "cell.h"
+#include <iomanip>
 
 //==============================================================================
 /*!
@@ -55,9 +57,6 @@ public:
     census_size = 0;
     step_particles_sent = 0;
     total_particles_sent = 0;
-    total_cells_requested = 0;
-    total_cells_sent = 0;
-    total_cell_messages = 0;
     total_particle_messages = 0;
 
     step_particle_messages = 0;
@@ -192,8 +191,6 @@ public:
     // timing values
     double max_transport_time = 0.0;
     double min_transport_time = 0.0;
-    double max_rebalance_time = 0.0;
-    double min_rebalance_time = 0.0;
     // 64 bit global integers
     uint64_t g_census_size = 0;
     uint64_t g_trans_particles = 0;
@@ -229,10 +226,6 @@ public:
                   MPI_MAX, MPI_COMM_WORLD);
     MPI_Allreduce(&rank_transport_runtime, &min_transport_time, 1, MPI_DOUBLE,
                   MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(&rank_rebalance_time, &max_rebalance_time, 1, MPI_DOUBLE,
-                  MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&rank_rebalance_time, &min_rebalance_time, 1, MPI_DOUBLE,
-                  MPI_MIN, MPI_COMM_WORLD);
 
     // reduce diagnostic values
     // 64 bit integer reductions
@@ -266,9 +259,6 @@ public:
         g_post_mat_E - (g_pre_mat_E + g_absorbed_E - g_emission_E);
 
     // update total simulation counters
-    total_cells_requested += g_step_cells_requested;
-    total_cells_sent += g_step_cells_sent;
-    total_cell_messages += g_step_cell_messages;
     total_particles_sent += g_step_particles_sent;
     total_particle_messages += g_step_particle_messages;
 
@@ -283,11 +273,11 @@ public:
            << endl;
       cout << "Radiation conservation: " << rad_conservation << endl;
       cout << "Material conservation: " << mat_conservation << endl;
-      cout << "Sends posted: " << g_step_sends_posted;
-      cout << ", sends completed: " << g_step_sends_completed << endl;
-      cout << "Receives posted: " << g_step_receives_posted;
-      cout << ", receives completed: " << g_step_receives_completed << endl;
       if (dd_type == PARTICLE_PASS) {
+        cout << "Sends posted: " << g_step_sends_posted;
+        cout << ", sends completed: " << g_step_sends_completed << endl;
+        cout << "Receives posted: " << g_step_receives_posted;
+        cout << ", receives completed: " << g_step_receives_completed << endl;
         cout << "Step particles messages sent: " << g_step_particle_messages;
         cout << ", Step particles sent: " << g_step_particles_sent << endl;
       } else {
@@ -298,10 +288,8 @@ public:
       }
       cout << "Transport time max/min: " << max_transport_time << "/";
       cout << min_transport_time << endl;
-      if (dd_type != PARTICLE_PASS && dd_type != REPLICATED) {
-        cout << "Census Rebalance time max/min: " << max_rebalance_time << "/";
-        cout << min_rebalance_time << endl;
-      }
+
+      // add this transport time to the runnting total
       total_transport_time += max_transport_time;
     } // if rank==0
   }
@@ -374,9 +362,90 @@ public:
     rank_rebalance_time = _rebalance_time;
   }
 
-  //! Set load balance time for this timestep
-  void set_load_balance_time(double _load_balance_time) {
-    rank_load_balance_time = _load_balance_time;
+  void print_memory_estimate(int rank, int n_ranks, uint32_t n_rank_cells, uint64_t n_rank_photons) {
+
+    // rank statistics on memory and photons
+    uint64_t max_n_rank_photons = n_rank_photons;
+    uint64_t mean_n_rank_photons = n_rank_photons;
+    double rank_memory =(n_rank_photons*sizeof(Photon) + n_rank_cells*sizeof(Cell))/1.0e9 ;
+    double max_rank_memory = rank_memory;
+    double mean_rank_memory = rank_memory;
+    MPI_Allreduce(MPI_IN_PLACE, &max_n_rank_photons, 1, MPI_UNSIGNED_LONG, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &mean_n_rank_photons, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &max_rank_memory, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &mean_rank_memory, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    mean_n_rank_photons /= static_cast<double>(n_ranks);
+    mean_rank_memory/= static_cast<double>(n_ranks);
+
+    // node statistics on memory and photons
+    // Create the node-level communicator(s) by splitting the original COMM_WORLD (every rank) into
+    // node groupings:
+    MPI_Comm node_comm;
+    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, rank, MPI_INFO_NULL,
+      &node_comm);
+    // Get this rank's ID WITHIN THE NODE-LOCAL COMMUNICATOR
+    int node_rank{0};
+    int n_node_ranks{0};
+    MPI_Comm_rank(node_comm, &node_rank);
+    MPI_Comm_size(node_comm, &n_node_ranks);
+    int n_nodes = n_ranks / n_node_ranks; 
+
+    uint32_t n_node_cells = n_rank_cells;
+    uint64_t n_node_photons = n_rank_photons;
+    MPI_Allreduce(MPI_IN_PLACE, &n_node_cells, 1, MPI_UNSIGNED, MPI_SUM, node_comm);
+    MPI_Allreduce(MPI_IN_PLACE, &n_node_photons, 1, MPI_UNSIGNED_LONG, MPI_SUM, node_comm);
+
+    double node_memory= (n_node_photons*sizeof(Photon) + n_node_cells*sizeof(Cell))/1.0e9;
+    double max_node_memory = node_memory;
+    double mean_node_memory = (node_rank ==0) ? node_memory: 0.0; 
+    uint64_t max_n_node_photons = n_node_photons;
+    uint64_t mean_n_node_photons = (node_rank == 0) ? n_node_photons: 0;
+
+    MPI_Allreduce(MPI_IN_PLACE, &max_n_node_photons, 1, MPI_UNSIGNED_LONG, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &mean_n_node_photons, 1, MPI_UNSIGNED_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &max_node_memory, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &mean_node_memory, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    mean_n_node_photons /= static_cast<double>(n_nodes);
+    mean_node_memory /= static_cast<double>(n_nodes);
+
+    if (rank == 0) {
+
+      std::cout << std::right;
+      std::cout << std::setw(32) << "proc_max";
+      std::cout << std::setw(13) << "proc_mean";
+      std::cout << std::setw(2) << "|";
+      std::cout << std::setw(13) << "node_max";
+      std::cout << std::setw(13) << "node_mean";
+      std::cout << std::setw(2) << "|" << std::endl;
+
+      std::cout << "---------------------------------------------------------------------------"
+                    << std::endl;
+
+      // Photons
+      //std::cout << std::setprecision(9) << std::fixed;
+      std::cout << std::left << std::setw(17) << "Photons";
+      std::cout << std::setw(2) << "|" << std::right;
+      std::cout << std::setw(13) << max_n_rank_photons;
+      std::cout << std::setw(13) << mean_n_rank_photons;
+      std::cout << std::setw(2) << "|";
+      std::cout << std::setw(13) << max_n_node_photons;
+      std::cout << std::setw(13) << mean_n_node_photons;
+      std::cout << std::setw(2) << "|" << std::endl;
+
+      // Memory
+      //std::cout << std::setprecision(9) << std::fixed;
+      std::cout << std::left << std::setw(17) << "Memory (GB)";
+      std::cout << std::setw(2) << "|" << std::right;
+      std::cout << std::setw(13) << max_rank_memory;
+      std::cout << std::setw(13) << mean_rank_memory;
+      std::cout << std::setw(2) << "|";
+      std::cout << std::setw(13) << max_node_memory;
+      std::cout << std::setw(13) << mean_node_memory;
+      std::cout << std::setw(2) << "|"<< std::endl;
+
+      std::cout << "---------------------------------------------------------------------------"
+                    << std::endl;
+    }
   }
 
   //--------------------------------------------------------------------------//
@@ -413,12 +482,6 @@ private:
 
   //! Total number of cells requested for simulation
   uint64_t total_cells_requested;
-
-  //! Total number of cells sent for simulation
-  uint64_t total_cells_sent;
-
-  //! Total number of cell message for simulation
-  uint64_t total_cell_messages;
 
   //! Total number of particle messages sent for simulation
   uint32_t total_particle_messages;
