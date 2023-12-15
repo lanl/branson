@@ -77,6 +77,8 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
 
     imc_state.set_transported_particles(all_photons.size());
 
+    imc_state.print_memory_estimate(rank, n_ranks, mesh.get_n_local_cells(), all_photons.size());
+
     // add barrier here to make sure the transport timer starts at roughly the same time
     MPI_Barrier(MPI_COMM_WORLD);
     census_photons = particle_pass_transport(mesh, gpu_setup, imc_parameters, mpi_info, mpi_types, imc_state, mctr, abs_E, track_E, all_photons);
