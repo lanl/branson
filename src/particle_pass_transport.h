@@ -35,7 +35,7 @@
 
 std::vector<Photon> particle_pass_transport(
     const Mesh &mesh, const GPU_Setup &gpu_setup, const IMC_Parameters &imc_parameters, const Info &mpi_info, const MPI_Types &mpi_types,
-    IMC_State &imc_state, Message_Counter &mctr, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> all_photons, const int n_omp_threads) {
+    IMC_State &imc_state, Message_Counter &mctr, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> &all_photons, const int n_omp_threads) {
   using std::cout;
   using std::endl;
   using std::stack;
