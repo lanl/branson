@@ -76,6 +76,10 @@ int main(int argc, char **argv) {
     // IMC state setup
     IMC_State imc_state(input, mpi_info.get_rank());
 
+#ifdef USE_MEMORY_RECORD
+    MemoryRecorder mem_record = MemoryRecorder();
+#endif
+
     // timing
     Timer timers;
 
@@ -121,6 +125,12 @@ int main(int argc, char **argv) {
       cout<<"Photons Per Second (FOM): "<<
         imc_state.get_photons_per_second_fom(imc_p.get_n_user_photon())<<endl;
     }
+
+#ifdef USE_MEMORY_RECORD
+    mem_record.summarizeMaxRSS();
+    MPI_Barrier(MPI_COMM_WORLD);
+    mem_record.write_rss();
+#endif
 
   } // end main loop scope, objects destroyed here
 
