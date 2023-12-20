@@ -13,6 +13,11 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
+// TODO, 
+// * output as percentage.
+// * output as float, and round.
+// * Move directory if it exists at first. (Tar it up?)
+
 struct MemoryRecorder
 {
     const long kb = 1024;
@@ -26,9 +31,11 @@ struct MemoryRecorder
     MPI_Comm shmcomm;
 
     long *rss_collect;
-    long maxrss, local_maxrss, global_maxrss;
+    long maxrss=0, local_maxrss=0, global_maxrss=0;
 
     std::string dirOut, memfileOut, rssfileOut;
+    std::string line, word;
+    std::ifstream stream;
     std::map<std::string, std::vector<long>> freemem;
     std::vector<std::string> meminfo_names;
 
@@ -89,20 +96,19 @@ void MemoryRecorder::summarizeMaxRSS() {
     getrss_summary = 1;
     if ( getrss == 0 ) {
         this->getMaxRSS();
-        MPI_Barrier(MPI_COMM_WORLD);
     }
+    MPI_Barrier(MPI_COMM_WORLD);
     MPI_Reduce(&maxrss, &global_maxrss, 1, MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&maxrss, &local_maxrss, 1, MPI_LONG, MPI_SUM, 0, shmcomm);
     MPI_Gather(&maxrss, 1, MPI_LONG, rss_collect, 1, MPI_LONG, 0, shmcomm);
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 void MemoryRecorder::read_meminfo(std::string const &loc) {
-    getmeminfo++;
+    MPI_Barrier(MPI_COMM_WORLD);
+    
     if (localrank == 0) {
         std::vector<long> memnow;
-        std::string line;
-        std::string word;
-        std::ifstream stream;
 
         for (std::string fn : meminfo_names) {
             stream.open(fn, std::ios::in);
@@ -111,7 +117,9 @@ void MemoryRecorder::read_meminfo(std::string const &loc) {
             // Extract the fourth field from the second line
             for (int i = 0; i < 4; i++) {
                 stream >> word; // Reads one space separated word from the stream.
-                // std::cout << word << " ";
+                if (getmeminfo == 0 && globalrank == 0 && i == 0) {
+                    std::cout << "Meminfo Line Category: " << word << std::endl;
+                }
             }
             memnow.push_back(std::stol(word));
         }
@@ -120,7 +128,18 @@ void MemoryRecorder::read_meminfo(std::string const &loc) {
         memnow.push_back(memsum);
         freemem.insert({loc, memnow});
     }
-    return;
+    getmeminfo++;
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+
+void MemoryRecorder::makeOutputDir() {
+    if (globalrank == 0) {
+        struct stat st = {0};
+        if (stat(dirOut.c_str(), &st) == -1) {
+            mkdir(dirOut.c_str(), 0755);
+        }
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 void MemoryRecorder::write_meminfo() {
@@ -131,6 +150,8 @@ void MemoryRecorder::write_meminfo() {
         }
         return;
     }
+
+    this->makeOutputDir();
 
     if (localrank == 0) {
 
@@ -150,7 +171,7 @@ void MemoryRecorder::write_meminfo() {
                 outfile << i << std::endl;
             }
         }
-        for (const auto& item : freemem){
+        for (const auto& item : freemem) {
             outfile << item.first << ",";
             for ( auto freem : item.second ) {
                 if (freem != item.second.back()) {
@@ -170,11 +191,9 @@ void MemoryRecorder::write_rss() {
     if (getrss_summary == 0) {
         this->summarizeMaxRSS();
     }
+
+    this->makeOutputDir();
     if (localrank == 0) {
-        struct stat st = {0};
-        if (stat(dirOut.c_str(), &st) == -1) {
-            mkdir(dirOut.c_str(), 0755);
-        }
         // Open the file in the directory
         std::ofstream outfile;
         outfile.open(dirOut + "/" + rssfileOut, std::ios::out);

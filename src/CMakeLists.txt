@@ -164,7 +164,7 @@ configure_file(config.h.in ${PROJECT_BINARY_DIR}/config.h)
 # Targets
 file(GLOB headers *.h)
 add_executable(BRANSON main.cc ${headers})
-target_include_directories( BRANSON PRIVATE
+target_include_directories( BRANSON PRIVATE ${PROJECT_SOURCE_DIR}
   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}> ${PROJECT_SOURCE_DIR}/pugixml/src/)
 set( branson_deps
   MPI::MPI_CXX

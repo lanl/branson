@@ -46,8 +46,8 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
 #ifdef USE_MEMORY_RECORD
   MemoryRecorder mem_record = MemoryRecorder();
 #endif
-  std::string start_string = "StartPassDriverIteration_";
-  std::string end_string = "EndPassDriverIteration_";
+  std::string start_string = "StartIter_";
+  std::string end_string = "EndIter_";
   std::string meminfo_string;
 
   while (!imc_state.finished()) {
@@ -121,6 +121,7 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
   }
 
 #ifdef USE_MEMORY_RECORD
+  mem_record.write_rss();
   mem_record.write_meminfo();
 #endif
 }
