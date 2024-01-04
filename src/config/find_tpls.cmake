@@ -95,11 +95,32 @@ macro(setupTPLs)
   ##############################################################################
   # Caliper
   ##############################################################################
-  #include(ExternalProject)
-  #set(CALIPER_INSTALL_DIR ${CMAKE_BINARY_DIR}/caliper)
-  #ExternalProject_Add(caliper_local SOURCE_DIR "${CMAKE_SOURCE_DIR}/Caliper" PREFIX ${CALIPER_INSTALL_DIR} CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CALIPER_INSTALL_DIR}")
-  #include_directories(${CALIPER_INSTALL_DIR}/include/caliper)
-  #link_directories(${CALIPER_INSTALL_DIR}/lib)
+  if( NOT TARGET caliper )
+    #=============================================================================
+    # If the user has provided ``CALIPER_ROOT_DIR``, use it!  Choose items found
+    # at this location over system locations.
+    if( EXISTS "$ENV{CALIPER_ROOT_DIR}" )
+      file( TO_CMAKE_PATH "$ENV{CALIPER_ROOT_DIR}" CALIPER_ROOT_DIR )
+      set( CALIPER_ROOT_DIR "${CALIPER_ROOT_DIR}" CACHE PATH
+        "Prefix for Caliper installation." )
+    endif()
+
+    message( STATUS "Looking for caliper..." )
+    find_package( caliper QUIET)
+    if( caliper_FOUND )
+      message( STATUS "Looking for caliper.....found ${CALIPER_LIBRARY}" )
+    else()
+      message( STATUS "Looking for caliper.....not found" )
+    endif()
+
+    set_package_properties( caliper PROPERTIES
+      DESCRIPTION "CALIPER"
+      TYPE OPTIONAL
+      URL "https://software.llnl.gov/Caliper/"
+      PURPOSE "Code instrumentation for performance analysis"
+   )
+
+  endif()
 
   ##############################################################################
   # metis
