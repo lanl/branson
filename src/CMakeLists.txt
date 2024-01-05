@@ -16,6 +16,7 @@ if(DEFINED ENV{CUDADIR}
    OR DEFINED ENV{CUDACXX}
    OR DEFINED ENV{CUDA_HOME})
   message("CUDA module found (CUDA environment variables set) making GPU BRANSON")
+  add_compile_definitions(USE_GPU)
   set(CUDA_DBS_STRING "CUDA")
   enable_language(CUDA)
 else()
@@ -183,6 +184,10 @@ if( VIZ_LIBRARIES_FOUND )
   set( branson_deps "Silo::silo;${HDF5_LIBRARIES};${branson_deps}" )
 endif()
 
+if(caliper_FOUND)
+  set( branson_deps "caliper;${branson_deps}")
+endif()
+
 if("${CUDA_DBS_STRING}" STREQUAL "CUDA" )
   message("Setting CUDA compiler options")
   set_target_properties(BRANSON PROPERTIES CUDA_ARCHITECTURES "70") # V100
@@ -193,7 +198,7 @@ if("${CUDA_DBS_STRING}" STREQUAL "CUDA" )
   set_source_files_properties("main.cc" PROPERTIES LANGUAGE CUDA)
 endif()
 
-target_link_libraries( BRANSON PUBLIC ${branson_deps} )
+target_link_libraries( BRANSON PRIVATE ${branson_deps} )
 
 #------------------------------------------------------------------------------#
 # Testing
