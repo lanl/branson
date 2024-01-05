@@ -156,10 +156,6 @@ message("\n")
 
 # set(DMAPP_DYNAMIC -Wl,--whole-archive,-ldmapp,--no-whole-archive)
 
-#------------------------------------------------------------------------------#
-# Generate config.h
-
-configure_file(config.h.in ${PROJECT_BINARY_DIR}/config.h)
 
 #------------------------------------------------------------------------------#
 # Targets
@@ -187,6 +183,12 @@ endif()
 if(caliper_FOUND)
   set( branson_deps "caliper;${branson_deps}")
 endif()
+
+#------------------------------------------------------------------------------#
+# Generate config.h
+
+configure_file(config.h.in ${PROJECT_BINARY_DIR}/config.h)
+#------------------------------------------------------------------------------#
 
 if("${CUDA_DBS_STRING}" STREQUAL "CUDA" )
   message("Setting CUDA compiler options")

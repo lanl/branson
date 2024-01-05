@@ -14,7 +14,6 @@
 #include <sys/time.h>
 #include <time.h>
 #include <vector>
-#include <caliper/cali.h>
 
 #include "config.h"
 #include "constants.h"
@@ -83,10 +82,10 @@ int main(int argc, char **argv) {
     // make mesh from input object
     timers.start_timer("Total setup");
 
-    CALI_MARK_BEGIN("mesh setup");
+    wrapped_cali_mark_begin("mesh setup");
     Mesh mesh(input, mpi_types, mpi_info, imc_p);
     mesh.initialize_physical_properties(input);
-    CALI_MARK_END("mesh setup");
+    wrapped_cali_mark_end("mesh setup");
 
     timers.stop_timer("Total setup");
 
