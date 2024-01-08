@@ -56,7 +56,7 @@
 #endif
 
 #ifdef USE_MEMORY_RECORD
-#include "memory_recorder.hpp"
+#include "memory_recorder.h"
 #endif
 
 #ifdef USE_CUDA
