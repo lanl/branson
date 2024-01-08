@@ -67,12 +67,6 @@
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
 
-//! Add addend to t, use atomicAdd if built on a CUDA device
-#include <cub/cub.cuh>
-cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, d_in, d_out, num_items);
-//  Works on host or device with extra targets, THIS renames accumulate with atomicAdd
-// and shoves in back in the same vector?
-
 template <class T>
 GPU_HOST_DEVICE inline void accumulate(T &target, T const addend) {
   atomicAdd(&target, addend);
