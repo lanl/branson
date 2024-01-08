@@ -17,6 +17,7 @@
 
 #cmakedefine VIZ_LIBRARIES_FOUND
 #cmakedefine METIS_FOUND
+#cmakedefine caliper_FOUND
 #cmakedefine MOONLIGHT_NODE
 #cmakedefine SNOW_NODE
 #cmakedefine TRINITITE_NODE
@@ -54,6 +55,10 @@
 #include <omp.h>
 #endif
 
+#ifdef caliper_FOUND
+#include <caliper/cali.h>
+#endif
+
 #ifdef USE_CUDA
 
 #include <cuda.h>
@@ -84,6 +89,35 @@ inline void Insist(const bool pass, const std::string &message) {
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
 }
+
+#ifdef caliper_FOUND
+
+
+void wrapped_cali_mark_begin(const char *timer_name) {
+    CALI_MARK_BEGIN(timer_name);
+}
+void wrapped_cali_mark_end(const char *timer_name) {
+    CALI_MARK_END(timer_name);
+}
+
+#else
+void wrapped_cali_mark_begin(const char *timer_name) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    std::cout<<"Branson built without caliper, not starting timer: "<<timer_name<<std::endl;
+  }
+}
+void wrapped_cali_mark_end(const char *timer_name) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    std::cout<<"Branson built without caliper, not ending timer: "<<timer_name<<std::endl;
+  }
+}
+
+#endif
+
 
 #endif // def config_h_
 //----------------------------------------------------------------------------//

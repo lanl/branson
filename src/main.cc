@@ -82,8 +82,10 @@ int main(int argc, char **argv) {
     // make mesh from input object
     timers.start_timer("Total setup");
 
+    wrapped_cali_mark_begin("mesh setup");
     Mesh mesh(input, mpi_types, mpi_info, imc_p);
     mesh.initialize_physical_properties(input);
+    wrapped_cali_mark_end("mesh setup");
 
     timers.stop_timer("Total setup");
 
