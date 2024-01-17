@@ -180,6 +180,26 @@ if( VIZ_LIBRARIES_FOUND )
   set( branson_deps "Silo::silo;${HDF5_LIBRARIES};${branson_deps}" )
 endif()
 
+option( USE_MEMORY_RECORD "Include memory recorder library" OFF )
+if(USE_MEMORY_RECORD)
+  set( branson_deps "-lmemory_recorder;${branson_deps}" )
+  if(NOT DEFINED MEMORY_RECORD_PREFIX)
+    set(MEMORY_RECORD_PREFIX $ENV{MEMREC_ROOT}) # NAME FROM THE MODULEFILE
+  endif()
+  if(NOT DEFINED MEMORY_RECORD_PREFIX) #IF STILL NOT DEFINED.
+    set(MEMORY_RECORD_PREFIX $ENV{HOME}/.local)
+    message( STATUS "SETTING MEMORY_RECORD_PREFIX TO DEFAULT:  ${MEMORY_RECORD_PREFIX}")
+    message( STATUS "IF THIS IS WRONG, PROVIDE ON CL")
+    message( STATUS "NOTE: ${MEMORY_RECORD_PREFIX}/lib MUST BE IN LD_LIBRARY_PATH AT RUNTIME.")
+  endif()
+  target_include_directories( BRANSON PRIVATE ${MEMORY_RECORD_PREFIX}/include)
+  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+  target_link_directories( BRANSON PRIVATE ${MEMORY_RECORD_PREFIX}/lib)
+  message( STATUS "MEMORY_RECORD LOCATION: ${MEMORY_RECORD_PREFIX}")
+  message( STATUS "LINKED LIBS: ${branson_deps}")
+endif()
+
+
 if(caliper_FOUND)
   set( branson_deps "caliper;${branson_deps}")
 endif()
