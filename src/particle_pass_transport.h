@@ -43,7 +43,7 @@ std::vector<Photon> particle_pass_transport(
   using std::vector;
 
   // is the GPU even available?
-  #ifdef USE_GPU
+  #ifdef USE_CUDA
   constexpr bool gpu_available = true;
   #else
   constexpr bool gpu_available = false;
@@ -140,7 +140,7 @@ std::vector<Photon> particle_pass_transport(
     gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
   }
   else
-    cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies);
+    cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies, n_omp_threads);
 
   for (auto &phtn : all_photons) {
     switch (phtn.get_descriptor()) {
@@ -233,7 +233,7 @@ std::vector<Photon> particle_pass_transport(
       if(gpu_setup.use_gpu_transporter() && gpu_available)
         gpu_transport_photons(rank_cell_offset, phtn_recv_list, gpu_setup.get_device_cells_ptr(), cell_tallies);
       else {
-        cpu_transport_photons(rank_cell_offset, phtn_recv_list, mesh.get_cells(), cell_tallies);
+        cpu_transport_photons(rank_cell_offset, phtn_recv_list, mesh.get_cells(), cell_tallies, n_omp_threads);
       }
 
       for (auto &phtn : phtn_recv_list) {
@@ -261,9 +261,6 @@ std::vector<Photon> particle_pass_transport(
     }
 
     phtn_recv_list.clear();
-    //------------------------------------------------------------------------//
-    // binary tree completion communication
-    //------------------------------------------------------------------------//
 
     if (!req_made) {
       s_global_complete = n_complete;
@@ -290,7 +287,7 @@ std::vector<Photon> particle_pass_transport(
   t_transport.stop_timer("timestep_transport");
 
 
-  // wait for all ranks to finish then send empty photon messages,  do this because it's possible
+  // wait for all ranks to finish then send empty photon messages, do this because it's possible
   // for a rank to receive the empty message while it's still in the transport loop. In that case, it will post a
   // receive again, which will never have a matching send
   MPI_Barrier(MPI_COMM_WORLD);

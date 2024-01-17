@@ -17,11 +17,14 @@
 
 #cmakedefine VIZ_LIBRARIES_FOUND
 #cmakedefine METIS_FOUND
+#cmakedefine caliper_FOUND
 #cmakedefine MOONLIGHT_NODE
 #cmakedefine SNOW_NODE
 #cmakedefine TRINITITE_NODE
 #cmakedefine TRINITY_NODE
 #cmakedefine CCS_NODE
+
+#cmakedefine USE_OPENMP
 
 // For faux multigroup array sizing
 #cmakedefine BRANSON_N_GROUPS @BRANSON_N_GROUPS@
@@ -48,11 +51,21 @@
 #define CONSTANT constexpr
 #endif
 
+#ifdef USE_OPENMP
+#include <omp.h>
+#endif
+
+#ifdef caliper_FOUND
+#include <caliper/cali.h>
+#endif
 
 #ifdef USE_CUDA
 
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/sort.h>
 
 //! Add addend to t, use atomicAdd if built on a CUDA device
 template <class T>
@@ -76,6 +89,35 @@ inline void Insist(const bool pass, const std::string &message) {
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
 }
+
+#ifdef caliper_FOUND
+
+
+void wrapped_cali_mark_begin(const char *timer_name) {
+    CALI_MARK_BEGIN(timer_name);
+}
+void wrapped_cali_mark_end(const char *timer_name) {
+    CALI_MARK_END(timer_name);
+}
+
+#else
+void wrapped_cali_mark_begin(const char *timer_name) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    std::cout<<"Branson built without caliper, not starting timer: "<<timer_name<<std::endl;
+  }
+}
+void wrapped_cali_mark_end(const char *timer_name) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    std::cout<<"Branson built without caliper, not ending timer: "<<timer_name<<std::endl;
+  }
+}
+
+#endif
+
 
 #endif // def config_h_
 //----------------------------------------------------------------------------//

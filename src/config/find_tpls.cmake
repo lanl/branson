@@ -33,13 +33,94 @@ macro(setupTPLs)
   endif()
 
   ##############################################################################
+  # OpenMP
+  ##############################################################################
+  message(STATUS "Looking for Threads...")
+  find_package(Threads QUIET)
+  if(Threads_FOUND)
+    message(STATUS "Looking for Threads...found")
+  else()
+    message(STATUS "Looking for Threads...not found")
+  endif()
+
+  message(STATUS "Looking for OpenMP...")
+  if(DEFINED USE_OPENMP)
+    # no-op (use defined value, -DUSE_OPENMP=<OFF|ON>,  instead of attempting to guess)
+  else()
+    # Assume we want to use it if it is found.
+    set(USE_OPENMP ON)
+  endif()
+  set(USE_OPENMP
+      ${USE_OPENMP}
+      CACHE BOOL "Enable OpenMP threading support if detected." FORCE)
+
+  # Find package if desired:
+  if(USE_OPENMP)
+    find_package(OpenMP QUIET)
+  else()
+    set(OpenMP_FOUND FALSE)
+  endif()
+
+  if(OpenMP_FOUND)
+    # [2022-10-27 KT] cmake/3.22 doesn't report OpenMP_C_VERSION for nvc++. Fake it for now.
+    if("${OpenMP_C_VERSION}x" STREQUAL "x" AND CMAKE_CXX_COMPILER_ID MATCHES "NVHPC")
+      set(OpenMP_C_VERSION
+          "5.0"
+          CACHE BOOL "OpenMP version." FORCE)
+      set(OpenMP_FOUND TRUE)
+    endif()
+    message(STATUS "Looking for OpenMP... ${OpenMP_C_FLAGS} (supporting the ${OpenMP_C_VERSION} "
+                   "standard)")
+    if(OpenMP_C_VERSION VERSION_LESS 3.0)
+      message(STATUS "OpenMP standard support is too old (< 3.0). Disabling OpenMP build features.")
+      set(OpenMP_FOUND FALSE)
+      set(OpenMP_C_FLAGS
+          ""
+          CACHE BOOL "OpenMP disabled (too old)." FORCE)
+    endif()
+    set(OpenMP_FOUND
+        ${OpenMP_FOUND}
+        CACHE BOOL "Is OpenMP available?" FORCE)
+  else()
+    if(USE_OPENMP)
+      # Not detected, though desired.
+      message(STATUS "Looking for OpenMP... not found")
+    else()
+      # Detected, but not desired.
+      message(STATUS "Looking for OpenMP... found, but disabled for this build")
+    endif()
+  endif()
+  message("CXX OPEN MP FLAGS: ${OpenMP_CXX_FLAGS}")
+
+  ##############################################################################
   # Caliper
   ##############################################################################
-  #include(ExternalProject)
-  #set(CALIPER_INSTALL_DIR ${CMAKE_BINARY_DIR}/caliper)
-  #ExternalProject_Add(caliper_local SOURCE_DIR "${CMAKE_SOURCE_DIR}/Caliper" PREFIX ${CALIPER_INSTALL_DIR} CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CALIPER_INSTALL_DIR}")
-  #include_directories(${CALIPER_INSTALL_DIR}/include/caliper)
-  #link_directories(${CALIPER_INSTALL_DIR}/lib)
+  if( NOT TARGET caliper )
+    #=============================================================================
+    # If the user has provided ``CALIPER_ROOT_DIR``, use it!  Choose items found
+    # at this location over system locations.
+    if( EXISTS "$ENV{CALIPER_ROOT_DIR}" )
+      file( TO_CMAKE_PATH "$ENV{CALIPER_ROOT_DIR}" CALIPER_ROOT_DIR )
+      set( CALIPER_ROOT_DIR "${CALIPER_ROOT_DIR}" CACHE PATH
+        "Prefix for Caliper installation." )
+    endif()
+
+    message( STATUS "Looking for caliper..." )
+    find_package( caliper QUIET)
+    if( caliper_FOUND )
+      message( STATUS "Looking for caliper.....found ${CALIPER_LIBRARY}" )
+    else()
+      message( STATUS "Looking for caliper.....not found" )
+    endif()
+
+    set_package_properties( caliper PROPERTIES
+      DESCRIPTION "CALIPER"
+      TYPE OPTIONAL
+      URL "https://software.llnl.gov/Caliper/"
+      PURPOSE "Code instrumentation for performance analysis"
+   )
+
+  endif()
 
   ##############################################################################
   # metis
