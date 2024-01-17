@@ -43,7 +43,7 @@ Installing Branson:
   - [CMake 3.9+](https://cmake.org/download/)
   - MPI 3.0+ ([OpenMPI 1.10+](https://www.open-mpi.org/software/ompi/),
     [mpich](http://www.mpich.org), etc.)
-- Optional dependencies
+- Optional dependencies (better domains in DD mode, visualization, threading, basic profiling)
   - [OpenMP](https://openmp.org) Used for parallelism on an MPI rank, currently just for the
     transport phase. Note that the number of OpenMP threads is taken from the input file and not
     the user's environment
@@ -52,6 +52,7 @@ Installing Branson:
     ranks with x being the fastest index and z being the slowest index
   - [HDF5](https://support.hdfgroup.org/HDF5/)
   - [Silo](http://wci.llnl.gov/simulation/computer-codes/silo)
+  - [Caliper](https://software.llnl.gov/Caliper/)
   - If these tools aren't readily available on your target machine, consider
     using a package manager like [spack](https://github.com/spack/spack) to help
     you install these tools.
@@ -61,7 +62,7 @@ Installing Branson:
   - `USE_OPENMP`, set on the command line with `-DUSE_OPENMP=<ON|OFF>`, if this variable is not set
     it will default to `ON`
   - `ENABLE_VERBOSE_GPU_TRANSPORT`, set on the command line with
-    `DENABLE_VERBOSE_GPU_TRANSPORT=<ON|OFF`, defaults to `OFF`, useful for GPU debugging
+    `DENABLE_VERBOSE_GPU_TRANSPORT=<ON|OFF`, defaults to `OFF`, useful for GPU debugging 
 - If CMake has trouble finding your installed TPLs, you can try
   - appending their locations to `CMAKE_PREFIX_PATH`,
   - Setting helper variables like `HDF5_ROOT` (refer to the
