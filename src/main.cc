@@ -36,7 +36,7 @@ using std::vector;
 
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
-  
+  cali_init();
   // check to see if number of arguments is correct
   if (argc != 2) {
     cout << "Usage: BRANSON <path_to_input_file>" << endl;
