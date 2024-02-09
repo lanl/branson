@@ -98,7 +98,7 @@ inline void Insist(const bool pass, const std::string &message) {
 #ifdef caliper_FOUND
 
 void cali_init() { 
-    adiak_init(&comm);
+    adiak_init(MPI_COMM_WORLD);
     adiak_collect_all();
     //adiak_namevalue("compiler", adiak_general, NULL, "%s", AMG2023_COMPILER_ID);
     //adiak_namevalue("compiler version", adiak_general, NULL, "%s", AMG2023_COMPILER_VERSION);
