@@ -62,6 +62,7 @@
 #endif
 
 #ifdef caliper_FOUND
+#include <adiak.h>
 #include <caliper/cali.h>
 #endif
 
@@ -98,7 +99,8 @@ inline void Insist(const bool pass, const std::string &message) {
 #ifdef caliper_FOUND
 
 void cali_init() { 
-    adiak_init(MPI_COMM_WORLD);
+     MPI_Comm comm = MPI_COMM_WORLD;
+     adiak_init(&comm);
     adiak_collect_all();
     //adiak_namevalue("compiler", adiak_general, NULL, "%s", AMG2023_COMPILER_ID);
     //adiak_namevalue("compiler version", adiak_general, NULL, "%s", AMG2023_COMPILER_VERSION);

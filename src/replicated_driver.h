@@ -68,11 +68,11 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
     // setup source
     Timer t_source;
     t_source.start_timer("source");
-    if (imc_state.get_step() == 1)
+    if (imc_state.get_step() == 1) { 
       wrapped_cali_mark_begin("make initial census photons");
       census_photons = make_initial_census_photons(imc_state.get_dt(), mesh, rank, seed, n_user_photons, global_source_energy);
       wrapped_cali_mark_end("make initial census photons");
-
+    }
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
     // make emission and source photons
     wrapped_cali_mark_begin("make emission and source photons");
