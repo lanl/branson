@@ -66,6 +66,11 @@ void transport_photon(const uint32_t rank_cell_offset,
   Cell const * cell = &cells[local_cell_index];
   bool active = true;
 
+  // keep a thread local copy of these tallies and do the atomic add when the particle leaves the
+  // cell or it's otherwise terminated (try to reduce atomic contention with post-move tally)
+  double thread_absorbed_E{0.0};
+  double thread_track_E{0.0};
+
   // transport this photon
   while (active) {
     const double sigma_s = cell->get_op_s(phtn.get_group());
@@ -88,8 +93,8 @@ void transport_photon(const uint32_t rank_cell_offset,
     // and update the path-length weighted tally for T_r
     const double absorbed_E = phtn.get_E() * (1.0 - exp(-sigma_a * f * dist_to_event));
 
-    cell_tallies[local_cell_index].accumulate_absorbed_E(absorbed_E);
-    cell_tallies[local_cell_index].accumulate_track_E(absorbed_E / (sigma_a * f));
+    thread_absorbed_E += absorbed_E;
+    thread_track_E += absorbed_E / (sigma_a * f);
 
     phtn.set_E(phtn.get_E() - absorbed_E);
 
@@ -98,7 +103,9 @@ void transport_photon(const uint32_t rank_cell_offset,
 
     // apply variance/runtime reduction
     if (phtn.below_cutoff(Constants::cutoff_fraction)) {
-      cell_tallies[local_cell_index].accumulate_absorbed_E(phtn.get_E());
+      thread_absorbed_E += phtn.get_E();
+      cell_tallies[local_cell_index].accumulate_absorbed_E(thread_absorbed_E);
+      cell_tallies[local_cell_index].accumulate_track_E(thread_track_E);
       active = false;
       phtn.set_descriptor(Constants::KILLED);
     }
@@ -115,19 +122,28 @@ void transport_photon(const uint32_t rank_cell_offset,
       else if (dist_to_event == dist_to_boundary) {
         auto boundary_event = cell->get_bc(surface_cross);
         if (boundary_event == Constants::ELEMENT) {
+          // dump thread energy into this cell's indexi before updating it
+          cell_tallies[local_cell_index].accumulate_absorbed_E(thread_absorbed_E);
+          cell_tallies[local_cell_index].accumulate_track_E(thread_track_E);
           // update photon's cell index
           phtn.set_cell(cell->get_next_cell(surface_cross));
           local_cell_index =  phtn.get_cell() - rank_cell_offset;
           cell = &cells[local_cell_index]; // note: only for on rank mesh data
           phtn.set_descriptor(Constants::BOUND);
+          thread_absorbed_E = 0.0;
+          thread_track_E = 0.0;
         } else if (boundary_event == Constants::PROCESSOR) {
           active = false;
           // set correct cell index with global cell ID
           phtn.set_cell(cell->get_next_cell(surface_cross));
           phtn.set_descriptor(Constants::PASS);
+          cell_tallies[local_cell_index].accumulate_absorbed_E(thread_absorbed_E);
+          cell_tallies[local_cell_index].accumulate_track_E(thread_track_E);
         } else if (boundary_event == Constants::VACUUM || boundary_event == Constants::SOURCE) {
           active = false;
           phtn.set_descriptor(Constants::EXIT);
+          cell_tallies[local_cell_index].accumulate_absorbed_E(thread_absorbed_E);
+          cell_tallies[local_cell_index].accumulate_track_E(thread_track_E);
         } else {
           phtn.reflect(surface_cross);
           phtn.set_descriptor(Constants::BOUND);
@@ -137,6 +153,8 @@ void transport_photon(const uint32_t rank_cell_offset,
       else if (dist_to_event == dist_to_census) {
         active = false;
         phtn.set_descriptor(Constants::CENSUS);
+        cell_tallies[local_cell_index].accumulate_absorbed_E(thread_absorbed_E);
+        cell_tallies[local_cell_index].accumulate_track_E(thread_track_E);
       }
     } // end event loop
   } // end while alive
