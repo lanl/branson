@@ -647,7 +647,7 @@ public:
   };
 
   //! Print the information read from the input file
-  void print_problem_info(void) const {
+  void print_problem_info() const {
     using Constants::a;
     using Constants::c;
     using Constants::SOURCE;
@@ -744,11 +744,11 @@ public:
   }
 
   //! Return the number of global cells in the x direction
-  uint32_t get_global_n_x_cells(void) const { return n_global_x_cells; }
+  uint32_t get_global_n_x_cells() const { return n_global_x_cells; }
   //! Return the number of global cells in the y direction
-  uint32_t get_global_n_y_cells(void) const { return n_global_y_cells; }
+  uint32_t get_global_n_y_cells() const { return n_global_y_cells; }
   //! Return the number of global cells in the z direction
-  uint32_t get_global_n_z_cells(void) const { return n_global_z_cells; }
+  uint32_t get_global_n_z_cells() const { return n_global_z_cells; }
 
   //! Return the number of x cells in a given x division
   uint32_t get_x_division_cells(const uint32_t &div) const {
@@ -764,18 +764,18 @@ public:
   }
 
   //! Return a pointer to the x coordinates of the mesh in SILO format
-  float *get_silo_x_ptr(void) const { return silo_x; }
+  float *get_silo_x_ptr() const { return silo_x; }
   //! Return a pointer to the y coordinates of the mesh in SILO format
-  float *get_silo_y_ptr(void) const { return silo_y; }
+  float *get_silo_y_ptr() const { return silo_y; }
   //! Return a pointer to the z coordinates of the mesh in SILO format
-  float *get_silo_z_ptr(void) const { return silo_z; }
+  float *get_silo_z_ptr() const { return silo_z; }
 
   //! Return the total number of x divisions in the problem
-  uint32_t get_n_x_divisions(void) const { return n_x_cells.size(); }
+  uint32_t get_n_x_divisions() const { return n_x_cells.size(); }
   //! Return the total number of y divisions in the problem
-  uint32_t get_n_y_divisions(void) const { return n_y_cells.size(); }
+  uint32_t get_n_y_divisions() const { return n_y_cells.size(); }
   //! Return the total number of z divisions in the problem
-  uint32_t get_n_z_divisions(void) const { return n_z_cells.size(); }
+  uint32_t get_n_z_divisions() const { return n_z_cells.size(); }
 
   //! Return the x grid spacing in a given x division
   double get_dx(const uint32_t &div) const {
@@ -798,58 +798,58 @@ public:
   double get_z_start(const uint32_t &div) const { return z_start[div]; }
 
   //! Return the value of the use comb option
-  bool get_comb_bool(void) const { return use_comb; }
+  bool get_comb_bool() const { return use_comb; }
   //! Return the value of the write SILO option
-  bool get_write_silo_bool(void) const { return write_silo; }
+  bool get_write_silo_bool() const { return write_silo; }
   //! Return the value of the verbose printing option
-  bool get_verbose_print_bool(void) const { return print_verbose; }
+  bool get_verbose_print_bool() const { return print_verbose; }
   //! Return the value of the mesh print option
-  bool get_print_mesh_info_bool(void) const { return print_mesh_info; }
+  bool get_print_mesh_info_bool() const { return print_mesh_info; }
   //! Return the use_gpu_transporter option
-  bool get_use_gpu_transporter_bool(void) const { return use_gpu_transporter; }
+  bool get_use_gpu_transporter_bool() const { return use_gpu_transporter; }
   //! Return the frequency of timestep summary printing
-  uint32_t get_output_freq(void) const { return output_freq; }
+  uint32_t get_output_freq() const { return output_freq; }
 
   //! Return the timestep size (shakes)
-  double get_dt(void) const { return dt; }
+  double get_dt() const { return dt; }
   //! Return the starting time (shakes)
-  double get_time_start(void) const { return tStart; }
+  double get_time_start() const { return tStart; }
   //! Return the finish time (shakes)
-  double get_time_finish(void) const { return tFinish; }
+  double get_time_finish() const { return tFinish; }
   //! Return the multiplication factor for the timestep
-  double get_time_mult(void) const { return tMult; }
+  double get_time_mult() const { return tMult; }
   //! Return the maximum timestep size (shakes)
-  double get_dt_max(void) const { return dtMax; }
+  double get_dt_max() const { return dtMax; }
   //! Return the input seed for the RNG
-  int get_rng_seed(void) const { return seed; }
+  int get_rng_seed() const { return seed; }
   //! Return the number of photons set in the input file to run
-  uint64_t get_number_photons(void) const { return n_photons; }
+  uint64_t get_number_photons() const { return n_photons; }
   //! Return the batch size (particles to run between parallel processing)
-  uint32_t get_batch_size(void) const { return batch_size; }
+  uint32_t get_batch_size() const { return batch_size; }
   //! Return the user requested number of particles in a message
-  uint32_t get_particle_message_size(void) const {
+  uint32_t get_particle_message_size() const {
     return particle_message_size;
   }
   //! Return the user requested grip size
-  uint32_t get_grip_size(void) const { return grip_size; }
+  uint32_t get_grip_size() const { return grip_size; }
   //! Return the size of the working mesh map
-  uint32_t get_map_size(void) const { return map_size; }
+  uint32_t get_map_size() const { return map_size; }
   //! Return the domain decomposition algorithm
-  uint32_t get_dd_mode(void) const { return dd_mode; }
+  uint32_t get_dd_mode() const { return dd_mode; }
   //! Return the domain decomposition algorithm
-  uint32_t get_decomposition_mode(void) const { return decomp_mode; }
+  uint32_t get_decomposition_mode() const { return decomp_mode; }
   //! Return the number of OpenMP threads
-  int32_t get_n_omp_threads(void) const { return static_cast<int>(n_omp_threads);}
+  int32_t get_n_omp_threads() const { return static_cast<int>(n_omp_threads);}
 
   // source functions
   //! Return the temperature of the face source
-  double get_source_T(void) const { return T_source; }
+  double get_source_T() const { return T_source; }
 
   //! Return the number of material regions
-  uint32_t get_n_regions(void) const { return regions.size(); }
+  uint32_t get_n_regions() const { return regions.size(); }
 
   //! Return vector of regions
-  const std::vector<Region> &get_regions(void) const { return regions; }
+  const std::vector<Region> &get_regions() const { return regions; }
 
   //! Return region given user set ID
   const Region &get_region(const uint32_t region_ID) const {
