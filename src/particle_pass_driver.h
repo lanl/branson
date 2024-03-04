@@ -43,10 +43,23 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
   const int n_ranks = mpi_info.get_n_rank();
 
   const uint32_t seed = imc_parameters.get_rng_seed();
+  
+#ifdef USE_MEMORY_RECORD
+  MemoryRecorder mem_record = MemoryRecorder();
+#endif
+  std::string start_string = "StartIter_";
+  std::string end_string = "EndIter_";
+  std::string meminfo_string;
 
   while (!imc_state.finished()) {
     if (rank == 0)
       imc_state.print_timestep_header();
+
+    meminfo_string = start_string + std::to_string(imc_state.get_step());
+
+#ifdef USE_MEMORY_RECORD
+    mem_record.read_meminfo(meminfo_string);
+#endif
 
     mctr.reset_counters();
 
@@ -99,8 +112,19 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
                  n_ranks, replicated_flag);
     }
 
+    meminfo_string = end_string + std::to_string(imc_state.get_step());
+
+#ifdef USE_MEMORY_RECORD
+    mem_record.read_meminfo(meminfo_string);
+#endif
+
     imc_state.next_time_step();
   }
+
+#ifdef USE_MEMORY_RECORD
+  mem_record.write_rss();
+  mem_record.write_meminfo();
+#endif
 }
 
 #endif // particle_pass_driver_h_
