@@ -73,6 +73,7 @@ set(branson_test_sources_1pe
   test_mesh.cc
   test_mpi_types.cc
   test_sampling_functions.cc
+  test_imc_parameters.cc
  )
 foreach( btest ${branson_test_sources_1pe} )
   add_branson_test( SOURCE  ${btest} PE_LIST "1" )
