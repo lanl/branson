@@ -25,7 +25,6 @@
 #cmakedefine CCS_NODE
 
 #cmakedefine USE_OPENMP
-#cmakedefine USE_MEMORY_RECORD
 
 // For faux multigroup array sizing
 #cmakedefine BRANSON_N_GROUPS @BRANSON_N_GROUPS@
@@ -56,11 +55,6 @@
 #include <omp.h>
 #endif
 
-
-#ifdef USE_MEMORY_RECORD
-#include "memory_recorder.h"
-#endif
-
 #ifdef caliper_FOUND
 #include <caliper/cali.h>
 #endif
@@ -73,6 +67,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/sort.h>
 
+//! Add addend to t, use atomicAdd if built on a CUDA device
 template <class T>
 GPU_HOST_DEVICE inline void accumulate(T &target, T const addend) {
   atomicAdd(&target, addend);
