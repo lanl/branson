@@ -79,7 +79,7 @@ public:
     // if mode is replicated ignore decomposition options, otherwise use
     // metis or a simple cube
     if (input.get_dd_mode() == REPLICATED) {
-      replicate_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size());
+      replicate_mesh(proto_mesh, mpi_types, mpi_info);
       // get decomposition information from proto mesh
       off_rank_bounds = proto_mesh.get_off_rank_bounds();
       on_rank_start = off_rank_bounds.front();
@@ -87,15 +87,13 @@ public:
       replicated_factor = 1.0 / static_cast<double>(n_ranks);
       replicated = true;
     } else if (input.get_decomposition_mode() == METIS) {
-      decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(),
-                     METIS);
+      decompose_mesh(proto_mesh, mpi_types, mpi_info, METIS);
       // get decomposition information from proto mesh
       off_rank_bounds = proto_mesh.get_off_rank_bounds();
       on_rank_start = off_rank_bounds[rank];
       on_rank_end = off_rank_bounds[rank + 1] - 1;
     } else if (input.get_decomposition_mode() == CUBE) {
-      decompose_mesh(proto_mesh, mpi_types, mpi_info, imc_p.get_grip_size(),
-                     CUBE);
+      decompose_mesh(proto_mesh, mpi_types, mpi_info, CUBE);
       // get decomposition information from proto mesh
       off_rank_bounds = proto_mesh.get_off_rank_bounds();
       on_rank_start = off_rank_bounds[rank];
