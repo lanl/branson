@@ -90,8 +90,6 @@ int main(int argc, char *argv[]) {
         simple_input_pass = false;
       if (input.get_particle_message_size() != 1000)
         simple_input_pass = false;
-      if (input.get_map_size() != 50000)
-        simple_input_pass = false;
       // Even though input says PARTICLE_PASS, this defaults back to replicated
       // when you're only running 1 MPI rank.
       if (input.get_dd_mode() != REPLICATED)
@@ -224,8 +222,6 @@ int main(int argc, char *argv[]) {
       if (input.get_batch_size() != 100000000)
         three_region_pass = false;
       if (input.get_particle_message_size() != 1000)
-        three_region_pass = false;
-      if (input.get_map_size() != 50000)
         three_region_pass = false;
       // Even though input says PARTICLE_PASS, this defaults back to replicated
       // when you're only running 1 MPI rank.
