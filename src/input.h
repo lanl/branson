@@ -131,14 +131,7 @@ public:
       }
       n_photons = static_cast<uint64_t>(n_photons_long);
       seed = settings_node.child("seed").text().as_int();
-      // if grip size is not found, set it to very high so no overdecomposition
-      // is used
-      if (!(settings_node.child("grip_size")))
-        grip_size = 100000000;
-      else
-        grip_size = settings_node.child("grip_size").text().as_int();
 
-      map_size = settings_node.child("map_size").text().as_int();
       output_freq = settings_node.child("output_frequency").text().as_int();
 
       // use gpu transporter if available
@@ -466,7 +459,7 @@ public:
     } // end xml parse
 
     const int n_bools = 5;
-    const int n_uint = 17;
+    const int n_uint = 15;
     const int n_doubles = 6;
     MPI_Datatype MPI_Region = mpi_types.get_region_type();
 
@@ -493,8 +486,6 @@ public:
                                    decomp_mode,
                                    n_omp_threads,
                                    output_freq,
-                                   grip_size,
-                                   map_size,
                                    batch_size,
                                    particle_message_size,
                                    n_divisions,
@@ -505,6 +496,11 @@ public:
                                    n_x_div,
                                    n_y_div,
                                    n_z_div};
+
+      if (all_uint.size() != n_uint) {
+        std::cout<<"SIZE MISMATCH IN UINT COMMUNICATION, EXITING..."<<std::endl;
+        exit(EXIT_FAILURE);
+      }
 
       MPI_Bcast(all_uint.data(), n_uint, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
 
@@ -568,18 +564,16 @@ public:
       decomp_mode = all_uint[2];
       n_omp_threads = all_uint[3];
       output_freq = all_uint[4];
-      grip_size = all_uint[5];
-      map_size = all_uint[6];
-      batch_size = all_uint[7];
-      particle_message_size = all_uint[8];
-      n_divisions = all_uint[9];
-      n_global_x_cells = all_uint[10];
-      n_global_y_cells = all_uint[11];
-      n_global_z_cells = all_uint[12];
-      const uint32_t n_regions = all_uint[13];
-      const uint32_t n_x_div = all_uint[14];
-      const uint32_t n_y_div = all_uint[15];
-      const uint32_t n_z_div = all_uint[16];
+      batch_size = all_uint[5];
+      particle_message_size = all_uint[6];
+      n_divisions = all_uint[7];
+      n_global_x_cells = all_uint[8];
+      n_global_y_cells = all_uint[9];
+      n_global_z_cells = all_uint[10];
+      const uint32_t n_regions = all_uint[11];
+      const uint32_t n_x_div = all_uint[12];
+      const uint32_t n_y_div = all_uint[13];
+      const uint32_t n_z_div = all_uint[14];
 
       // uint64
       MPI_Bcast(&n_photons, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
@@ -830,10 +824,6 @@ public:
   uint32_t get_particle_message_size() const {
     return particle_message_size;
   }
-  //! Return the user requested grip size
-  uint32_t get_grip_size() const { return grip_size; }
-  //! Return the size of the working mesh map
-  uint32_t get_map_size() const { return map_size; }
   //! Return the domain decomposition algorithm
   uint32_t get_dd_mode() const { return dd_mode; }
   //! Return the domain decomposition algorithm
@@ -915,8 +905,6 @@ private:
   bool use_gpu_transporter; //!< Run on GPU if availabile
 
   // parallel performance parameters
-  uint32_t grip_size; //!< Preferred number of cells in a parallel communication
-  uint32_t map_size;  //!< Size of stored off-rank mesh cells
   uint32_t batch_size; //!< Particles to run between MPI message checks
   uint32_t
       particle_message_size; //!< Preferred number of particles in MPI sends

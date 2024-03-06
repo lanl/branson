@@ -13,8 +13,6 @@
     <dd_transport_type>CELL_PASS</dd_transport_type>
     <n_omp_threads>1</n_omp_threads>
     <mesh_decomposition>CUBE</mesh_decomposition>
-    <grip_size>10000</grip_size>
-    <map_size>500000</map_size>
     <batch_size>5000</batch_size>
     <output_frequency>1</output_frequency>
     <write_silo>FALSE</write_silo>
