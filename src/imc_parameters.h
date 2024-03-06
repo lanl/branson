@@ -29,13 +29,14 @@ public:
   //! constructor
   IMC_Parameters(const Input &input)
       : n_user_photons(input.get_number_photons()),
-        seed(input.get_rng_seed()), grip_size(input.get_grip_size()), map_size(input.get_map_size()),
+        seed(input.get_rng_seed()),
         dd_mode(input.get_dd_mode()), batch_size(input.get_batch_size()),
         particle_message_size(input.get_particle_message_size()),
         output_frequency(input.get_output_freq()),
         n_omp_threads(input.get_n_omp_threads()),
         write_silo_flag(input.get_write_silo_bool()),
-        use_gpu_transporter_flag(input.get_use_gpu_transporter_bool()) {}
+        use_gpu_transporter_flag(input.get_use_gpu_transporter_bool()),
+        use_comb_flag(input.get_comb_bool()) {}
 
   //! destructor
   ~IMC_Parameters() {}
@@ -47,13 +48,8 @@ public:
   //! Return total photons specified by the user
   uint64_t get_n_user_photons() const { return n_user_photons; }
 
-  //! Return the preferred number of cells in a parallel communication
-  uint32_t get_grip_size() const { return grip_size; }
-
+  //! Return the user-set RNG seed
   uint32_t get_rng_seed() const {return seed;}
-
-  //! Return maximum size of stored remote mesh
-  uint32_t get_map_size() const { return map_size; }
 
   //! Return domain decomposition algorithm
   uint32_t get_dd_mode() const { return dd_mode; }
@@ -86,13 +82,7 @@ public:
   //--------------------------------------------------------------------------//
 private:
   uint64_t n_user_photons; //!< User requested number of photons per timestep
-
-  //! Preferred number of cells in a grip, the number of cells that are sent
-  // in a message together
-  uint32_t grip_size;
-
   uint32_t seed;       //!< Random number seed
-  uint32_t map_size;   //!< Size of stored off-rank mesh cells
   uint32_t dd_mode;    //!< Mode of domain decomposed transport algorithm
   uint32_t batch_size; //!< How often to check for MPI passed data
   uint32_t

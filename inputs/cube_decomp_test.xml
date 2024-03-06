@@ -8,15 +8,12 @@
     <dt_max>1.0</dt_max>
     <photons>500000</photons>
     <seed>14706</seed>
-    <map_size>50000</map_size>
     <tilt>FALSE</tilt>
     <stratified_sampling>FALSE</stratified_sampling>
     <output_frequency>1</output_frequency>
     <dd_transport_type>CELL_PASS</dd_transport_type>
     <n_omp_threads>1</n_omp_threads>
     <mesh_decomposition>CUBE</mesh_decomposition>
-    <grip_size>100</grip_size>
-    <map_size>50000</map_size>
     <batch_size>10000</batch_size>
     <particle_message_size>20000</particle_message_size>
     <write_silo>TRUE</write_silo>
