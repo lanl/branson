@@ -581,7 +581,7 @@ void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
 //! Generate new partitioning with Metis, replications or cubes, send and
 // receive cells, renumber mesh and communicate renumbering
 void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
-                    const Info &mpi_info, const uint32_t grip_size,
+                    const Info &mpi_info,
                     const int decomposition_type) {
   using Constants::CUBE;
   using Constants::METIS;
@@ -661,7 +661,7 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
 //! Create replicated mesh by giving all cells to all other processors, renumber
 // mesh and communicate renumbering
 void replicate_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
-                    const Info &mpi_info, const uint32_t &grip_size) {
+                    const Info &mpi_info) {
   using Constants::X_NEG;
   using Constants::X_POS;
   using Constants::Y_NEG;

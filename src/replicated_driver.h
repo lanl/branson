@@ -37,12 +37,12 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
   vector<double> abs_E(mesh.get_n_global_cells(), 0.0);
   vector<double> track_E(mesh.get_n_global_cells(), 0.0);
   vector<Photon> census_photons;
-  auto n_user_photons = imc_parameters.get_n_user_photon();
+  auto n_user_photons = imc_parameters.get_n_user_photons();
   Message_Counter mctr;
   const int rank = mpi_info.get_rank();
   const int n_ranks = mpi_info.get_n_rank();
 
-  constexpr uint32_t seed = 777;
+  const uint32_t seed = imc_parameters.get_rng_seed();
   while (!imc_state.finished()) {
     if (rank == 0)
       imc_state.print_timestep_header();
