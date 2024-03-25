@@ -102,8 +102,6 @@ void cali_init() {
      MPI_Comm comm = MPI_COMM_WORLD;
      adiak_init(&comm);
      adiak_collect_all();
-    //adiak_namevalue("compiler", adiak_general, NULL, "%s", AMG2023_COMPILER_ID);
-    //adiak_namevalue("compiler version", adiak_general, NULL, "%s", AMG2023_COMPILER_VERSION);
 }
 
 void wrapped_cali_mark_begin(const char *timer_name) {
