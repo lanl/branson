@@ -66,16 +66,24 @@ std::vector<Photon> replicated_transport(
   uint32_t rank_cell_offset{0}; // no offset in replicated mesh
   if(gpu_setup.use_gpu_transporter() && gpu_available ) {
     t_transport.start_timer("gpu transport");
+    wrapped_cali_mark_begin("gpu transport photons");
     gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
+    wrapped_cali_mark_end("gpu transport photons");
     t_transport.stop_timer("gpu transport");
+    
     std::cout<<"gpu transport time: "<<t_transport.get_time("gpu transport")<<std::endl;
   }
   else {
+    wrapped_cali_mark_begin("cpu transport photons");
     cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies, n_omp_threads);
+    wrapped_cali_mark_end("cpu transport photons");
+
   }
 
   // post process photons, account for escaped energy and add particles to census
+  wrapped_cali_mark_begin("post process photons");
   post_process_photons(next_dt, all_photons, census_list, census_E, exit_E);
+  wrapped_cali_mark_end("post process photons");
 
   // copy cell tallies back out to rank_abs_E and rank_track_E
   double total_abs = 0;

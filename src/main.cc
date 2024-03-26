@@ -36,7 +36,7 @@ using std::vector;
 
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
-
+  cali_init();
   // check to see if number of arguments is correct
   if (argc != 2) {
     cout << "Usage: BRANSON <path_to_input_file>" << endl;
@@ -103,11 +103,15 @@ int main(int argc, char **argv) {
 
     timers.start_timer("Total non-setup");
 
-    if (input.get_dd_mode() == PARTICLE_PASS)
+    if (input.get_dd_mode() == PARTICLE_PASS) {
+      wrapped_cali_mark_begin("imc particle pass driver");
       imc_particle_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
-    else if (input.get_dd_mode() == REPLICATED)
+      wrapped_cali_mark_end("imc particle pass driver");
+    } else if (input.get_dd_mode() == REPLICATED) {
+      wrapped_cali_mark_begin("imc replicated driver");
       imc_replicated_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
-    else {
+      wrapped_cali_mark_end("imc replicated driver");
+    } else {
       cout << "Driver for DD transport method currently not supported" << endl;
       exit(EXIT_FAILURE);
     }

@@ -106,7 +106,7 @@ macro(setupTPLs)
     endif()
 
     message( STATUS "Looking for caliper..." )
-    find_package( caliper QUIET)
+    find_package( caliper )
     if( caliper_FOUND )
       message( STATUS "Looking for caliper.....found ${CALIPER_LIBRARY}" )
     else()
@@ -120,6 +120,21 @@ macro(setupTPLs)
       PURPOSE "Code instrumentation for performance analysis"
    )
 
+   if (WITH_ADIAK)
+     find_package(adiak)
+     if (adiak_FOUND)
+      message( STATUS "Looking for adiak.....found ${adiak_LIBRARIES}" )
+      include_directories("${adiak_INCLUDE_DIR}")
+     else()
+       message(WARNING "Adiak support was requested but Adiak was not found")
+     endif()
+     set_package_properties( adiak PROPERTIES
+      DESCRIPTION "ADIAK"
+      TYPE OPTIONAL
+      URL "http://software.llnl.gov/Adiak/"
+      PURPOSE "Metadata for perf data.")
+
+   endif()
   endif()
 
   ##############################################################################

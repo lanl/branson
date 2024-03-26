@@ -17,13 +17,14 @@
 #include <iostream>
 #include <mpi.h>
 #include <vector>
-
+#include "config.h" 
 #include "RNG.h"
 #include "constants.h"
 #include "input.h"
 #include "message_counter.h"
 #include "photon.h"
 #include "cell.h"
+
 #include <iomanip>
 
 //==============================================================================
@@ -295,6 +296,7 @@ public:
     m_step++;
   }
 
+  //  wrapped_cali_mark_begin("transport diagnostics");
   //! Set pre-transport census energy  (diagnostic)
   void set_pre_census_E(double _pre_census_E) { pre_census_E = _pre_census_E; }
 
@@ -340,6 +342,7 @@ public:
     step_receives_posted = mctr.n_receives_posted;
     step_receives_completed = mctr.n_receives_completed;
   }
+  //  wrapped_cali_mark_end("transport diagnostics");
 
   //! Set the number of cells requested in mesh passing method this timestep
   void set_step_cells_requested(uint64_t _step_cells_requested) {
