@@ -130,27 +130,6 @@ feature_summary( WHAT ALL
   FATAL_ON_MISSING_REQUIRED_PACKAGES
   QUIET_ON_EMPTY )
 
-# Summary of user-selectable build options
-message( "\nBuild Summary:\n")
-message( STATUS "Machine name    : ${SITENAME}")
-report_lanl_hpc_features()
-if( ${BRANSON_N_GROUPS} GREATER 1 )
-  message( STATUS "Energy groups   : ${BRANSON_N_GROUPS}")
-else()
-  message( STATUS "Energy groups   : Gray (1-group)")
-endif()
-message( STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
-message( STATUS "Compiler        : ${CMAKE_CXX_COMPILER}")
-if( CMAKE_CONFIGURATION_TYPES )
-  message( STATUS "Compiler Flags (All)    : ${CMAKE_CXX_FLAGS}")
-  message( STATUS "Compiler Flags (Debug)  : ${CMAKE_CXX_FLAGS_DEBUG}")
-  message( STATUS "Compiler Flags (Release): ${CMAKE_CXX_FLAGS_RELEASE}")
-else()
-  string( TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_UPPER )
-  message( STATUS "Compiler Flags  : ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
-endif()
-message("\n")
-
 #------------------------------------------------------------------------------#
 # Set up libraries for Cray RMA routines
 
@@ -169,7 +148,7 @@ set( branson_deps
   pugixml)
 
 if(OpenMP_FOUND)
-  set(branson_deps "OpenMP::OpenMP_CXX;${branson_deps}")
+  set(branson_deps "OpenMP::OpenMP_CXX;${OpenMP_CXX_FLAGS};${branson_deps}")
 endif()
 
 if(METIS_FOUND)
@@ -192,12 +171,17 @@ configure_file(config.h.in ${PROJECT_BINARY_DIR}/config.h)
 
 if("${CUDA_DBS_STRING}" STREQUAL "CUDA" )
   message("Setting CUDA compiler options")
-  set_target_properties(BRANSON PROPERTIES CUDA_ARCHITECTURES "70") # V100
-  #set_target_properties(BRANSON PROPERTIES CUDA_ARCHITECTURES "80") # A100
+  if ( NOT DEFINED ENV{SMS} )
+    set( SMS "80" )
+  else()
+    set( SMS $ENV{SMS} )
+  endif()
+  set_target_properties(BRANSON PROPERTIES CUDA_ARCHITECTURES "${SMS}") # V100
   set_target_properties(BRANSON PROPERTIES CUDA_STANDARD 17)
-  string(APPEND CMAKE_CUDA_FLAGS " -g --expt-relaxed-constexpr")
-  string(APPEND CMAKE_CUDA_FLAGS " --expt-extended-lambda"  )
+  string(APPEND CMAKE_CUDA_FLAGS " -ccbin ${CMAKE_CXX_COMPILER} --expt-relaxed-constexpr")
+  string(APPEND CMAKE_CUDA_FLAGS " --expt-extended-lambda -allow-unsupported-compiler"  )
   set_source_files_properties("main.cc" PROPERTIES LANGUAGE CUDA)
+  message( STATUS "SMS: ${SMS}")
 endif()
 
 target_link_libraries( BRANSON PRIVATE ${branson_deps} )
@@ -215,6 +199,28 @@ else()
   message(STATUS
     "Building tests disabled, set BUILD_TESTING=TRUE or don't set BUILD_TESTING to enable test builds")
 endif()
+
+# Summary of user-selectable build options
+message( "\nBuild Summary:\n")
+message( STATUS "Machine name    : ${SITENAME}")
+report_lanl_hpc_features()
+if( ${BRANSON_N_GROUPS} GREATER 1 )
+  message( STATUS "Energy groups   : ${BRANSON_N_GROUPS}")
+else()
+  message( STATUS "Energy groups   : Gray (1-group)")
+endif()
+message( STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message( STATUS "Compiler        : ${CMAKE_CXX_COMPILER}")
+if( CMAKE_CONFIGURATION_TYPES )
+  message( STATUS "Compiler Flags (All)    : ${CMAKE_CXX_FLAGS}")
+  message( STATUS "Compiler Flags (Debug)  : ${CMAKE_CXX_FLAGS_DEBUG}")
+  message( STATUS "Compiler Flags (CUDA)   : ${CMAKE_CUDA_FLAGS}")
+  message( STATUS "Compiler Flags (Release): ${CMAKE_CXX_FLAGS_RELEASE}")
+else()
+  string( TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_UPPER )
+  message( STATUS "Compiler Flags  : ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}}")
+endif()
+message("\n")
 
 
 #------------------------------------------------------------------------------#
