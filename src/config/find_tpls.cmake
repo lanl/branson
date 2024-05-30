@@ -56,12 +56,12 @@ macro(setupTPLs)
 
   # Find package if desired:
   if(USE_OPENMP)
-    find_package(OpenMP QUIET)
+    find_package(OpenMP)
   else()
     set(OpenMP_FOUND FALSE)
   endif()
 
-  if(OpenMP_FOUND)
+  if(OpenMP_CXX_FLAGS)
     # [2022-10-27 KT] cmake/3.22 doesn't report OpenMP_C_VERSION for nvc++. Fake it for now.
     if("${OpenMP_C_VERSION}x" STREQUAL "x" AND CMAKE_CXX_COMPILER_ID MATCHES "NVHPC")
       set(OpenMP_C_VERSION
@@ -71,13 +71,13 @@ macro(setupTPLs)
     endif()
     message(STATUS "Looking for OpenMP... ${OpenMP_C_FLAGS} (supporting the ${OpenMP_C_VERSION} "
                    "standard)")
-    if(OpenMP_C_VERSION VERSION_LESS 3.0)
-      message(STATUS "OpenMP standard support is too old (< 3.0). Disabling OpenMP build features.")
-      set(OpenMP_FOUND FALSE)
-      set(OpenMP_C_FLAGS
-          ""
-          CACHE BOOL "OpenMP disabled (too old)." FORCE)
-    endif()
+    # if(OpenMP_C_VERSION VERSION_LESS 3.0)
+    #   message(STATUS "OpenMP standard support is too old (< 3.0). Disabling OpenMP build features.")
+    #   set(OpenMP_FOUND FALSE)
+    #   set(OpenMP_C_FLAGS
+    #       ""
+    #       CACHE BOOL "OpenMP disabled (too old)." FORCE)
+    # endif()
     set(OpenMP_FOUND
         ${OpenMP_FOUND}
         CACHE BOOL "Is OpenMP available?" FORCE)

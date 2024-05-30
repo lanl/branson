@@ -27,8 +27,9 @@ public:
     if(m_use_gpu_transporter) {
       // MPI rank to GPU mapping
       set_device_ID(rank, n_ranks);
-
+#ifdef ENABLE_VERBOSE_GPU_TRANSPORT
       std::cout<<"Allocating and transferring "<<cpu_cells.size()<<" cell(s) to the GPU"<<std::endl;
+#endif
       // allocate and copy cells
       cudaError_t err = cudaMalloc((void **)&device_cells_ptr, sizeof(Cell) * cpu_cells.size());
       Insist(!err, "CUDA error in allocating cells data");
@@ -78,9 +79,11 @@ void set_device_ID(const int rank, const int n_ranks) {
   cudaSetDevice(my_device);
   int my_bus_id = 0;
   cudaDeviceGetAttribute(&my_bus_id, cudaDevAttrPciBusId, my_device);
+#ifdef ENABLE_VERBOSE_GPU_TRANSPORT
   std::cout << "N devices: " << n_devices << std::endl;
   std::cout << "rank: " << rank << ", device: " << my_device << " bus id: ";
   std::cout << my_bus_id << std::endl;
+#endif
 #endif
 }
 

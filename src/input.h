@@ -722,6 +722,12 @@ public:
     std::cout<<" no affect"<<std::endl;
 #endif
 
+#ifdef USE_GPU
+    std::cout<<"Branson built with CUDA"<<std::endl;
+#else
+    std::cout<<"Branson built without CUDA"<<std::endl;
+#endif
+
     cout << "Mesh decomposition: ";
     if (decomp_mode == METIS && dd_mode != REPLICATED)
       cout << "METIS" << endl;
