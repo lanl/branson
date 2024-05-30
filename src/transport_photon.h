@@ -114,7 +114,7 @@ void transport_photon(const uint32_t rank_cell_offset,
       // EVENT TYPE: SCATTER
       if (dist_to_event == dist_to_scatter) {
         phtn.set_angle(get_uniform_angle(rng));
-        if (rng.generate_random_number() > (sigma_s / ((1.0 - f) * sigma_a + sigma_s)))
+        if (rng.generate_random_number() > (sigma_s / total_sigma_s ))
           phtn.set_group(sample_emission_group(rng, *cell));
         phtn.set_descriptor(Constants::SCATTER);
       }
@@ -253,8 +253,11 @@ void gpu_transport_photons(const uint32_t rank_cell_offset,
 
   cudaDeviceSynchronize();
 
+#ifdef ENABLE_VERBOSE_GPU_TRANSPORT
   std::cout << "Launching with " << n_blocks << " blocks and ";
   std::cout << n_batch_photons << " photons" << std::endl;
+#endif
+
   gpu_no_accel_transport<<<n_blocks, Constants::n_threads_per_block>>>(
       rank_cell_offset, device_photons_ptr, device_cells_ptr, device_cell_tallies_ptr, n_batch_photons);
 

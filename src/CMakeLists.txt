@@ -106,9 +106,12 @@ elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
   # branson but it makes it the hardware counter data match Jayenne more closely (Jayenne uses
   # this flag)
   set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -fp-speculation=fast -fp-model=precise -qno-opt-dynamic-align")
-elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
-  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -g -DR123_USE_GNU_UINT128=0")
-  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -DR123_USE_GNU_UINT128=0")
+elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Clang" )
+  set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -g -fopenmp -DR123_USE_GNU_UINT128=0")
+  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -fopenmp -DR123_USE_GNU_UINT128=0")
+# elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
+#   set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -fopenmp -g -DR123_USE_GNU_UINT128=0")
+#   set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -g -DR123_USE_GNU_UINT128=0")
 endif()
 
 
