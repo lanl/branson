@@ -29,6 +29,8 @@
 
 using Constants::PARTICLE_PASS;
 using Constants::REPLICATED;
+using Constants::SOA;
+using Constants::AOS;
 using std::cout;
 using std::endl;
 using std::string;
@@ -103,10 +105,30 @@ int main(int argc, char **argv) {
 
     timers.start_timer("Total non-setup");
 
-    if (input.get_dd_mode() == PARTICLE_PASS)
-      imc_particle_pass_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
-    else if (input.get_dd_mode() == REPLICATED)
-      imc_replicated_driver(mesh, imc_state, imc_p, mpi_types, mpi_info);
+    if (input.get_dd_mode() == PARTICLE_PASS) {
+      if( input.get_particle_storage() == AOS) {
+        imc_particle_pass_driver<PhotonArray>(mesh, imc_state, imc_p, mpi_types, mpi_info);
+      }
+      else if(input.get_particle_storage() == SOA) {
+        imc_particle_pass_driver<std::vector<Photon>>(mesh, imc_state, imc_p, mpi_types, mpi_info);
+      }
+      else {
+        cout << "Driver for array currently not supported" << endl;
+        exit(EXIT_FAILURE);
+      }
+    }
+    else if (input.get_dd_mode() == REPLICATED) {
+      if( input.get_particle_storage() == SOA) {
+        imc_replicated_driver<PhotonArray>(mesh, imc_state, imc_p, mpi_types, mpi_info);
+      }
+      else if(input.get_particle_storage() == AOS) {
+        imc_replicated_driver<std::vector<Photon>>(mesh, imc_state, imc_p, mpi_types, mpi_info);
+      }
+      else {
+        cout << "Driver for array currently not supported" << endl;
+        exit(EXIT_FAILURE);
+      }
+    }
     else {
       cout << "Driver for DD transport method currently not supported" << endl;
       exit(EXIT_FAILURE);

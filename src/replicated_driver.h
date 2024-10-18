@@ -17,7 +17,7 @@
 #include <mpi.h>
 #include <vector>
 
-#include "census_creation.h"
+#include "census_functions.h"
 #include "info.h"
 #include "imc_parameters.h"
 #include "imc_state.h"
@@ -30,13 +30,14 @@
 #include "timer.h"
 #include "write_silo.h"
 
+template <typename Census_T>
 void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
                            const IMC_Parameters &imc_parameters,
                            const MPI_Types &mpi_types, const Info &mpi_info) {
   using std::vector;
   vector<double> abs_E(mesh.get_n_global_cells(), 0.0);
   vector<double> track_E(mesh.get_n_global_cells(), 0.0);
-  vector<Photon> census_photons;
+  Census_T census_photons;
   auto n_user_photons = imc_parameters.get_n_user_photons();
   Message_Counter mctr;
   const int rank = mpi_info.get_rank();
@@ -66,12 +67,12 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
     Timer t_source;
     t_source.start_timer("source");
     if (imc_state.get_step() == 1)
-      census_photons = make_initial_census_photons(imc_state.get_dt(), mesh, rank, seed, n_user_photons, global_source_energy);
+      census_photons = make_initial_census_photons<Census_T>(imc_state.get_dt(), mesh, rank, seed, n_user_photons, global_source_energy);
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
     // make emission and source photons
-    auto all_photons = make_photons(imc_state.get_dt(), mesh, rank, imc_state.get_step(), seed, n_user_photons, global_source_energy);
+    auto all_photons = make_photons<Census_T>(imc_state.get_dt(), mesh, rank, imc_state.get_step(), seed, n_user_photons, global_source_energy);
     // add the census photons
-    all_photons.insert(all_photons.end(), census_photons.begin(), census_photons.end());
+    join_photon_arrays(all_photons,census_photons);
     t_source.stop_timer("source");
     if (rank ==0)
       std::cout<<"source time: "<<t_source.get_time("source")<<std::endl;
@@ -84,7 +85,7 @@ void imc_replicated_driver(Mesh &mesh, IMC_State &imc_state,
     MPI_Barrier(MPI_COMM_WORLD);
 
     census_photons =
-        replicated_transport(mesh, gpu_setup, imc_state, abs_E, track_E, all_photons, imc_parameters.get_n_omp_threads());
+        replicated_transport<Census_T>(mesh, gpu_setup, imc_state, abs_E, track_E, all_photons, imc_parameters.get_n_omp_threads(), imc_parameters.get_batch_size(), imc_parameters.get_transport_algorithm());
 
     // reduce the abs_E and the track weighted energy (for T_r)
     MPI_Allreduce(MPI_IN_PLACE, &abs_E[0], mesh.get_n_global_cells(),

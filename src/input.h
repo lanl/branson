@@ -51,12 +51,20 @@ public:
     using Constants::Y_POS;
     using Constants::Z_NEG;
     using Constants::Z_POS;
-    // DD methods
+    // decomp methods
     using Constants::CUBE;
     using Constants::METIS;
     using Constants::NO_DECOMP;
+    // dd methods
     using Constants::PARTICLE_PASS;
     using Constants::REPLICATED;
+    // storage types
+    using Constants::AOS;
+    using Constants::SOA;
+    // algorithm types
+    using Constants::EVENT;
+    using Constants::HISTORY;
+
     using std::cout;
     using std::endl;
     using std::vector;
@@ -171,7 +179,7 @@ public:
       else if (tempString == "REPLICATED")
         dd_mode = REPLICATED;
       else {
-        cout << "WARNING: Domain decomposition method not recognized... ";
+        cout << "WARNING: Domain decomposition method not recognized or not set... ";
         cout << "setting to PARTICLE PASSING method" << endl;
         dd_mode = PARTICLE_PASS;
       }
@@ -180,6 +188,30 @@ public:
         cout<<"WARNING: Domain decomposition method set to PARTICLE_PASS but there is only one";
         cout<<" rank, setting to REPLICATED"<<endl;
         dd_mode = REPLICATED;
+      }
+
+      // particle storage type 
+      tempString = settings_node.child_value("particle_storage");
+      if (tempString == "AOS")
+        particle_storage = AOS;
+      else if (tempString == "SOA")
+        particle_storage = SOA;
+      else {
+        cout << "WARNING: Particle storage type not recognized or not set... ";
+        cout << "setting to AOS" << endl;
+        particle_storage = AOS;
+      }
+
+      // particle storage type 
+      tempString = settings_node.child_value("particle_algorithm");
+      if (tempString == "EVENT")
+        particle_algorithm = EVENT;
+      else if (tempString == "HISTORY")
+        particle_algorithm = HISTORY;
+      else {
+        cout << "WARNING: Particle algorithm not recognized or not set... ";
+        cout << "setting to HISTORY" << endl;
+        particle_algorithm = HISTORY;
       }
 
       // set number of OpenMP threads, default to 1, warn if set and no OpenMP
@@ -225,15 +257,14 @@ public:
             settings_node.child("particle_message_size").text().as_double();
       }
 
-      // number of particles to run between MPI message checks
+      // number of particles to run between MPI message checks or for batches in event-baesd
       tempString = settings_node.child_value("batch_size");
-      if (tempString == "" && dd_mode == PARTICLE_PASS) {
-        std::cout<<"batch_size not found in settings, defaulting to 10000"<<std::endl;
-        batch_size = 10000;
+      if (tempString != "") {
+        batch_size = settings_node.child("batch_size").text().as_uint();
       }
       else {
-        batch_size =
-            settings_node.child("batch_size").text().as_double();
+        std::cout<<"batch_size not found in settings, defaulting to 10000"<<std::endl;
+        batch_size = 10000;
       }
 
       // debug options
@@ -452,68 +483,43 @@ public:
       for (uint32_t k = 0; k < z.size(); ++k)
         silo_z[k] = z[k];
 
-      // batch size should be very large in replicated mode since there is no
-      // need to check buffers
-      if (dd_mode == REPLICATED)
+      // batch size should be very large in replicated mode since there is no need to check buffers
+      // but batch size is used in event-based so let it be user-set in that case
+      if (dd_mode == REPLICATED && particle_algorithm == HISTORY) {
         batch_size = 100000000;
+      }
     } // end xml parse
 
-    const int n_bools = 5;
-    const int n_uint = 15;
-    const int n_doubles = 6;
+    // data will be invalid here for non-root ranks but everything will be sized correctly and
+    // consistently and overwritted by the broadcast from root to all
+    uint32_t n_regions = regions.size();
+    uint32_t n_x_div = n_x_cells.size();
+    uint32_t n_y_div = n_y_cells.size();
+    uint32_t n_z_div = n_z_cells.size();
     MPI_Datatype MPI_Region = mpi_types.get_region_type();
+    vector<int> all_bools = {write_silo, use_comb, print_verbose, print_mesh_info,
+                            use_gpu_transporter};
+    vector<uint32_t> all_uint = {seed, dd_mode, decomp_mode, particle_storage, particle_algorithm,
+                                  n_omp_threads, output_freq, batch_size, particle_message_size,
+                                  n_divisions, n_global_x_cells, n_global_y_cells, n_global_z_cells, 
+                                  n_regions, n_x_div, n_y_div, n_z_div};
+
+    vector<double> all_doubles = {tStart, dt, tFinish, tMult,  dtMax, T_source};
+    vector<int> bcast_bcs = {bc[0], bc[1], bc[2], bc[3], bc[4], bc[5]};
 
     // root rank broadcasts read values
     if (rank == 0) {
-      // some helper values
-      uint32_t n_regions = regions.size();
-      uint32_t n_x_div = n_x_cells.size();
-      uint32_t n_y_div = n_y_cells.size();
-      uint32_t n_z_div = n_z_cells.size();
 
       // bools
-      vector<int> all_bools = {write_silo, use_comb,
-                               print_verbose, print_mesh_info, use_gpu_transporter};
-      MPI_Bcast(all_bools.data(), n_bools, MPI_INT, 0, MPI_COMM_WORLD);
+      MPI_Bcast(all_bools.data(), all_bools.size(), MPI_INT, 0, MPI_COMM_WORLD);
 
       // bcs
-      vector<int> bcast_bcs = {bc[0], bc[1], bc[2], bc[3], bc[4], bc[5]};
       MPI_Bcast(&bcast_bcs[0], 6, MPI_INT, 0, MPI_COMM_WORLD);
-
-      // uint32
-      vector<uint32_t> all_uint = {seed,
-                                   dd_mode,
-                                   decomp_mode,
-                                   n_omp_threads,
-                                   output_freq,
-                                   batch_size,
-                                   particle_message_size,
-                                   n_divisions,
-                                   n_global_x_cells,
-                                   n_global_y_cells,
-                                   n_global_z_cells,
-                                   n_regions,
-                                   n_x_div,
-                                   n_y_div,
-                                   n_z_div};
-
-      if (all_uint.size() != n_uint) {
-        std::cout<<"SIZE MISMATCH IN UINT COMMUNICATION, EXITING..."<<std::endl;
-        exit(EXIT_FAILURE);
-      }
-
-      MPI_Bcast(all_uint.data(), n_uint, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-
-      // uint64
+      MPI_Bcast(all_uint.data(), all_uint.size(), MPI_UNSIGNED, 0, MPI_COMM_WORLD);
       MPI_Bcast(&n_photons, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
-
-      // double
-      vector<double> all_doubles = {tStart, dt,    tFinish,
-                                    tMult,  dtMax, T_source};
-      MPI_Bcast(all_doubles.data(), n_doubles, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-      // region processing
+      MPI_Bcast(all_doubles.data(), all_doubles.size(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
       MPI_Bcast(regions.data(), n_regions, MPI_Region, 0, MPI_COMM_WORLD);
+
       vector<uint32_t> division_key;
       vector<uint32_t> region_at_division;
       for (auto rmap : region_map) {
@@ -540,46 +546,44 @@ public:
       MPI_Bcast(&z_end[0], n_z_div, MPI_DOUBLE, 0, MPI_COMM_WORLD);
       MPI_Bcast(&n_z_cells[0], n_z_div, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
     } else {
-      // set bools
-      vector<int> all_bools(8);
 
-      MPI_Bcast(&all_bools[0], n_bools, MPI_INT, 0, MPI_COMM_WORLD);
+      //receive and set bools
+      MPI_Bcast(all_bools.data(), all_bools.size(), MPI_INT, 0, MPI_COMM_WORLD);
       write_silo = all_bools[0];
       use_comb = all_bools[1];
       print_verbose = all_bools[2];
       print_mesh_info = all_bools[3];
       use_gpu_transporter = all_bools[4];
 
-      // set bcs
-      vector<int> bcast_bcs(6);
-      MPI_Bcast(&bcast_bcs[0], 6, MPI_INT, 0, MPI_COMM_WORLD);
+      // receive and set bcs
+      MPI_Bcast(bcast_bcs.data(), 6, MPI_INT, 0, MPI_COMM_WORLD);
       for (int i = 0; i < 6; ++i)
         bc[i] = Constants::bc_type(bcast_bcs[i]);
-
-      // set uints
-      vector<uint32_t> all_uint(n_uint);
-      MPI_Bcast(all_uint.data(), n_uint, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-      seed = all_uint[0];
-      dd_mode = all_uint[1];
-      decomp_mode = all_uint[2];
-      n_omp_threads = all_uint[3];
-      output_freq = all_uint[4];
-      batch_size = all_uint[5];
-      particle_message_size = all_uint[6];
-      n_divisions = all_uint[7];
-      n_global_x_cells = all_uint[8];
-      n_global_y_cells = all_uint[9];
-      n_global_z_cells = all_uint[10];
-      const uint32_t n_regions = all_uint[11];
-      const uint32_t n_x_div = all_uint[12];
-      const uint32_t n_y_div = all_uint[13];
-      const uint32_t n_z_div = all_uint[14];
+      // receive and set uints
+      MPI_Bcast(all_uint.data(), all_uint.size(), MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+      size_t i=0;
+      seed = all_uint[i++];
+      dd_mode = all_uint[i++];
+      decomp_mode = all_uint[i++];
+      particle_storage = all_uint[i++];
+      particle_algorithm = all_uint[i++];
+      n_omp_threads = all_uint[i++];
+      output_freq = all_uint[i++];
+      batch_size = all_uint[i++];
+      particle_message_size = all_uint[i++];
+      n_divisions = all_uint[i++];
+      n_global_x_cells = all_uint[i++];
+      n_global_y_cells = all_uint[i++];
+      n_global_z_cells = all_uint[i++];
+      const uint32_t n_regions = all_uint[i++];
+      const uint32_t n_x_div = all_uint[i++];
+      const uint32_t n_y_div = all_uint[i++];
+      const uint32_t n_z_div = all_uint[i++];
 
       // uint64
       MPI_Bcast(&n_photons, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
 
-      vector<double> all_doubles(n_doubles);
-      MPI_Bcast(&all_doubles[0], n_doubles, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+      MPI_Bcast(all_doubles.data(), all_doubles.size(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
       tStart = all_doubles[0];
       dt = all_doubles[1];
       tFinish = all_doubles[2];
@@ -696,6 +700,15 @@ public:
            << regions[r].get_opac_B() << "^" << regions[r].get_opac_C();
       cout << ", scattering opacity: " << regions[r].get_scattering_opacity()
            << endl;
+    }
+
+    cout << "--Algorithm Information--" << endl;
+    cout << "Particle/census storage: "<< ((particle_storage == Constants::AOS) ? "AOS" : "SOA");
+    cout << endl;
+    cout << "Transport loop algorithm: "<< ((particle_algorithm == Constants::EVENT) ? "EVENT" : "HISTORY");
+    cout << " BASED"<<endl;
+    if(particle_algorithm == Constants::EVENT) {
+      cout<<" Batch size for event-based transport loops is "<<batch_size<<std::endl;
     }
 
     cout << "--Parallel Information--" << endl;
@@ -826,6 +839,11 @@ public:
   }
   //! Return the domain decomposition algorithm
   uint32_t get_dd_mode() const { return dd_mode; }
+  //! Return the particle storage type 
+  uint32_t get_particle_storage() const { return particle_storage; }
+  //! Return the particle storage type 
+  uint32_t get_particle_algorithm() const { return particle_algorithm; }
+
   //! Return the domain decomposition algorithm
   uint32_t get_decomposition_mode() const { return decomp_mode; }
   //! Return the number of OpenMP threads
@@ -891,6 +909,8 @@ private:
 
   // Parallel parameters
   uint32_t dd_mode;     //!< Mode of domain decomposed transport algorithm
+  uint32_t particle_storage; //!< Particle array storage type 
+  uint32_t particle_algorithm; //!< Event-based or history-based
   uint32_t decomp_mode; //!< Mode of decomposing mesh
   uint32_t n_omp_threads; //!< Number of OpenMP threads, 1 if no OpenMP
 

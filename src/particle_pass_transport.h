@@ -9,8 +9,8 @@
  */
 //---------------------------------------------------------------------------//
 
-#ifndef transport_particle_pass_h_
-#define transport_particle_pass_h_
+#ifndef particle_pass_transport_h_
+#define particle_pass_transport_h_
 
 #include <algorithm>
 #include <functional>
@@ -21,7 +21,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "transport_photon.h"
+#include "post_process_functions.h"
+#include "history_based_transport.h"
 #include "gpu_setup.h"
 #include "buffer.h"
 #include "constants.h"
@@ -33,9 +34,10 @@
 #include "sampling_functions.h"
 
 
-std::vector<Photon> particle_pass_transport(
+template <typename Census_T>
+Census_T  particle_pass_transport(
     const Mesh &mesh, const GPU_Setup &gpu_setup, const IMC_Parameters &imc_parameters, const Info &mpi_info, const MPI_Types &mpi_types,
-    IMC_State &imc_state, Message_Counter &mctr, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> &all_photons, const int n_omp_threads) {
+    IMC_State &imc_state, Message_Counter &mctr, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, Census_T &all_photons, const int n_omp_threads) {
   using std::cout;
   using std::endl;
   using std::stack;
@@ -124,7 +126,7 @@ std::vector<Photon> particle_pass_transport(
   // main transport loop
   //------------------------------------------------------------------------//
 
-  vector<Photon> census_list;    //!< End of timestep census list
+  Census_T census_list;    //!< End of timestep census list
   vector<Photon> phtn_recv_list; //!< Photons from received messages
 
   int send_rank;
@@ -136,34 +138,20 @@ std::vector<Photon> particle_pass_transport(
   //------------------------------------------------------------------------//
   // first transport all photons from source (best for GPU)
   //------------------------------------------------------------------------//
+  std::cout<<"not doing DD right now"<<std::endl;
+  std::exit(1);
+
+  /*
   if(gpu_setup.use_gpu_transporter() && gpu_available) {
     gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
   }
-  else
+  else {
     cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies, n_omp_threads);
-
-  for (auto &phtn : all_photons) {
-    switch (phtn.get_descriptor()) {
-    // this case should never be reached
-    case Constants::KILLED:
-      n_complete++;
-      break;
-    case Constants::EXIT:
-      n_complete++;
-      exit_E+=phtn.get_E();
-      break;
-    case Constants::CENSUS:
-      phtn.set_distance_to_census(Constants::c*next_dt);
-      census_list.push_back(phtn);
-      census_E+=phtn.get_E();
-      n_complete++;
-      break;
-    case Constants::PASS:
-      send_rank = mesh.get_rank(phtn.get_cell());
-      int i_b = adjacent_procs[send_rank];
-      send_list[i_b].push_back(phtn);
-    }
   }
+  */
+
+  auto batch_complete = post_process_photons(next_dt, all_photons, census_list, census_E, exit_E);
+  n_complete += batch_complete;
 
   //------------------------------------------------------------------------//
   // process photon send and receives
@@ -233,7 +221,7 @@ std::vector<Photon> particle_pass_transport(
       if(gpu_setup.use_gpu_transporter() && gpu_available)
         gpu_transport_photons(rank_cell_offset, phtn_recv_list, gpu_setup.get_device_cells_ptr(), cell_tallies);
       else {
-        cpu_transport_photons(rank_cell_offset, phtn_recv_list, mesh.get_cells(), cell_tallies, n_omp_threads);
+        history_cpu_transport_photons(rank_cell_offset, phtn_recv_list, mesh.get_cells(), cell_tallies, n_omp_threads);
       }
 
       for (auto &phtn : phtn_recv_list) {
@@ -314,7 +302,7 @@ std::vector<Photon> particle_pass_transport(
 
   MPI_Barrier(MPI_COMM_WORLD);
 
-  std::sort(census_list.begin(), census_list.end());
+  //std::sort(census_list.begin(), census_list.end());
 
   // all ranks have now finished transport
   delete[] phtn_recv_request;
@@ -336,7 +324,7 @@ std::vector<Photon> particle_pass_transport(
   return census_list;
 }
 
-#endif // def transport_particle_pass_h_
+#endif // def particle_pass_transport_h_
 //---------------------------------------------------------------------------//
 // end of transport_particle_pass.h
 //---------------------------------------------------------------------------//
