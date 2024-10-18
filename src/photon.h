@@ -98,7 +98,7 @@ public:
   }
 
   GPU_HOST_DEVICE
-  Constants::event_type get_descriptor() {return static_cast<Constants::event_type>(descriptors[0]);}
+  Constants::event_type get_descriptor() const {return static_cast<Constants::event_type>(descriptors[0]);}
 
   //--------------------------------------------------------------------------//
   // non-const functions                                                      //
@@ -156,6 +156,9 @@ public:
 
   GPU_HOST_DEVICE
   void set_descriptor(const Constants::event_type descriptor) { descriptors[0] = static_cast<unsigned char>(descriptor);}
+
+  GPU_HOST_DEVICE
+  RNG get_rng() const {return m_rng;}
 
   GPU_HOST_DEVICE
   RNG &get_rng() {return m_rng;}

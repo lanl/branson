@@ -33,6 +33,7 @@ public:
         dd_mode(input.get_dd_mode()), batch_size(input.get_batch_size()),
         particle_message_size(input.get_particle_message_size()),
         output_frequency(input.get_output_freq()),
+        transport_algorithm(input.get_particle_algorithm()),
         n_omp_threads(input.get_n_omp_threads()),
         write_silo_flag(input.get_write_silo_bool()),
         use_gpu_transporter_flag(input.get_use_gpu_transporter_bool()),
@@ -77,6 +78,9 @@ public:
   //! Get number of OpenMP threads to use (set by user in input)
   uint32_t get_n_omp_threads() const { return n_omp_threads; }
 
+  //! Get user-input transport algorithm (e.g., event or history)
+  uint32_t get_transport_algorithm() const { return transport_algorithm; }
+
   //--------------------------------------------------------------------------//
   // member data                                                              //
   //--------------------------------------------------------------------------//
@@ -88,6 +92,7 @@ private:
   uint32_t
       particle_message_size; //!< Preferred number of particles in MPI sends
   uint32_t output_frequency; //!< Frequency to dump output files
+  uint32_t transport_algorithm; //!< How to process transport (e.g., event or history) 
   uint32_t n_omp_threads; //!< Number of OpenMP threads, set by user
   bool write_silo_flag;      //!< Write SILO output files flag
   bool use_gpu_transporter_flag;      //!< Write SILO output files flag
