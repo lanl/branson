@@ -25,7 +25,7 @@
 #include "info.h"
 #include "mesh.h"
 #include "message_counter.h"
-#include "transport_photon.h"
+#include "post_process_functions.h"
 #include "history_based_transport.h"
 #include "event_based_transport.h"
 #include "photon.h"
@@ -97,8 +97,16 @@ Census_T replicated_transport(
           emission_groups[i] = precompute_emission_group_data(mesh.get_cells()[i]);
         }
         // ARL: try batching this?
-        std::cout<<"about to start aos event- based"<<std::endl;
-        cpu_event_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies, n_omp_threads, emission_groups);
+        std::cout<<"about to start aos event-based batch size of "<<batch_size<<" particles"<<std::endl;
+        for (size_t batch_start = 0; batch_start < all_photons.size(); batch_start += batch_size) {
+          size_t batch_end = std::min(batch_start + batch_size, all_photons.size());
+
+          std::vector<Photon> batch_photons(all_photons.begin() + batch_start, all_photons.begin() +  batch_end);
+          cpu_event_transport_photons(rank_cell_offset, batch_photons, mesh.get_cells(), cell_tallies, n_omp_threads, emission_groups);
+
+          // post process photons, account for escaped energy and add particles to census
+          auto batch_complete = post_process_photons(next_dt, batch_photons, census_list, census_E, exit_E);
+        }
       }
       else {
         std::vector<EmissionGroupData> emission_groups(mesh.get_n_local_cells());
@@ -106,10 +114,10 @@ Census_T replicated_transport(
           emission_groups[i] = precompute_emission_group_data(mesh.get_cells()[i]);
         }
 
+        std::cout<<"about to start soa event-based, batch size of "<<batch_size<<" particles"<<std::endl;
         for (size_t batch_start = 0; batch_start < all_photons.size(); batch_start += batch_size) {
           size_t batch_end = std::min(batch_start + batch_size, all_photons.size());
 
-          std::cout<<"about to start soa event-based batch"<<batch_start<<" "<<batch_end<<std::endl;
           auto batch_photons = all_photons.get_sub_batch(batch_start, batch_end);
           cpu_event_transport_photons(rank_cell_offset, batch_photons, mesh.get_cells(), cell_tallies, n_omp_threads, emission_groups);
 

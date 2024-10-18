@@ -257,15 +257,14 @@ public:
             settings_node.child("particle_message_size").text().as_double();
       }
 
-      // number of particles to run between MPI message checks
+      // number of particles to run between MPI message checks or for batches in event-baesd
       tempString = settings_node.child_value("batch_size");
-      if (tempString == "" && dd_mode == PARTICLE_PASS) {
-        std::cout<<"batch_size not found in settings, defaulting to 10000"<<std::endl;
-        batch_size = 10000;
+      if (tempString != "") {
+        batch_size = settings_node.child("batch_size").text().as_uint();
       }
       else {
-        batch_size =
-            settings_node.child("batch_size").text().as_double();
+        std::cout<<"batch_size not found in settings, defaulting to 10000"<<std::endl;
+        batch_size = 10000;
       }
 
       // debug options
@@ -484,10 +483,11 @@ public:
       for (uint32_t k = 0; k < z.size(); ++k)
         silo_z[k] = z[k];
 
-      // batch size should be very large in replicated mode since there is no
-      // need to check buffers
-      if (dd_mode == REPLICATED)
+      // batch size should be very large in replicated mode since there is no need to check buffers
+      // but batch size is used in event-based so let it be user-set in that case
+      if (dd_mode == REPLICATED && particle_algorithm == HISTORY) {
         batch_size = 100000000;
+      }
     } // end xml parse
 
     // data will be invalid here for non-root ranks but everything will be sized correctly and
@@ -708,6 +708,9 @@ public:
     cout << endl;
     cout << "Transport loop algorithm: "<< ((particle_algorithm == Constants::EVENT) ? "EVENT" : "HISTORY");
     cout << " BASED"<<endl;
+    if(particle_algorithm == Constants::EVENT) {
+      cout<<" Batch size for event-based transport loops is "<<batch_size<<std::endl;
+    }
 
     cout << "--Parallel Information--" << endl;
     cout << "DD algorithm: ";

@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "transport_photon.h"
+#include "post_process_functions.h"
 #include "history_based_transport.h"
 #include "gpu_setup.h"
 #include "buffer.h"

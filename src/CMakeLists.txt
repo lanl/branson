@@ -99,7 +99,10 @@ elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
   # note that the "fp-model=precise" flag significantly limite vectorization and slows down
   # branson but it makes it the hardware counter data match Jayenne more closely (Jayenne uses
   # this flag)
-  set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -fp-speculation=fast -fp-model=precise -qno-opt-dynamic-align")
+  set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -fp-speculation=fast -xhost -qno-opt-dynamic-align")
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall -O0 -xhost -qopenmp")
+	set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -xhost -qopenmp -qopt-zmm-usage=high -fp-speculation=fast -qopt-report=3 -qopt-report-file=runAVX512.optrpt")
 elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
   set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -g -DR123_USE_GNU_UINT128=0")
   set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -DR123_USE_GNU_UINT128=0")
