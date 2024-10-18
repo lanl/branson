@@ -17,7 +17,7 @@
 #include <mpi.h>
 #include <vector>
 
-#include "census_creation.h"
+#include "census_functions.h"
 #include "imc_parameters.h"
 #include "imc_state.h"
 #include "info.h"
@@ -29,6 +29,8 @@
 #include "timer.h"
 #include "write_silo.h"
 
+
+template <typename Census_T>
 void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
                               const IMC_Parameters &imc_parameters,
                               const MPI_Types &mpi_types,
@@ -36,7 +38,7 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
   using std::vector;
   vector<double> abs_E(mesh.get_n_local_cells(), 0.0);
   vector<double> track_E(mesh.get_n_local_cells(), 0.0);
-  vector<Photon> census_photons;
+  Census_T census_photons;
   auto n_user_photons = imc_parameters.get_n_user_photons();
   Message_Counter mctr;
   const int rank = mpi_info.get_rank();
@@ -66,14 +68,14 @@ void imc_particle_pass_driver(Mesh &mesh, IMC_State &imc_state,
 
     // setup source
     if (imc_state.get_step() == 1)
-      census_photons = make_initial_census_photons(imc_state.get_dt(), mesh, rank, seed, n_user_photons, global_source_energy);
+      census_photons = make_initial_census_photons<Census_T>(imc_state.get_dt(), mesh, rank, seed, n_user_photons, global_source_energy);
 
     imc_state.set_pre_census_E(get_photon_list_E(census_photons));
     MPI_Barrier(MPI_COMM_WORLD);
     // make emission and source photons
-    auto all_photons = make_photons(imc_state.get_dt(), mesh, rank, imc_state.get_step(), seed, n_user_photons, global_source_energy);
+    auto all_photons = make_photons<Census_T>(imc_state.get_dt(), mesh, rank, imc_state.get_step(), seed, n_user_photons, global_source_energy);
     // add the census photons
-    all_photons.insert(all_photons.end(), census_photons.begin(), census_photons.end());
+    join_photon_arrays(all_photons,census_photons);
 
     imc_state.set_transported_particles(all_photons.size());
 

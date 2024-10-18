@@ -6,7 +6,7 @@ defines=standard
 cxxstd=c++11
 # set cxxstd=any to disable use of -std=...
 
-BUILD=build/make-$(CXX)-$(config)-$(defines)-$(cxxstd)
+BUILD=build/make-$(firstword $(CXX))-$(config)-$(defines)-$(cxxstd)
 
 SOURCES=src/pugixml.cpp $(filter-out tests/fuzz_%,$(wildcard tests/*.cpp))
 EXECUTABLE=$(BUILD)/test
@@ -27,7 +27,7 @@ ifeq ($(config),coverage)
 endif
 
 ifeq ($(config),sanitize)
-	CXXFLAGS+=-fsanitize=address,undefined -fno-sanitize=float-divide-by-zero,float-cast-overflow -fno-sanitize-recover=all
+	CXXFLAGS+=-fsanitize=address,undefined -fno-sanitize-recover=all
 	LDFLAGS+=-fsanitize=address,undefined
 endif
 
@@ -66,7 +66,7 @@ endif
 
 fuzz_%: $(BUILD)/fuzz_%
 	@mkdir -p build/$@
-	$< build/$@ tests/data_fuzz_$* -max_len=1024 -dict=tests/fuzz_$*.dict
+	$< build/$@ tests/data_fuzz_$* -max_len=1024 -dict=tests/fuzz_$*.dict -fork=16
 
 clean:
 	rm -rf $(BUILD)

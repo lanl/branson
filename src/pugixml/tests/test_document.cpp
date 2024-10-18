@@ -589,7 +589,7 @@ TEST(document_load_file_wide_out_of_memory)
 	CHECK(result.status == status_out_of_memory || result.status == status_file_not_found);
 }
 
-#if defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__)
 TEST(document_load_file_special_folder)
 {
 	xml_document doc;
@@ -736,7 +736,12 @@ struct temp_file
 	temp_file()
 	{
 		static int index = 0;
+
+	#if __cplusplus >= 201103 || defined(__APPLE__) // Xcode 14 warns about use of sprintf in C++98 builds
+		snprintf(path, sizeof(path), "%stempfile%d", test_runner::_temp_path, index++);
+	#else
 		sprintf(path, "%stempfile%d", test_runner::_temp_path, index++);
+	#endif
 	}
 
 	~temp_file()
@@ -1817,3 +1822,39 @@ TEST(document_move_assign_empty)
 	CHECK_NODE(doc, STR("<node2/>"));
 }
 #endif
+
+TEST(document_load_buffer_convert_out_of_memory)
+{
+	const char* source = "<node>\xe7</node>";
+	size_t size = strlen(source);
+
+	test_runner::_memory_fail_threshold = 1;
+
+	xml_document doc;
+
+	xml_parse_result result;
+	result.status = status_out_of_memory;
+	CHECK_ALLOC_FAIL(result = doc.load_buffer(source, size, pugi::parse_default, pugi::encoding_latin1));
+
+	CHECK(result.status == status_out_of_memory);
+}
+
+TEST(document_load_buffer_own_convert_out_of_memory)
+{
+	const char* source = "<node>\xe7</node>";
+	size_t size = strlen(source);
+
+	void* buffer = pugi::get_memory_allocation_function()(size);
+	CHECK(buffer);
+	memcpy(buffer, source, size);
+
+	test_runner::_memory_fail_threshold = 1;
+
+	xml_document doc;
+
+	xml_parse_result result;
+	result.status = status_out_of_memory;
+	CHECK_ALLOC_FAIL(result = doc.load_buffer_inplace_own(buffer, size, pugi::parse_default, pugi::encoding_latin1));
+
+	CHECK(result.status == status_out_of_memory);
+}

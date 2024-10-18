@@ -1,6 +1,6 @@
 //----------------------------------*-C++-*----------------------------------//
 /*!
- * \file   comb_photons.h
+ * \file   census_functions.h
  * \author Alex Long
  * \date   June 21 2018
  * \brief  Comb census routine, yes, I'm finally putting it in
@@ -9,10 +9,41 @@
  */
 //---------------------------------------------------------------------------//
 
-#ifndef comb_photons_h_
-#define comb_photons_h_
+#ifndef census_functions_h_
+#define census_functions_h_
 
+#include "photon_array.h"
+#include "photon.h"
 #include <unordered_map>
+
+
+template <typename Census_T>
+void join_photon_arrays(Census_T &original, Census_T &to_append) {
+
+  if constexpr(std::is_same_v<Census_T, std::vector<Photon>>) {
+    original.insert(original.end(), to_append.begin(), to_append.end());
+  }
+  else {
+    original.insert(to_append);
+  }
+}
+
+double get_photon_list_E(const PhotonArray &photon_array) {
+  double total_E = 0.0;
+  for (size_t i = 0; i < photon_array.E.size(); ++i)
+  {
+    total_E += photon_array.E[i];
+  }
+  return total_E;
+}
+
+double get_photon_list_E(const std::vector<Photon> &photons) {
+  double total_E = 0.0;
+  for (auto const &iphtn : photons) {
+    total_E += iphtn.get_E();
+  }
+  return total_E;
+}
 
 void comb_photons(std::vector<Photon> &census_photons,
                   int64_t max_census_photons, RNG *rng) {
@@ -61,4 +92,4 @@ void comb_photons(std::vector<Photon> &census_photons,
   census_photons = post_comb_photons;
 }
 
-#endif // comb_photons_h_
+#endif // census_functions_h_
