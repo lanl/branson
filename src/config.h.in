@@ -78,8 +78,10 @@ static constexpr uint32_t WARP_SIZE=64;
 #define cudaError_t hipError_t
 #ifdef USE_UMPIRE
 #define cudaFree umpireFree
+#define cudaMalloc umpireMalloc
 #else
 #define cudaFree hipFree
+#define cudaMalloc hipMalloc
 #endif
 #define cudaGetDevice hipGetDevice
 #define cudaGetDeviceCount hipGetDeviceCount
@@ -87,7 +89,6 @@ static constexpr uint32_t WARP_SIZE=64;
 #define cudaGetErrorName hipGetErrorName
 #define cudaGetErrorString hipGetErrorString
 #define cudaGetLastError hipGetLastError
-#define cudaMalloc hipMalloc
 #define cudaMemcpy hipMemcpy
 #define cudaMemcpyDeviceToHost hipMemcpyDeviceToHost
 #define cudaMemcpyHostToDevice hipMemcpyHostToDevice
