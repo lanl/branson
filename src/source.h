@@ -24,6 +24,11 @@
 #include "photon.h"
 #include "sampling_functions.h"
 
+#ifdef caliper_FOUND
+#include <caliper/cali.h>
+#include <adiak.hpp>
+#endif
+
 GPU_KERNEL void make_source_photons( Cell  const * const cells,  const double dt, const uint32_t seed, uint64_t const * const photon_stream_numbers, double const * const photon_E, int const * const photon_type,  int const * const photon_source_face,  uint32_t const * const photon_cell_index, const uint64_t n_photons, Photon * const all_photons) {
   using Constants::c;
 #ifdef USE_GPU
@@ -80,7 +85,9 @@ GPU_KERNEL void set_source_photons( Cell  const * const cells,  const double dt,
 template <typename Census_T>
 void make_photons(const double dt, const Mesh &mesh, const int rank, const uint32_t cycle,
                     const uint32_t seed, const uint64_t n_user_photons, const double total_E, GPU_Setup<Census_T> &gpu_setup) {
-
+#ifdef caliper_FOUND
+  CALI_MARK_BEGIN(make_photons);
+#endif
   bool make_initial_census_flag{cycle==1};
   auto E_cell_census = mesh.get_census_E();
   auto E_cell_emission = mesh.get_emission_E();
