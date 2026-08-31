@@ -182,7 +182,7 @@ std::vector<int> metis_partition(Proto_Mesh &mesh, int &edgecut, const int rank,
         &ncon,                  // number of balancing contraints
         &xadj[0],               // how cells are stored locally
         &adjncy[0],             // how cells are stored loccaly
-        cell_weights[0],       // vertex weights = region absorption opacity
+        &cell_weights[0],       // vertex weights = region absorption opacity
         NULL,                   // size of vertices for comm volume
         NULL,                   // weight of the edges
         &n_parts,               // number of ranks (partitions)
