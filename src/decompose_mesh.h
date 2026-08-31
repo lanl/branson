@@ -132,7 +132,7 @@ std::vector<int> metis_partition(Proto_Mesh &mesh, int &edgecut, const int rank,
       // calculate weight of this cell in attempt to better distribute cells with more emission
       // particles
       auto region = mesh.get_region(icell.get_region_ID());
-      cell_weights.push_back(std::max(1, static_cast<int>(std::pow(log(region.get_absorption_opacity(region.get_T_e())),2))));
+      cell_weights.push_back(std::max(1, static_cast<int>(std::pow(log(region.get_absorption_opacity(region.get_T_e())),3))));
 
       xadj.push_back(
           adjncy_ctr); // starting index in xadj for this cell's nodes
@@ -182,7 +182,7 @@ std::vector<int> metis_partition(Proto_Mesh &mesh, int &edgecut, const int rank,
         &ncon,                  // number of balancing contraints
         &xadj[0],               // how cells are stored locally
         &adjncy[0],             // how cells are stored loccaly
-        NULL, //&cell_weights[0],       // vertex weights = region absorption opacity
+        cell_weights[0],       // vertex weights = region absorption opacity
         NULL,                   // size of vertices for comm volume
         NULL,                   // weight of the edges
         &n_parts,               // number of ranks (partitions)
