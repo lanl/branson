@@ -50,7 +50,7 @@
 // since the main.cc as marked as a CUDA file in CUDA mode, this allows the tests to compile
 // without marking them as cuda files (CMake doesn't point to include paths for cuda if it's a
 // C++ main)
-#ifdef __NVCC__
+#if defined(__NVCC__) || defined(__CUDACC__)
 #define USE_CUDA ON
 #define USE_GPU ON
 static constexpr uint32_t WARP_SIZE=32;
