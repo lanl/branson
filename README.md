@@ -87,8 +87,8 @@ ctest -j 32
 
 ## Parameters ##
 
-- In the `common` block of the XML input file you can set several parameters related to parallel
- performance:
+- In the `common` block of the XML input file you can set several parameters related to domain
+ decomposed parallel performance:
   - `batch_size`: how many particles are processed by an MPI rank before it stops to process
     particle messages (small means more processing of MPI messages and possibly more interleaving
     of off rank and on rank work)
@@ -101,13 +101,11 @@ ctest -j 32
 ## Special builds
 
 ### Fake Multigrop Branson:
-
-- The clean_mg branch has a new capability that mimics the data flow in real
-  multigroup transport.
-- This branch sets the number of groups at the configure step in CMake. I know
-  this is messy from a usability standpoint but it makes the data layout very
-  easy to control when the number of groups is known at compile time. Use the
-  `N_GROUPS` CMake variable to set the number of groups (e.g. `cmake
+- The number frequency groups is set at the configure step in CMake. This makes it easy to control
+  the data layout and looks more like the data layout in the production code Branson is meant to
+  mimic.
+- For this ATS-6 branch the number of groups defaults to 30.
+- Use the `N_GROUPS` CMake variable to set the number of groups (e.g. `cmake
   -DN_GROUPS=10 ../path/to/CMakeLists.txt`).
 - The code will still produce gray results! The physical value in each group is
   the same and it's still set via the input deck.
@@ -117,7 +115,7 @@ ctest -j 32
 ## Running Branson on performance problems
 
 - There are two performance problems of interest in the `inputs` folder, they are both simplified
- 3D hohlraums and should be run with a 30 group build of Branson (see Special builds section above).
+ 3D hohlraums and should be run with a 30 group build of Branson (now the default).
 - The `3D_hohlaum_single_node.xml` problem is meant to be run on a full node. It is in replicated
  mode which means there is very little MPI communication (end of cycle reductions). It is run with:
 ```
