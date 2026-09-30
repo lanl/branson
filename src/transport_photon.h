@@ -6,6 +6,7 @@
  * \brief  IMC transport with particle passing method
  * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
  *         All rights reserved
+ *         Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 //---------------------------------------------------------------------------//
 
@@ -22,6 +23,7 @@
 #include "RNG.h"
 #include "cell_tally.h"
 #include "constants.h"
+#include "gpu_setup.h"
 #include "photon.h"
 #include "sampling_functions.h"
 
@@ -53,93 +55,126 @@ GPU_HOST_DEVICE
 void transport_photon(const uint32_t rank_cell_offset,
     Photon &phtn, const Cell *cells, Cell_Tally *cell_tallies) {
 
-  using Constants::bc_type;
-  using Constants::c;
-  // events
   using std::min;
 
   auto &rng = phtn.get_rng();
-
   uint32_t surface_cross = 0;
-
   uint32_t local_cell_index =  phtn.get_cell() - rank_cell_offset;
   Cell const * cell = &cells[local_cell_index];
+
+  // Keep the frequently changed photon fields local until transport finishes.
+  double E = phtn.get_E();
+  const double cutoff = Constants::cutoff_fraction * phtn.get_E0();
+  uint32_t group = phtn.get_group();
+  uint32_t photon_cell = phtn.get_cell();
+  auto angle = phtn.get_angle();
+  auto pos = phtn.get_position();
+  double life_dx = phtn.get_distance_remaining();
+  Constants::event_type descriptor = Constants::CENSUS;
+
+  double absorbed_tally = 0.0;
+  double track_tally = 0.0;
+  double sigma_s = 0.0;
+  double sigma_a = 0.0;
+  double f = 0.0;
+  bool refresh_opacity = true;
   bool active = true;
 
   // transport this photon
   while (active) {
-    const double sigma_s = cell->get_op_s(phtn.get_group());
-    const double sigma_a = cell->get_op_a(phtn.get_group());
-    const double f = cell->get_f();
+    if (refresh_opacity) {
+      sigma_s = cell->get_op_s(group);
+      sigma_a = cell->get_op_a(group);
+      f = cell->get_f();
+      refresh_opacity = false;
+    }
     const double total_sigma_s = (1.0 - f) * sigma_a + sigma_s;
+    const double inv_total_sigma_s = (total_sigma_s > 0.0) ? 1.0 / total_sigma_s : 0.0;
 
     // get distance to event
     const double dist_to_scatter = (total_sigma_s > 0.0) ?
-      -log(rng.generate_random_number()) / total_sigma_s : 1.0e100;
+      -log(rng.generate_random_number()) * inv_total_sigma_s : 1.0e100;
 
     const double dist_to_boundary = cell->get_distance_to_boundary(
-        phtn.get_position(), phtn.get_angle(), surface_cross);
-    const double dist_to_census = phtn.get_distance_remaining();
+        pos, angle, surface_cross);
+    const double dist_to_census = life_dx;
 
     // select minimum distance event
     const double dist_to_event = min(dist_to_scatter, min(dist_to_boundary, dist_to_census));
 
     // calculate energy absorbed by material, update photon and material energy
     // and update the path-length weighted tally for T_r
-    const double absorbed_E = phtn.get_E() * (1.0 - exp(-sigma_a * f * dist_to_event));
-
-    cell_tallies[local_cell_index].accumulate_absorbed_E(absorbed_E);
-    cell_tallies[local_cell_index].accumulate_track_E(absorbed_E / (sigma_a * f));
-
-    phtn.set_E(phtn.get_E() - absorbed_E);
+    const double absorbed_E = E * (1.0 - exp(-sigma_a * f * dist_to_event));
+    absorbed_tally += absorbed_E;
+    track_tally += (sigma_a * f > 0.0) ? absorbed_E / (sigma_a * f)
+                                        : E * dist_to_event;
+    E -= absorbed_E;
 
     // update position
-    phtn.move(dist_to_event);
+    phtn.move(dist_to_event, angle, pos, life_dx);
 
     // apply variance/runtime reduction
-    if (phtn.below_cutoff(Constants::cutoff_fraction)) {
-      cell_tallies[local_cell_index].accumulate_absorbed_E(phtn.get_E());
+    if (E < cutoff) {
+      absorbed_tally += E;
       active = false;
-      phtn.set_descriptor(Constants::KILLED);
+      descriptor = Constants::KILLED;
     }
     // or apply event
     else {
       // EVENT TYPE: SCATTER
       if (dist_to_event == dist_to_scatter) {
-        phtn.set_angle(get_uniform_angle(rng));
-        if (rng.generate_random_number() > (sigma_s / ((1.0 - f) * sigma_a + sigma_s)))
-          phtn.set_group(sample_emission_group(rng, *cell));
-        phtn.set_descriptor(Constants::SCATTER);
+        angle = get_uniform_angle(rng);
+        if (rng.generate_random_number() > sigma_s * inv_total_sigma_s) {
+          group = sample_emission_group(rng, *cell);
+          refresh_opacity = true;
+        }
+        descriptor = Constants::SCATTER;
       }
       // EVENT TYPE: BOUNDARY CROSS
       else if (dist_to_event == dist_to_boundary) {
         auto boundary_event = cell->get_bc(surface_cross);
         if (boundary_event == Constants::ELEMENT) {
-          // update photon's cell index
-          phtn.set_cell(cell->get_next_cell(surface_cross));
-          local_cell_index =  phtn.get_cell() - rank_cell_offset;
+          // Commit this cell's tally before advancing to the next cell.
+          cell_tallies[local_cell_index].accumulate_absorbed_E(absorbed_tally);
+          cell_tallies[local_cell_index].accumulate_track_E(track_tally);
+          absorbed_tally = 0.0;
+          track_tally = 0.0;
+          photon_cell = cell->get_next_cell(surface_cross);
+          local_cell_index = photon_cell - rank_cell_offset;
           cell = &cells[local_cell_index]; // note: only for on rank mesh data
-          phtn.set_descriptor(Constants::BOUND);
+          refresh_opacity = true;
+          descriptor = Constants::BOUND;
         } else if (boundary_event == Constants::PROCESSOR) {
           active = false;
           // set correct cell index with global cell ID
-          phtn.set_cell(cell->get_next_cell(surface_cross));
-          phtn.set_descriptor(Constants::PASS);
+          photon_cell = cell->get_next_cell(surface_cross);
+          descriptor = Constants::PASS;
         } else if (boundary_event == Constants::VACUUM || boundary_event == Constants::SOURCE) {
           active = false;
-          phtn.set_descriptor(Constants::EXIT);
+          descriptor = Constants::EXIT;
         } else {
-          phtn.reflect(surface_cross);
-          phtn.set_descriptor(Constants::BOUND);
+          phtn.reflect(surface_cross, angle);
+          descriptor = Constants::BOUND;
         }
       }
       // EVENT TYPE: REACH CENSUS
       else if (dist_to_event == dist_to_census) {
         active = false;
-        phtn.set_descriptor(Constants::CENSUS);
+        descriptor = Constants::CENSUS;
       }
     } // end event loop
   } // end while alive
+
+  cell_tallies[local_cell_index].accumulate_absorbed_E(absorbed_tally);
+  cell_tallies[local_cell_index].accumulate_track_E(track_tally);
+
+  phtn.set_E(E);
+  phtn.set_descriptor(descriptor);
+  phtn.set_group(group);
+  phtn.set_angle(angle);
+  phtn.set_position(pos);
+  phtn.set_distance_to_census(life_dx);
+  phtn.set_cell(photon_cell);
 }
 //----------------------------------------------------------------------------//
 
@@ -195,10 +230,12 @@ void cpu_transport_photons(const uint32_t rank_cell_offset,
 
 //------------------------------------------------------------------------------------------------//
 void gpu_transport_photons(const uint32_t rank_cell_offset,
-    std::vector<Photon> &cpu_photons, const Cell *device_cells_ptr, std::vector<Cell_Tally> &cpu_cell_tallies) {
+    std::vector<Photon> &cpu_photons, GPU_Setup &gpu_setup, std::vector<Cell_Tally> &cpu_cell_tallies) {
 
 #ifdef USE_CUDA
   uint32_t n_batch_photons = static_cast<uint32_t>(cpu_photons.size());
+  if (n_batch_photons == 0)
+    return;
 #ifdef ENABLE_VERBOSE_GPU_TRANSPORT
   int my_bus_id = 0;
   int my_device = 0;
@@ -213,18 +250,15 @@ void gpu_transport_photons(const uint32_t rank_cell_offset,
   std::vector<int> active_indices(n_batch_photons);
   std::iota(active_indices.begin(), active_indices.end(), 0);
 
-  // allocate and copy photons
-  Photon *device_photons_ptr;
-  cudaError_t err = cudaMalloc((void **)&device_photons_ptr, sizeof(Photon) * cpu_photons.size());
-  Insist(!err, "CUDA error in allocating photons data");
-  err = cudaMemcpy(device_photons_ptr, cpu_photons.data(), sizeof(Photon) * cpu_photons.size(),
+  gpu_setup.reserve_transport_buffers(n_batch_photons, cpu_cell_tallies.size());
+  Photon *device_photons_ptr = gpu_setup.get_device_photons_ptr();
+  Cell_Tally *device_cell_tallies_ptr = gpu_setup.get_device_cell_tallies_ptr();
+
+  // Refresh batch input in the reusable device buffers.
+  cudaError_t err = cudaMemcpy(device_photons_ptr, cpu_photons.data(), sizeof(Photon) * n_batch_photons,
                    cudaMemcpyHostToDevice);
   Insist(!err, "CUDA error in copying photons data");
 
-  // allocate and copy cell tally object
-  Cell_Tally *device_cell_tallies_ptr;
-  err = cudaMalloc((void **)&device_cell_tallies_ptr, sizeof(Cell_Tally) * cpu_cell_tallies.size());
-  Insist(!err, "CUDA error in allocating cell tallies data");
   err = cudaMemcpy(device_cell_tallies_ptr, cpu_cell_tallies.data(), sizeof(Cell_Tally) * cpu_cell_tallies.size(),
                    cudaMemcpyHostToDevice);
   Insist(!err, "CUDA error in copying cell tallies data");
@@ -238,7 +272,7 @@ void gpu_transport_photons(const uint32_t rank_cell_offset,
   std::cout << "Launching with " << n_blocks << " blocks and ";
   std::cout << n_batch_photons << " photons" << std::endl;
   gpu_no_accel_transport<<<n_blocks, Constants::n_threads_per_block>>>(
-      rank_cell_offset, device_photons_ptr, device_cells_ptr, device_cell_tallies_ptr, n_batch_photons);
+      rank_cell_offset, device_photons_ptr, gpu_setup.get_device_cells_ptr(), device_cell_tallies_ptr, n_batch_photons);
 
 
   Insist(!(cudaGetLastError()), "CUDA error in transport kernel launch");
@@ -253,10 +287,6 @@ void gpu_transport_photons(const uint32_t rank_cell_offset,
   err = cudaMemcpy(cpu_cell_tallies.data(), device_cell_tallies_ptr, sizeof(Cell_Tally)*cpu_cell_tallies.size(),
                    cudaMemcpyDeviceToHost);
   Insist(!err, "CUDA error in copying cell tallies back to host");
-
-  // free device pointers for photons and cell tallies
-  cudaFree(device_photons_ptr);
-  cudaFree(device_cell_tallies_ptr);
 
 #endif
 }

@@ -5,16 +5,20 @@
  * \date   Oct 20 2022
  * \brief  Struct that holds device pointers to particles, mesh and tallies
  * \note   Copyright (C) 2022 Triad National Security, LLC., All rights reserved.
+ *         Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 //------------------------------------------------------------------------------------------------//
 
 #ifndef gpu_setup_h_
 #define gpu_setup_h_
 
+#include <cstddef>
 #include <vector>
 
 #include "cell.h"
+#include "cell_tally.h"
 #include "config.h"
+#include "photon.h"
 
 class GPU_Setup {
 
@@ -45,15 +49,46 @@ public:
   ~GPU_Setup() {
 #ifdef USE_CUDA
     if(m_use_gpu_transporter) {
+      cudaFree(device_photons_ptr);
+      cudaFree(device_cell_tallies_ptr);
       cudaFree(device_cells_ptr);
     }
 #endif
   }
 
+  GPU_Setup(const GPU_Setup &) = delete;
+  GPU_Setup &operator=(const GPU_Setup &) = delete;
+
   Cell *get_device_cells_ptr() const {return device_cells_ptr;}
   bool use_gpu_transporter() const {return m_use_gpu_transporter;}
 
+#ifdef USE_CUDA
+  // Reuse these allocations for every batch and timestep in this setup's lifetime.
+  void reserve_transport_buffers(std::size_t n_photons, std::size_t n_tallies) {
+    reserve_device_buffer(device_photons_ptr, photon_capacity, n_photons);
+    reserve_device_buffer(device_cell_tallies_ptr, tally_capacity, n_tallies);
+  }
+
+  Photon *get_device_photons_ptr() const {return device_photons_ptr;}
+  Cell_Tally *get_device_cell_tallies_ptr() const {return device_cell_tallies_ptr;}
+#endif
+
 private:
+
+#ifdef USE_CUDA
+  template <typename T>
+  static void reserve_device_buffer(T *&ptr, std::size_t &capacity, std::size_t required) {
+    if (required <= capacity)
+      return;
+    T *new_ptr = nullptr;
+    cudaError_t err = cudaMalloc((void **)&new_ptr, required * sizeof(T));
+    Insist(!err, "CUDA error in allocating transport buffer");
+    if (ptr)
+      Insist(!cudaFree(ptr), "CUDA error in freeing previous transport buffer");
+    ptr = new_ptr;
+    capacity = required;
+  }
+#endif
 
 //------------------------------------------------------------------------------------------------//
 /*!
@@ -87,10 +122,15 @@ void set_device_ID(const int rank, const int n_ranks) {
 
   bool m_use_gpu_transporter;
   Cell *device_cells_ptr;
+#ifdef USE_CUDA
+  Photon *device_photons_ptr = nullptr;
+  Cell_Tally *device_cell_tallies_ptr = nullptr;
+  std::size_t photon_capacity = 0;
+  std::size_t tally_capacity = 0;
+#endif
 };
 
 #endif // gpu_setup_h_
 //----------------------------------------------------------------------------//
 // end of gpu_setup.h
 //----------------------------------------------------------------------------//
-
