@@ -6,6 +6,7 @@
  * \brief  IMC transport on a replicated domain
  * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
  *         All rights reserved
+ *         Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 //---------------------------------------------------------------------------//
 
@@ -29,7 +30,7 @@
 #include "photon.h"
 
 std::vector<Photon> replicated_transport(
-    const Mesh &mesh, const GPU_Setup &gpu_setup, IMC_State &imc_state, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> &all_photons, const int n_omp_threads) {
+    const Mesh &mesh, GPU_Setup &gpu_setup, IMC_State &imc_state, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> &all_photons, const int n_omp_threads) {
   using std::cout;
   using std::endl;
   using std::vector;
@@ -66,7 +67,7 @@ std::vector<Photon> replicated_transport(
   uint32_t rank_cell_offset{0}; // no offset in replicated mesh
   if(gpu_setup.use_gpu_transporter() && gpu_available ) {
     t_transport.start_timer("gpu transport");
-    gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
+    gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup, cell_tallies);
     t_transport.stop_timer("gpu transport");
     std::cout<<"gpu transport time: "<<t_transport.get_time("gpu transport")<<std::endl;
   }

@@ -6,6 +6,7 @@
  * \brief  IMC transport with particle passing method
  * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
  *         All rights reserved
+ *         Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 //---------------------------------------------------------------------------//
 
@@ -34,7 +35,7 @@
 
 
 std::vector<Photon> particle_pass_transport(
-    const Mesh &mesh, const GPU_Setup &gpu_setup, const IMC_Parameters &imc_parameters, const Info &mpi_info, const MPI_Types &mpi_types,
+    const Mesh &mesh, GPU_Setup &gpu_setup, const IMC_Parameters &imc_parameters, const Info &mpi_info, const MPI_Types &mpi_types,
     IMC_State &imc_state, Message_Counter &mctr, std::vector<double> &rank_abs_E, std::vector<double> &rank_track_E, std::vector<Photon> &all_photons, const int n_omp_threads) {
   using std::cout;
   using std::endl;
@@ -137,7 +138,7 @@ std::vector<Photon> particle_pass_transport(
   // first transport all photons from source (best for GPU)
   //------------------------------------------------------------------------//
   if(gpu_setup.use_gpu_transporter() && gpu_available) {
-    gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup.get_device_cells_ptr(), cell_tallies);
+    gpu_transport_photons(rank_cell_offset, all_photons, gpu_setup, cell_tallies);
   }
   else
     cpu_transport_photons(rank_cell_offset, all_photons, mesh.get_cells(), cell_tallies, n_omp_threads);
@@ -231,7 +232,7 @@ std::vector<Photon> particle_pass_transport(
 
     if(!phtn_recv_list.empty()) {
       if(gpu_setup.use_gpu_transporter() && gpu_available)
-        gpu_transport_photons(rank_cell_offset, phtn_recv_list, gpu_setup.get_device_cells_ptr(), cell_tallies);
+        gpu_transport_photons(rank_cell_offset, phtn_recv_list, gpu_setup, cell_tallies);
       else {
         cpu_transport_photons(rank_cell_offset, phtn_recv_list, mesh.get_cells(), cell_tallies, n_omp_threads);
       }

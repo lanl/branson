@@ -6,6 +6,7 @@
  * \brief  Holds values and functions needed for transporting photon
  * \note   Copyright (C) 2017 Los Alamos National Security, LLC.
  *         All rights reserved
+ *         Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  */
 //----------------------------------------------------------------------------//
 
@@ -113,6 +114,16 @@ public:
     m_life_dx -= distance;
   }
 
+  //! Move locally cached transport state without writing the photon each event
+  GPU_HOST_DEVICE
+  inline void move(const double distance, const std::array<double,3> &angle,
+                   std::array<double,3> &pos, double &life_dx) {
+    pos[0] += angle[0] * distance;
+    pos[1] += angle[1] * distance;
+    pos[2] += angle[2] * distance;
+    life_dx -= distance;
+  }
+
   inline uint32_t get_source_type() const {return source_type;}
   inline void set_source_type(uint32_t source_type_in) {source_type = source_type_in;}
 
@@ -152,6 +163,11 @@ public:
     // reflect the photon over the surface it was crossing
     int reflect_angle = surface_cross/2; // X -> 0, Y->1, Z->2
     m_angle[reflect_angle] = -m_angle[reflect_angle];
+  }
+
+  GPU_HOST_DEVICE
+  inline void reflect(const uint32_t surface_cross, std::array<double,3> &angle) {
+    angle[surface_cross/2] = -angle[surface_cross/2];
   }
 
   GPU_HOST_DEVICE
