@@ -93,7 +93,9 @@ public:
       on_rank_start = off_rank_bounds[rank];
       on_rank_end = off_rank_bounds[rank + 1] - 1;
     } else if (input.get_decomposition_mode() == CUBE) {
-      decompose_mesh(proto_mesh, mpi_types, mpi_info, CUBE);
+      decompose_mesh(proto_mesh, mpi_types, mpi_info, CUBE,
+                     input.get_n_x_domains(), input.get_n_y_domains(),
+                     input.get_n_z_domains());
       // get decomposition information from proto mesh
       off_rank_bounds = proto_mesh.get_off_rank_bounds();
       on_rank_start = off_rank_bounds[rank];

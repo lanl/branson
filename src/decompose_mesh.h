@@ -223,30 +223,42 @@ std::vector<int> metis_partition(Proto_Mesh &mesh, int &edgecut, const int rank,
 
 //----------------------------------------------------------------------------//
 std::vector<int> cube_partition(Proto_Mesh &mesh, const int rank,
-                                const int n_rank) {
+                                const int n_rank, const int n_x_domains,
+                                const int n_y_domains, const int n_z_domains) {
 
   uint32_t nx = mesh.get_global_n_x();
   uint32_t ny = mesh.get_global_n_y();
   uint32_t nz = mesh.get_global_n_z();
 
-  // make sure this mesh is a cube
-  int rank_side = std::floor(std::pow(n_rank, 1.0 / 3.0)) + 1;
-  if (rank_side * rank_side * rank_side == n_rank) {
-    if (rank == 0)
-      std::cout << "Cube decomposition OK, ranks per edge = " << rank_side
-                << std::endl;
-  } else if ((rank_side - 1) * (rank_side - 1) * (rank_side - 1) == n_rank) {
-    rank_side--;
-    if (rank == 0)
-      std::cout << "Cube decomposition OK, ranks per edge = " << rank_side
-                << std::endl;
-  } else {
+  if (n_x_domains <= 0 || n_y_domains <= 0 || n_z_domains <= 0) {
+      if (rank == 0) {
+        std::cout
+            << "Can't use simple cube decomposition for this number of ranks";
+        std::cout << " Exiting..." << std::endl;
+      }
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  // the product of the domains in each dimension must match the rank count
+  if (n_x_domains * n_y_domains * n_z_domains != n_rank) {
     if (rank == 0) {
-      std::cout
-          << "Can't use simple cube decomposition for this number of ranks";
+      std::cout << "Number of domains per dimension (" << n_x_domains << " x "
+                << n_y_domains << " x " << n_z_domains << " = "
+                << n_x_domains * n_y_domains * n_z_domains
+                << ") does not match the number of ranks (" << n_rank << ").";
       std::cout << " Exiting..." << std::endl;
     }
     exit(EXIT_FAILURE);
+  }
+
+  if (rank == 0) {
+    uint32_t n_approx_x_cells = nx/n_x_domains;
+    uint32_t n_approx_y_cells = ny/n_y_domains;
+    uint32_t n_approx_z_cells = nz/n_z_domains;
+    uint32_t n_approx_total_cells = n_approx_x_cells* n_approx_y_cells* n_approx_z_cells;
+    std::cout << "Approximate cells per rank = "<<n_approx_total_cells<<" ( x = " << n_approx_x_cells <<
+              << ", y = " << n_approx_y_cells << ", z = " << n_approx_z_cells << " )"<<std::endl;
   }
 
   uint32_t ncell_on_rank = mesh.get_n_local_cells();
@@ -257,15 +269,16 @@ std::vector<int> cube_partition(Proto_Mesh &mesh, const int rank,
     const Proto_Cell &cell = mesh.get_pre_window_allocation_cell(i);
     // get the correct rank given the cell global_index
     uint32_t index = cell.get_global_index();
-    uint32_t z = index / (nx * ny);
-    uint32_t y = (index - z * (nx * ny)) / nx;
-    uint32_t x = index - z * (nx * ny) - y * nx;
-    uint32_t rx = floor(double(x) / double(nx) * rank_side);
-    uint32_t ry = floor(double(y) / double(ny) * rank_side);
-    uint32_t rz = floor(double(z) / double(nz) * rank_side);
-    part[i] = rz * rank_side * rank_side + ry * rank_side + rx;
-    if (part[i] != rank)
+    uint32_t global_z = index / (nx * ny);
+    uint32_t global_y = (index - global_z * (nx * ny)) / nx;
+    uint32_t global_x = index - global_z * (nx * ny) - global_y * nx;
+    uint32_t rx = floor(double(x) / double(nx) * n_x_domains);
+    uint32_t ry = floor(double(y) / double(ny) * n_y_domains);
+    uint32_t rz = floor(double(z) / double(nz) * n_z_domains);
+    part[i] = rz * n_x_domains * n_y_domains + ry * n_x_domains + rx;
+    if (part[i] != rank) {
       acceptor_ranks.insert(part[i]);
+    }
   }
   return part;
 }
@@ -590,7 +603,8 @@ void remap_cell_and_grip_indices_allreduce(Proto_Mesh &mesh, const int rank,
 // receive cells, renumber mesh and communicate renumbering
 void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
                     const Info &mpi_info,
-                    const int decomposition_type) {
+                    const int decomposition_type, const int n_x_domains = 0,
+                    const int n_y_domains = 0, const int n_z_domains = 0) {
   using Constants::CUBE;
   using Constants::METIS;
   using std::unordered_map;
@@ -617,7 +631,8 @@ void decompose_mesh(Proto_Mesh &mesh, const MPI_Types &mpi_types,
   // decomposition methods return a partition vector which is the rank of each cell
   std::vector<int> part;
   if (decomposition_type == CUBE) {
-    part = cube_partition(mesh, rank, n_rank);
+    part = cube_partition(mesh, rank, n_rank, n_x_domains, n_y_domains,
+                          n_z_domains);
     edgecut = 1;
   } else if (decomposition_type == METIS) {
     if (n_rank > 1) {
