@@ -266,12 +266,17 @@ public:
 
       // optional number of domains per dimension for SIMPLE decomposition. Default to 1, override
       // if present
-      tempString = settings_node.child("n_x_domains");
-      n_x_domains = (tempString == "") ? settings_node.child("n_x_domains").text().as_uint() : 1;
-      tempString = settings_node.child("n_y_domains");
-      n_y_domains = (tempString == "") ? settings_node.child("n_y_domains").text().as_uint() : 1;
-      tempString = settings_node.child("n_z_domains");
-      n_z_domains = (tempString == "") ? settings_node.child("n_z_domains").text().as_uint() : 1;
+      tempString = settings_node.child_value("n_x_domains");
+      n_x_domains = (tempString == "") ? 1 : settings_node.child("n_x_domains").text().as_uint();
+      tempString = settings_node.child_value("n_y_domains");
+      n_y_domains = (tempString == "") ? 1 : settings_node.child("n_y_domains").text().as_uint();
+      tempString = settings_node.child_value("n_z_domains");
+      n_z_domains = (tempString == "") ? 1 : settings_node.child("n_z_domains").text().as_uint();
+
+      if(n_x_domains <= 0 || n_y_domains <= 0 || n_z_domains <= 0) {
+        cout << "ERROR: n domains must be greater than zero in each dimension. Exiting..." << endl;
+        exit(EXIT_FAILURE);
+      }
 
       // preferred number of particles per MPI send
       tempString = settings_node.child_value("particle_message_size");
@@ -701,8 +706,10 @@ public:
     using Constants::PARTICLE_PASS;
     using Constants::REPLICATED;
     // mesh decomposition
-    using Constants::SIMPLE
+    using Constants::SIMPLE;
     using Constants::METIS;
+    int n_ranks;
+    MPI_Comm_size(MPI_COMM_WORLD, &n_ranks);
 
     cout << "Problem Specifications:";
     cout << "Constants -- c: " << c << " (cm/sh) , a: " << a << endl;
@@ -789,7 +796,7 @@ public:
       cout << "SIMPLE" << endl;
       cout << "Domains per dimension: x = " << n_x_domains
               << ", y = " << n_y_domains << ", z = " << n_z_domains << std::endl;
-      uint32_t n_domains = n_x_domains * n_y_domains * n_z_domains;
+      int32_t n_domains = n_x_domains * n_y_domains * n_z_domains;
       if(n_ranks != n_domains) {
         cout << "ERROR: Total domains not equal to number of ranks (n_ranks = "<<n_ranks
              <<", n_domains = "<<n_domains<<"). Exiting...";
