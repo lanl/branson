@@ -1,0 +1,14 @@
+Some notes on weak scaling:
+
+* This is a 3D homogenous cube, with a constant number of particles per cell
+* Weak scaling increase the number of cells and particles, keeping the number of
+  particles per cell constant
+* The number of domains (MPI ranks) in each dimension is set in the input. The inputs in this folder
+ are setup for RZ Aadams/El Capitan with 4 ranks per node. Note that the number of cells in each
+ dimension are set to give cubic domains with 50 cells in each dimension.
+* The number of particles is set to be 10 million per GPU, which is where the throughput curve
+ starts to level off
+* Note that the Figure of Merit will likely be considerably less than the sinle node input as there
+ is considerably more transport work in this case and domain decomposition introduces all of the
+ MPI concerns associated with buffer sizes, message latency, checking for work, etc.
+* The buffer size will likely need to be set larger in the case where fewer domains are used

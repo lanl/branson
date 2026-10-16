@@ -55,7 +55,7 @@ public:
     using Constants::Z_NEG;
     using Constants::Z_POS;
     // decomp methods
-    using Constants::CUBE;
+    using Constants::SIMPLE;
     using Constants::METIS;
     using Constants::NO_DECOMP;
     // dd methods
@@ -247,8 +247,8 @@ public:
       tempString = settings_node.child_value("mesh_decomposition");
       if (tempString == "METIS")
         decomp_mode = METIS;
-      else if (tempString == "CUBE")
-        decomp_mode = CUBE;
+      else if (tempString == "SIMPLE")
+        decomp_mode = SIMPLE;
       else if (tempString != "" && dd_mode == REPLICATED) {
         std::cout << "Replicated transport mode, mesh decomposition method";
         std::cout << " ignored" << std::endl;
@@ -262,6 +262,20 @@ public:
         cout << "recognized... ";
         cout << "setting to METIS method" << endl;
         decomp_mode = METIS;
+      }
+
+      // optional number of domains per dimension for SIMPLE decomposition. Default to 1, override
+      // if present
+      tempString = settings_node.child_value("n_x_domains");
+      n_x_domains = (tempString == "") ? 1 : settings_node.child("n_x_domains").text().as_uint();
+      tempString = settings_node.child_value("n_y_domains");
+      n_y_domains = (tempString == "") ? 1 : settings_node.child("n_y_domains").text().as_uint();
+      tempString = settings_node.child_value("n_z_domains");
+      n_z_domains = (tempString == "") ? 1 : settings_node.child("n_z_domains").text().as_uint();
+
+      if(n_x_domains <= 0 || n_y_domains <= 0 || n_z_domains <= 0) {
+        cout << "ERROR: n domains must be greater than zero in each dimension. Exiting..." << endl;
+        exit(EXIT_FAILURE);
       }
 
       // preferred number of particles per MPI send
@@ -526,7 +540,7 @@ public:
                                   n_omp_threads, output_freq, dd_batch_size, event_batch_size,
                                   particle_message_size, n_divisions, n_global_x_cells,
                                   n_global_y_cells, n_global_z_cells, n_regions, n_x_div, n_y_div,
-                                  n_z_div};
+                                  n_z_div, n_x_domains, n_y_domains, n_z_domains};
 
     vector<double> all_doubles = {tStart, dt, tFinish, tMult,  dtMax, T_source};
     vector<int> bcast_bcs = {bc[0], bc[1], bc[2], bc[3], bc[4], bc[5]};
@@ -608,6 +622,9 @@ public:
       const uint32_t n_x_div = all_uint[i++];
       const uint32_t n_y_div = all_uint[i++];
       const uint32_t n_z_div = all_uint[i++];
+      n_x_domains = all_uint[i++];
+      n_y_domains = all_uint[i++];
+      n_z_domains = all_uint[i++];
 
       // uint64
       MPI_Bcast(&n_photons, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
@@ -689,8 +706,10 @@ public:
     using Constants::PARTICLE_PASS;
     using Constants::REPLICATED;
     // mesh decomposition
-    using Constants::CUBE;
+    using Constants::SIMPLE;
     using Constants::METIS;
+    int n_ranks;
+    MPI_Comm_size(MPI_COMM_WORLD, &n_ranks);
 
     cout << "Problem Specifications:";
     cout << "Constants -- c: " << c << " (cm/sh) , a: " << a << endl;
@@ -770,12 +789,23 @@ public:
 #endif
 
     cout << "Mesh decomposition: ";
-    if (decomp_mode == METIS && dd_mode != REPLICATED)
+    if (decomp_mode == METIS && dd_mode != REPLICATED) {
       cout << "METIS" << endl;
-    else if (decomp_mode == CUBE && dd_mode != REPLICATED)
-      cout << "CUBE" << endl;
-    else if (dd_mode == REPLICATED)
+    }
+    else if (decomp_mode == SIMPLE && dd_mode != REPLICATED) {
+      cout << "SIMPLE" << endl;
+      cout << "Domains per dimension: x = " << n_x_domains
+              << ", y = " << n_y_domains << ", z = " << n_z_domains << std::endl;
+      int32_t n_domains = n_x_domains * n_y_domains * n_z_domains;
+      if(n_ranks != n_domains) {
+        cout << "ERROR: Total domains not equal to number of ranks (n_ranks = "<<n_ranks
+             <<", n_domains = "<<n_domains<<"). Exiting...";
+        exit(EXIT_FAILURE);
+      }
+    }
+    else if (dd_mode == REPLICATED) {
       cout << "N/A (no decomposition in replicated mode)" << std::endl;
+    }
     else {
       cout << "ERROR: Decomposition mode not specified correctly. Exiting...";
       exit(EXIT_FAILURE);
@@ -888,6 +918,13 @@ public:
 
   //! Return the domain decomposition algorithm
   uint32_t get_decomposition_mode() const { return decomp_mode; }
+
+  //! Return the number of SIMPLE decomposition domains in x
+  uint32_t get_n_x_domains() const { return n_x_domains; }
+  //! Return the number of SIMPLE decomposition domains in y
+  uint32_t get_n_y_domains() const { return n_y_domains; }
+  //! Return the number of SIMPLE decomposition domains in z
+  uint32_t get_n_z_domains() const { return n_z_domains; }
   //! Return the number of OpenMP threads
   int32_t get_n_omp_threads() const { return static_cast<int>(n_omp_threads);}
 
@@ -954,6 +991,9 @@ private:
   uint32_t particle_storage; //!< Particle array storage type
   uint32_t particle_algorithm; //!< Event-based or history-based
   uint32_t decomp_mode; //!< Mode of decomposing mesh
+  uint32_t n_x_domains; //!< Number of SIMPLE domains in x
+  uint32_t n_y_domains; //!< Number of SIMPLE domains in y
+  uint32_t n_z_domains; //!< Number of SIMPLE domains in z
   uint32_t n_omp_threads; //!< Number of OpenMP threads, 1 if no OpenMP
 
   // Debug parameters
