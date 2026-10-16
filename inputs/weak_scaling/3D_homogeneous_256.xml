@@ -10,7 +10,7 @@
     <seed>14706</seed>
     <tilt>FALSE</tilt>
     <stratified_sampling>FALSE</stratified_sampling>
-    <use_gpu_transporter>FALSE</use_gpu_transporter>
+    <use_gpu_transporter>TRUE</use_gpu_transporter>
     <dd_transport_type>PARTICLE_PASSING</dd_transport_type>
     <mesh_decomposition>SIMPLE</mesh_decomposition>
     <n_x_domains>16</n_x_domains>
