@@ -1,0 +1,88 @@
+<prototype>
+  <common>
+    <method>IMC</method>
+    <t_start>0.0</t_start>
+    <t_stop>0.05</t_stop>
+    <dt_start>0.01</dt_start>
+    <t_mult>1.0</t_mult>
+    <dt_max>1.0</dt_max>
+    <photons>160000000</photons>
+    <seed>14706</seed>
+    <tilt>FALSE</tilt>
+    <stratified_sampling>FALSE</stratified_sampling>
+    <use_gpu_transporter>FALSE</use_gpu_transporter>
+    <dd_transport_type>PARTICLE_PASSING</dd_transport_type>
+    <mesh_decomposition>SIMPLE</mesh_decomposition>
+    <n_x_domains>4</n_x_domains>
+    <n_y_domains>2</n_y_domains>
+    <n_z_domains>2</n_z_domains>
+    <particle_algorithm>HISTORY</particle_algorithm>
+    <particle_storage>AOS</particle_storage>
+    <n_omp_threads>1</n_omp_threads>
+    <output_frequency>1</output_frequency>
+    <write_silo>FALSE</write_silo>
+  </common>
+
+  <debug_options>
+    <print_verbose>FALSE</print_verbose>
+    <print_mesh_info>FALSE</print_mesh_info>
+  </debug_options>
+
+  <spatial>
+
+    <!-- x -->
+    <x_division>
+      <x_start>0.0</x_start>
+      <x_end>2.0</x_end>
+      <n_x_cells>200</n_x_cells>
+    </x_division>
+
+    <!-- y -->
+    <y_division>
+      <y_start>0.0</y_start>
+      <y_end>1.0</y_end>
+      <n_y_cells>100</n_y_cells>
+    </y_division>
+
+    <!-- z -->
+    <z_division>
+      <z_start>0.0</z_start>
+      <z_end>1.0</z_end>
+      <n_z_cells>100</n_z_cells>
+    </z_division>
+
+    <!-- region mapping -->
+    <region_map>
+      <x_div_ID>0</x_div_ID>
+      <y_div_ID>0</y_div_ID>
+      <z_div_ID>0</z_div_ID>
+      <region_ID>1001</region_ID>
+    </region_map>
+
+  </spatial>
+
+  <boundary>
+    <bc_right>REFLECT</bc_right>
+    <bc_left>REFLECT</bc_left>
+
+    <bc_up>REFLECT</bc_up>
+    <bc_down>REFLECT</bc_down>
+
+    <bc_top>REFLECT</bc_top>
+    <bc_bottom>REFLECT</bc_bottom>
+  </boundary>
+
+  <regions>
+    <region>
+      <ID>1001</ID>
+      <density>1.0</density>
+      <CV>0.3</CV>
+      <opacA>10000.0</opacA>
+      <opacB>0.0</opacB>
+      <opacC>0.0</opacC>
+      <opacS>0.0</opacS>
+      <initial_T_e>0.3</initial_T_e>
+      <initial_T_r>0.3</initial_T_r>
+    </region>
+  </regions>
+</prototype>
