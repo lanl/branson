@@ -45,7 +45,7 @@ enum {
 };                                 //!< Parallel types
 enum {AOS, SOA};                   //!< Particle array types
 enum {HISTORY, EVENT};             //!< Transport algorithm
-enum { NO_DECOMP, METIS, CUBE };   //!< Mesh decomposition method
+enum { NO_DECOMP, METIS, SIMPLE};  //!< Mesh decomposition method
 constexpr int grip_id_tag(1);          //!< MPI tag for grip ID messages
 constexpr int cell_id_tag(2);          //!< MPI tag for requested cell ID messages
 constexpr int count_tag(3);            //!< MPI tag for completion count messages
