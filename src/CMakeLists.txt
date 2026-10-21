@@ -2,11 +2,11 @@
 # NOTES ON COMPILATION
 ################################################################################
 
-# Load the modules for each libary and the environment variables will be set
+# Load the modules for each library and the environment variables will be set
 # correctly (load cmake, compiler, mpi, metis, and optionally
 # hdf5 and silo)
 
-# Enbable debug mode by passing -DCMAKE_BUILD_TYPE=Debug to CMake, default is
+# Enable debug mode by passing -DCMAKE_BUILD_TYPE=Debug to CMake, default is
 # Release
 
 cmake_minimum_required (VERSION 3.24)
@@ -17,9 +17,18 @@ option(USE_HIP "Use HIP" FALSE)
 option(USE_GPU "user-set flag to compile in GPU code" FALSE)
 option(USE_CALIPER "Use Caliper" FALSE)
 option(USE_OPENMP "Use OpenMP" FALSE)
+option(BRANSON_USE_CLANG_CUDA "Use Clang instead of NVCC for CUDA compilation" FALSE)
 
 if(USE_CUDA)
     set(GPU_DBS_STRING "CUDA" CACHE STRING "If CUDA is available, this variable is 'CUDA'")
+    # Set the CUDA compiler based on the toggle option BEFORE enabling the language
+    if(BRANSON_USE_CLANG_CUDA)
+      set(CMAKE_CUDA_COMPILER "clang" CACHE STRING "CUDA compiler" FORCE)
+      message(STATUS "Configuring CUDA build to use Clang")
+    else()
+      set(CMAKE_CUDA_COMPILER "nvcc" CACHE STRING "CUDA compiler" FORCE)
+      message(STATUS "Configuring CUDA build to use NVCC")
+    endif()
     enable_language(CUDA)
 elseif(USE_HIP)
     set(GPU_DBS_STRING "HIP" CACHE STRING "If HIP is available, this variable is 'HIP'")
@@ -29,6 +38,11 @@ elseif(DEFINED ENV{CUDADIR}
    OR DEFINED ENV{CUDA_HOME})
   if(USE_GPU)
     set(GPU_DBS_STRING "CUDA" CACHE STRING "If CUDA is available, this variable is 'CUDA'")
+    if(BRANSON_USE_CLANG_CUDA)
+      set(CMAKE_CUDA_COMPILER "clang" CACHE STRING "CUDA compiler" FORCE)
+    else()
+      set(CMAKE_CUDA_COMPILER "nvcc" CACHE STRING "CUDA compiler" FORCE)
+    endif()
     enable_language(CUDA)
   endif()
 elseif(
@@ -117,7 +131,7 @@ set( SITENAME ${SITENAME} CACHE "STRING" "Name of the current machine" FORCE)
 # Setup compiler options
 set( CXX_STANDARD_REQUIRED ON )
 set( CMAKE_CXX_STANDARD 17 )
-set(CMAKE_CUDA_ARCHITECTURES 70 75 80 86 90)
+set(CMAKE_CUDA_ARCHITECTURES 75 80 86 90)
 # Do not enable extensions (e.g.: --std=gnu++11)
 set( CMAKE_CXX_EXTENSIONS OFF )
 set( CMAKE_C_EXTENSIONS   OFF )
@@ -152,11 +166,11 @@ elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Intel" )
   # branson but it makes it the hardware counter data match Jayenne more closely (Jayenne uses
   # this flag)
   #set( CMAKE_CXX_FLAGS_RELEASE "-g -O3 -fp-speculation=fast -xhost -qno-opt-dynamic-align")
-	set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -xhost -qopenmp -qopt-zmm-usage=high -fp-speculation=fast -qopt-report=3 -qopt-report-file=runAVX512.optrpt -no-vec") # "-no-vec" to disable vectorization
+       set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -xhost -qopenmp -qopt-zmm-usage=high -fp-speculation=fast -qopt-report=3 -qopt-report-file=runAVX512.optrpt -no-vec") # "-no-vec" to disable vectorization
 elseif (CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall -O0 -xhost -qopenmp")
-	#set(CMAKE_CXX_FLAGS_RELEASE "-g ") # "-no-vec" to disable vectorization
-	 set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -xhost -qopenmp -qopt-zmm-usage=high -fp-speculation=fast -qopt-report=3 -qopt-report-file=runAVX512.optrpt") # "-no-vec" to disable vectorization
+       #set(CMAKE_CXX_FLAGS_RELEASE "-g ") # "-no-vec" to disable vectorization
+        set(CMAKE_CXX_FLAGS_RELEASE "-g -O3 -xhost -qopenmp -qopt-zmm-usage=high -fp-speculation=fast -qopt-report=3 -qopt-report-file=runAVX512.optrpt") # "-no-vec" to disable vectorization
 
   elseif( CMAKE_CXX_COMPILER_ID STREQUAL "Cray" )
   set( CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -g -DR123_USE_GNU_UINT128=0")
@@ -255,43 +269,41 @@ target_include_directories( BRANSON PRIVATE
   ${branson_mpi_include_dirs} )
 
 if("${GPU_DBS_STRING}" STREQUAL "CUDA" )
-  if(USE_CUDA)
     find_package(CUDAToolkit REQUIRED)
     list(APPEND branson_deps
       CUDA::cudart)
 
-    set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
-
-    if(NOT CMAKE_CUDA_COMPILER)
-      message(FATAL_ERROR "Unable to find the nvcc compiler. Please use"
-                          "CMAKE_CUDA_COMPILER to provide the nvcc compiler.")
-    endif()
-
     set(CMAKE_CUDA_STANDARD ${CMAKE_CXX_STANDARD})
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
+  if(CUDA_ARCH)
     set(CMAKE_CUDA_ARCHITECTURES "${CUDA_ARCH}")
-    string(APPEND CMAKE_CUDA_FLAGS "-g --expt-relaxed-constexpr --fmad=false -lineinfo")
-    string(APPEND CMAKE_CUDA_FLAGS "-expt-extended-lambda"  )
-    set_source_files_properties("main.cc" PROPERTIES LANGUAGE CUDA)
-    target_compile_definitions(BRANSON PRIVATE USE_GPU)
-    message("Making GPU(CUDA) BRANSON with ${CUDA_ARCH} architecture ")
   else()
-    message("Setting CUDA compiler options")
+
     # Set CUDA compute capabilities to use host architecture (read: must configure on GPU node!)
-    if(NOT DEFINED CUDA_ARCHITECTURES)
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
       # This value is automatically added to all CUDA targets. See cmake/component_macros.cmake
-      set(CUDA_ARCHITECTURES
+      set(CMAKE_CUDA_ARCHITECTURES
           "native"
           CACHE STRING "target architecture for gpu code.")
     endif()
-    message("CUDA_ARCHITECTURES = ${CUDA_ARCHITECTURES}")
+    message("CMAKE_CUDA_ARCHITECTURES = ${CUDA_ARCHITECTURES}")
 
-    set_target_properties(BRANSON PROPERTIES CUDA_STANDARD 17)
-    string(APPEND CMAKE_CUDA_FLAGS " -g --expt-relaxed-constexpr --fmad=false -lineinfo")
-    string(APPEND CMAKE_CUDA_FLAGS " --expt-extended-lambda"  )
-    set_source_files_properties("main.cc" PROPERTIES LANGUAGE CUDA)
-    message("Making GPU(CUDA) BRANSON")
   endif()
+
+  # Conditional flags depending on whether we are using Clang or NVCC for CUDA
+  if(CMAKE_CUDA_COMPILER_ID STREQUAL "Clang")
+    set(CMAKE_CUDA_HOST_COMPILER ${CMAKE_CXX_COMPILER})
+    string(APPEND CMAKE_CUDA_FLAGS " -g -fno-gpu-rdc")
+    message("Making GPU(CUDA) BRANSON using Clang with architecture(s) ${CMAKE_CUDA_ARCHITECTURES}")
+  else()
+    string(APPEND CMAKE_CUDA_FLAGS " -g --expt-relaxed-constexpr --fmad=false -lineinfo --expt-extended-lambda")
+    message("Making GPU(CUDA) BRANSON using NVCC with architecture(s) ${CMAKE_CUDA_ARCHITECTURES}")
+  endif()
+
+  set_source_files_properties("main.cc" PROPERTIES LANGUAGE CUDA)
+  target_compile_definitions(BRANSON PRIVATE USE_GPU)
+
 elseif("${GPU_DBS_STRING}" STREQUAL "HIP" )
   if(USE_HIP)
     if(NOT ROCM_PATH)
