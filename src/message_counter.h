@@ -12,6 +12,7 @@
 #ifndef message_counter_h_
 #define message_counter_h_
 
+#include <cstdint>
 #include <vector>
 
 struct Message_Counter {
