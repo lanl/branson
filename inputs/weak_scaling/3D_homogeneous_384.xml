@@ -47,8 +47,8 @@
     <!-- z -->
     <z_division>
       <z_start>0.0</z_start>
-      <z_end>8.0</z_end>
-      <n_z_cells>800</n_z_cells>
+      <z_end>4.0</z_end>
+      <n_z_cells>400</n_z_cells>
     </z_division>
 
     <!-- region mapping -->
